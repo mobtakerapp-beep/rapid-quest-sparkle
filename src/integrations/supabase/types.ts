@@ -287,39 +287,48 @@ export type Database = {
       }
       competition_submissions: {
         Row: {
-          answer: string
+          answer: string | null
+          answers: Json | null
           approved_by: string | null
           competition_id: string
+          correct_count: number | null
           id: string
           image_url: string | null
           is_correct: boolean
           link_url: string | null
+          question_count: number | null
           submitted_at: string
           teacher_approved: boolean
           time_taken_seconds: number
           user_id: string
         }
         Insert: {
-          answer: string
+          answer?: string | null
+          answers?: Json | null
           approved_by?: string | null
           competition_id: string
+          correct_count?: number | null
           id?: string
           image_url?: string | null
           is_correct?: boolean
           link_url?: string | null
+          question_count?: number | null
           submitted_at?: string
           teacher_approved?: boolean
           time_taken_seconds: number
           user_id: string
         }
         Update: {
-          answer?: string
+          answer?: string | null
+          answers?: Json | null
           approved_by?: string | null
           competition_id?: string
+          correct_count?: number | null
           id?: string
           image_url?: string | null
           is_correct?: boolean
           link_url?: string | null
+          question_count?: number | null
           submitted_at?: string
           teacher_approved?: boolean
           time_taken_seconds?: number
@@ -339,6 +348,7 @@ export type Database = {
           is_multiple_choice: boolean
           options: Json | null
           question: string
+          questions: Json | null
           starts_at: string
           title: string
         }
@@ -353,6 +363,7 @@ export type Database = {
           is_multiple_choice?: boolean
           options?: Json | null
           question: string
+          questions?: Json | null
           starts_at?: string
           title: string
         }
@@ -367,6 +378,7 @@ export type Database = {
           is_multiple_choice?: boolean
           options?: Json | null
           question?: string
+          questions?: Json | null
           starts_at?: string
           title?: string
         }
@@ -1003,6 +1015,19 @@ export type Database = {
       claim_supervisor_role: { Args: { _code: string }; Returns: boolean }
       claim_teacher_role: { Args: { _code: string }; Returns: boolean }
       generate_class_code: { Args: never; Returns: string }
+      get_competition_for_attempt: {
+        Args: { _id: string }
+        Returns: {
+          created_by: string
+          description: string
+          ends_at: string
+          id: string
+          image_url: string
+          questions: Json
+          starts_at: string
+          title: string
+        }[]
+      }
       get_quiz_for_attempt: {
         Args: { _quiz_id: string }
         Returns: {
@@ -1054,6 +1079,17 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
         }
         Returns: boolean
+      }
+      submit_competition_attempt: {
+        Args: {
+          _answers: Json
+          _competition_id: string
+          _time_taken_seconds: number
+        }
+        Returns: {
+          correct_count: number
+          question_count: number
+        }[]
       }
       submit_quiz_attempt: {
         Args: { _answers?: Json; _essays?: Json; _quiz_id: string }

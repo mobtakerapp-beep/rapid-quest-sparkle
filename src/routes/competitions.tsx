@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Trophy, Plus, Clock, Send, X, Crown, MessageCircle, Image as ImageIcon, Link2 } from "lucide-react";
+import { ArrowLeft, Trophy, Plus, Clock, Send, X, Crown, MessageCircle, Image as ImageIcon, Link2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Reactions } from "@/components/Reactions";
 import { MathToolbar } from "@/components/MathToolbar";
@@ -10,8 +10,42 @@ import { ReportButton } from "@/components/ReportButton";
 
 export const Route = createFileRoute("/competitions")({ component: CompetitionsPage });
 
-type Comp = { id: string; title: string; description: string | null; question: string; image_url: string | null; duration_seconds: number; starts_at: string; ends_at: string; created_by: string; is_multiple_choice?: boolean | null; options?: string[] | null };
-type Sub = { id: string; user_id: string; answer: string; image_url: string | null; link_url: string | null; submitted_at: string; time_taken_seconds: number; is_correct: boolean };
+type MQ = {
+  question: string;
+  is_multiple_choice: boolean;
+  options?: string[];
+  correct_index?: number;
+  correct_answer?: string;
+  duration_seconds: number;
+};
+
+type Comp = {
+  id: string;
+  title: string;
+  description: string | null;
+  question: string;
+  image_url: string | null;
+  duration_seconds: number;
+  starts_at: string;
+  ends_at: string;
+  created_by: string;
+  is_multiple_choice?: boolean | null;
+  options?: string[] | null;
+  questions?: MQ[] | null;
+};
+type Sub = {
+  id: string;
+  user_id: string;
+  answer: string | null;
+  answers?: Record<string, string> | null;
+  correct_count?: number | null;
+  question_count?: number | null;
+  image_url: string | null;
+  link_url: string | null;
+  submitted_at: string;
+  time_taken_seconds: number;
+  is_correct: boolean;
+};
 
 async function uploadToBucket(bucket: string, file: File, uid: string): Promise<string | null> {
   const ext = file.name.split(".").pop() || "bin";
@@ -22,6 +56,15 @@ async function uploadToBucket(bucket: string, file: File, uid: string): Promise<
   return data.publicUrl;
 }
 
+const newBlankQuestion = (): MQ => ({
+  question: "",
+  is_multiple_choice: true,
+  options: ["", "", "", ""],
+  correct_index: 0,
+  correct_answer: "",
+  duration_seconds: 5,
+});
+
 function CompetitionsPage() {
   const navigate = useNavigate();
   const [uid, setUid] = useState<string | null>(null);
@@ -29,24 +72,17 @@ function CompetitionsPage() {
   const [comps, setComps] = useState<Comp[]>([]);
   const [active, setActive] = useState<Comp | null>(null);
   const [showForm, setShowForm] = useState(false);
+
   // form
   const [title, setTitle] = useState("");
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [duration, setDuration] = useState(300);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [isMC, setIsMC] = useState(true);
-  const [options, setOptions] = useState<string[]>(["", "", "", ""]);
-  const [correctIdx, setCorrectIdx] = useState(0);
-  const questionRef = useRef<HTMLTextAreaElement>(null);
-  const answerRef = useRef<HTMLInputElement>(null);
+  const [questions, setQuestions] = useState<MQ[]>([newBlankQuestion()]);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) { navigate({ to: "/login" }); return; }
       setUid(data.session.user.id);
-      // Verified by code only (user_roles), self-set profiles.role_type does NOT count
       const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.session.user.id);
       setCanCreate(!!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role))));
       load();
@@ -58,44 +94,64 @@ function CompetitionsPage() {
     setComps((data || []) as Comp[]);
   };
 
+  const updateQ = (i: number, patch: Partial<MQ>) => {
+    setQuestions((p) => p.map((q, j) => (j === i ? { ...q, ...patch } : q)));
+  };
+  const addQ = () => setQuestions((p) => [...p, newBlankQuestion()]);
+  const removeQ = (i: number) => setQuestions((p) => p.length > 1 ? p.filter((_, j) => j !== i) : p);
+
   const create = async () => {
-    if (!uid || !title.trim() || !question.trim()) { toast.error("أكمل البيانات"); return; }
-    if (isMC) {
-      const filled = options.map((o) => o.trim()).filter(Boolean);
-      if (filled.length < 2) { toast.error("أضف خيارين على الأقل"); return; }
-      if (!options[correctIdx]?.trim()) { toast.error("حدد الإجابة الصحيحة"); return; }
-    } else if (!answer.trim()) {
-      toast.error("أدخل الإجابة الصحيحة"); return;
+    if (!uid || !title.trim()) { toast.error("أدخل عنوان المسابقة"); return; }
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (!q.question.trim()) { toast.error(`السؤال ${i + 1}: اكتب نص السؤال`); return; }
+      if (q.is_multiple_choice) {
+        const filled = (q.options || []).map((o) => o.trim()).filter(Boolean);
+        if (filled.length < 2) { toast.error(`السؤال ${i + 1}: أضف خيارين على الأقل`); return; }
+        if (!q.options?.[q.correct_index ?? 0]?.trim()) { toast.error(`السؤال ${i + 1}: حدد الإجابة الصحيحة`); return; }
+      } else if (!q.correct_answer?.trim()) {
+        toast.error(`السؤال ${i + 1}: أدخل الإجابة الصحيحة`); return;
+      }
+      if (!q.duration_seconds || q.duration_seconds < 3) { toast.error(`السؤال ${i + 1}: المؤقت 3 ثوانٍ على الأقل`); return; }
     }
     setUploading(true);
     let image_url: string | null = null;
     if (imageFile) image_url = await uploadToBucket("competition-media", imageFile, uid);
+
+    const totalDuration = questions.reduce((s, q) => s + (q.duration_seconds || 0), 0);
+    const cleanQuestions: MQ[] = questions.map((q) => {
+      const cleanOptions = q.is_multiple_choice ? (q.options || []).map((o) => o.trim()).filter(Boolean) : undefined;
+      return {
+        question: q.question.trim(),
+        is_multiple_choice: q.is_multiple_choice,
+        options: cleanOptions,
+        correct_index: q.is_multiple_choice ? q.correct_index : undefined,
+        correct_answer: q.is_multiple_choice
+          ? (cleanOptions?.[q.correct_index ?? 0] || "")
+          : (q.correct_answer || "").trim(),
+        duration_seconds: q.duration_seconds,
+      };
+    });
+
+    const first = cleanQuestions[0];
     const starts = new Date();
-    const ends = new Date(starts.getTime() + duration * 1000);
-    const cleanOptions = isMC ? options.map((o) => o.trim()).filter(Boolean) : null;
-    const { data: created, error } = await supabase.from("competitions").insert({
-      title: title.trim(), question: question.trim(),
+    const ends = new Date(starts.getTime() + totalDuration * 1000);
+    const { error } = await supabase.from("competitions").insert({
+      title: title.trim(),
+      question: first.question,
       image_url,
-      duration_seconds: duration, starts_at: starts.toISOString(), ends_at: ends.toISOString(),
+      duration_seconds: totalDuration,
+      starts_at: starts.toISOString(),
+      ends_at: ends.toISOString(),
       created_by: uid,
-      is_multiple_choice: isMC,
-      options: cleanOptions as any,
-    } as any).select("id").single();
-    if (error) { setUploading(false); return toast.error(error.message); }
-    if (created?.id) {
-      const secret: any = { competition_id: created.id };
-      if (isMC) {
-        secret.correct_index = correctIdx;
-        secret.correct_answer = options[correctIdx]?.trim() || null;
-      } else {
-        secret.correct_answer = answer.trim();
-      }
-      await supabase.from("competition_secrets" as any).insert(secret);
-    }
+      is_multiple_choice: first.is_multiple_choice,
+      options: (first.options as any) ?? null,
+      questions: cleanQuestions as any,
+    } as any);
     setUploading(false);
+    if (error) return toast.error(error.message);
     toast.success("تم إنشاء المسابقة 🏆");
-    setTitle(""); setQuestion(""); setAnswer(""); setImageFile(null); setShowForm(false);
-    setOptions(["", "", "", ""]); setCorrectIdx(0); setIsMC(true);
+    setTitle(""); setImageFile(null); setQuestions([newBlankQuestion()]); setShowForm(false);
     load();
   };
 
@@ -123,51 +179,28 @@ function CompetitionsPage() {
                 <Plus className="h-5 w-5" /> إنشاء مسابقة جديدة
               </button>
             ) : (
-              <div className="bg-card rounded-3xl border border-border p-5 space-y-3">
+              <div className="bg-card rounded-3xl border border-border p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold">مسابقة جديدة</h3>
+                  <h3 className="font-bold">مسابقة جديدة (متعددة الأسئلة)</h3>
                   <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-secondary"><X className="h-4 w-4" /></button>
                 </div>
                 <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان المسابقة" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
-                <textarea ref={questionRef} value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="السؤال (يدعم الكسور والجذور)" rows={3} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background resize-none" />
-                <MathToolbar targetRef={questionRef} onChange={setQuestion} />
-                <div className="flex items-center gap-3 text-sm">
-                  <label className="inline-flex items-center gap-2">
-                    <input type="radio" checked={isMC} onChange={() => setIsMC(true)} /> اختيارات متعددة (أسرع)
-                  </label>
-                  <label className="inline-flex items-center gap-2">
-                    <input type="radio" checked={!isMC} onChange={() => setIsMC(false)} /> إجابة نصية
-                  </label>
-                </div>
-                {isMC ? (
-                  <div className="space-y-2">
-                    <div className="text-xs text-muted-foreground">حدّد الإجابة الصحيحة بالنقر على الدائرة بجانبها</div>
-                    {options.map((opt, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <input type="radio" name="correct" checked={correctIdx === i} onChange={() => setCorrectIdx(i)} className="h-4 w-4" />
-                        <input value={opt} onChange={(e) => setOptions((p) => p.map((o, j) => (j === i ? e.target.value : o)))}
-                          placeholder={`الخيار ${i + 1}`}
-                          className={`flex-1 px-4 py-2 rounded-xl border bg-background ${correctIdx === i ? "border-emerald-500" : "border-border"}`} />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <>
-                    <input ref={answerRef} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="الإجابة الصحيحة (للتحقق التلقائي)" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
-                    <MathToolbar targetRef={answerRef} onChange={setAnswer} />
-                  </>
-                )}
                 <div>
                   <label className="block text-sm font-bold mb-1 inline-flex items-center gap-1"><ImageIcon className="h-4 w-4" /> صورة للمسابقة (اختياري)</label>
                   <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="text-sm" />
                   {imageFile && <div className="text-xs text-muted-foreground mt-1">{imageFile.name}</div>}
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm">مدة المسابقة (ثانية):</label>
-                  <input type="number" value={duration} onChange={(e) => setDuration(parseInt(e.target.value) || 300)} className="w-32 px-3 py-2 rounded-xl border border-border bg-background" />
-                </div>
+
+                {questions.map((q, i) => (
+                  <QuestionEditor key={i} index={i} q={q} onChange={(patch) => updateQ(i, patch)} onRemove={() => removeQ(i)} canRemove={questions.length > 1} />
+                ))}
+
+                <button onClick={addQ} className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-border text-sm font-bold hover:bg-secondary">
+                  <Plus className="h-4 w-4" /> إضافة سؤال آخر
+                </button>
+
                 <button onClick={create} disabled={uploading} className="px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold w-full disabled:opacity-50">
-                  {uploading ? "جاري الإنشاء..." : "إطلاق المسابقة"}
+                  {uploading ? "جاري الإنشاء..." : `إطلاق المسابقة (${questions.length} ${questions.length === 1 ? "سؤال" : "أسئلة"})`}
                 </button>
               </div>
             )}
@@ -175,13 +208,14 @@ function CompetitionsPage() {
         )}
 
         {active ? (
-          <CompetitionView comp={active} uid={uid!} onBack={() => setActive(null)} />
+          <CompetitionView comp={active} uid={uid!} onBack={() => { setActive(null); load(); }} />
         ) : (
           <div className="grid sm:grid-cols-2 gap-3">
             {comps.length === 0 ? (
               <div className="text-center text-muted-foreground py-16 text-sm col-span-full">لا توجد مسابقات بعد</div>
             ) : comps.map((c) => {
               const ended = new Date(c.ends_at) < new Date();
+              const qCount = Array.isArray(c.questions) ? c.questions.length : 1;
               return (
                 <button key={c.id} onClick={() => setActive(c)} className="text-right bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg transition">
                   {c.image_url && <img src={c.image_url} alt="" className="w-full h-40 object-cover" />}
@@ -195,6 +229,7 @@ function CompetitionsPage() {
                         {ended ? "انتهت" : "نشطة"}
                       </span>
                     </div>
+                    <div className="text-[11px] text-muted-foreground mt-2">{qCount} {qCount === 1 ? "سؤال" : "أسئلة"}</div>
                   </div>
                 </button>
               );
@@ -206,11 +241,219 @@ function CompetitionsPage() {
   );
 }
 
+function QuestionEditor({ index, q, onChange, onRemove, canRemove }: { index: number; q: MQ; onChange: (patch: Partial<MQ>) => void; onRemove: () => void; canRemove: boolean }) {
+  const qRef = useRef<HTMLTextAreaElement>(null);
+  const aRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="rounded-2xl border-2 border-border bg-secondary/30 p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-black">السؤال {index + 1}</div>
+        {canRemove && (
+          <button onClick={onRemove} className="text-destructive p-1 rounded-lg hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>
+        )}
+      </div>
+      <textarea ref={qRef} value={q.question} onChange={(e) => onChange({ question: e.target.value })} placeholder="نص السؤال" rows={2} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background resize-none" />
+      <MathToolbar targetRef={qRef} onChange={(v) => onChange({ question: v })} />
+      <div className="flex items-center gap-3 text-sm">
+        <label className="inline-flex items-center gap-2">
+          <input type="radio" checked={q.is_multiple_choice} onChange={() => onChange({ is_multiple_choice: true })} /> اختيارات متعددة
+        </label>
+        <label className="inline-flex items-center gap-2">
+          <input type="radio" checked={!q.is_multiple_choice} onChange={() => onChange({ is_multiple_choice: false })} /> إجابة نصية
+        </label>
+      </div>
+      {q.is_multiple_choice ? (
+        <div className="space-y-2">
+          {(q.options || []).map((opt, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input type="radio" name={`correct-${index}`} checked={q.correct_index === i} onChange={() => onChange({ correct_index: i })} className="h-4 w-4" />
+              <input value={opt} onChange={(e) => onChange({ options: (q.options || []).map((o, j) => (j === i ? e.target.value : o)) })}
+                placeholder={`الخيار ${i + 1}`}
+                className={`flex-1 px-3 py-2 rounded-xl border bg-background ${q.correct_index === i ? "border-emerald-500" : "border-border"}`} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <>
+          <input ref={aRef} value={q.correct_answer || ""} onChange={(e) => onChange({ correct_answer: e.target.value })} placeholder="الإجابة الصحيحة" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
+          <MathToolbar targetRef={aRef} onChange={(v) => onChange({ correct_answer: v })} />
+        </>
+      )}
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-bold inline-flex items-center gap-1"><Clock className="h-4 w-4" /> مؤقت السؤال (ثانية):</label>
+        <input type="number" min={3} value={q.duration_seconds} onChange={(e) => onChange({ duration_seconds: parseInt(e.target.value) || 5 })} className="w-24 px-3 py-1.5 rounded-xl border border-border bg-background" />
+      </div>
+    </div>
+  );
+}
+
 function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBack: () => void }) {
+  const isMulti = Array.isArray(comp.questions) && comp.questions.length > 0;
+  return isMulti
+    ? <MultiQuestionView comp={comp} uid={uid} onBack={onBack} />
+    : <SingleCompetitionView comp={comp} uid={uid} onBack={onBack} />;
+}
+
+function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBack: () => void }) {
+  const [questions, setQuestions] = useState<MQ[] | null>(null);
+  const [idx, setIdx] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [textAnswer, setTextAnswer] = useState("");
+  const [now, setNow] = useState(Date.now());
+  const [questionStartedAt, setQuestionStartedAt] = useState<number>(Date.now());
+  const [submittedResult, setSubmittedResult] = useState<{ correct: number; total: number } | null>(null);
+  const [alreadyDone, setAlreadyDone] = useState(false);
+  const [startTime] = useState(Date.now());
+  const [isTeacher, setIsTeacher] = useState(false);
+  const submitting = useRef(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", uid);
+      setIsTeacher(!!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role))));
+      const { data: existing } = await supabase.from("competition_submissions").select("id, correct_count, question_count").eq("competition_id", comp.id).eq("user_id", uid).maybeSingle();
+      if (existing) {
+        setAlreadyDone(true);
+        if (existing.correct_count != null) setSubmittedResult({ correct: existing.correct_count, total: existing.question_count || 0 });
+      }
+      const { data, error } = await supabase.rpc("get_competition_for_attempt", { _id: comp.id });
+      if (error) { toast.error(error.message); return; }
+      const row: any = Array.isArray(data) ? data[0] : data;
+      const qs = row?.questions as MQ[] | null;
+      setQuestions(qs && qs.length ? qs : (comp.questions as MQ[]));
+      setQuestionStartedAt(Date.now());
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comp.id, uid]);
+
+  useEffect(() => {
+    if (alreadyDone || submittedResult) return;
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, [alreadyDone, submittedResult]);
+
+  const finalize = async (finalAnswers: Record<string, string>) => {
+    if (submitting.current) return;
+    submitting.current = true;
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const { data, error } = await supabase.rpc("submit_competition_attempt", {
+      _competition_id: comp.id, _answers: finalAnswers as any, _time_taken_seconds: elapsed,
+    });
+    submitting.current = false;
+    if (error) { toast.error(error.message); return; }
+    const r: any = Array.isArray(data) ? data[0] : data;
+    setSubmittedResult({ correct: r?.correct_count ?? 0, total: r?.question_count ?? 0 });
+    toast.success(`انتهت المسابقة! ${r?.correct_count ?? 0}/${r?.question_count ?? 0}`);
+  };
+
+  const goNext = (storedAnswers: Record<string, string>) => {
+    if (!questions) return;
+    if (idx + 1 >= questions.length) {
+      finalize(storedAnswers);
+    } else {
+      setIdx(idx + 1);
+      setTextAnswer("");
+      setQuestionStartedAt(Date.now());
+    }
+  };
+
+  const recordAnswer = (val: string) => {
+    if (!questions) return;
+    const next = { ...answers, [String(idx)]: val };
+    setAnswers(next);
+    goNext(next);
+  };
+
+  // per-question timer effect: when time runs out, auto-record empty
+  const currentQ = questions?.[idx];
+  const remaining = currentQ ? Math.max(0, Math.ceil((questionStartedAt + currentQ.duration_seconds * 1000 - now) / 1000)) : 0;
+  useEffect(() => {
+    if (!currentQ || alreadyDone || submittedResult) return;
+    if (remaining <= 0) {
+      const next = { ...answers, [String(idx)]: answers[String(idx)] ?? "" };
+      setAnswers(next);
+      goNext(next);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remaining]);
+
+  return (
+    <div className="space-y-4">
+      <button onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+        <ArrowLeft className="h-4 w-4" /> العودة للقائمة
+      </button>
+
+      <div className="bg-card rounded-3xl border border-border p-6">
+        <h2 className="text-2xl font-black mb-2">{comp.title}</h2>
+        {comp.image_url && <img src={comp.image_url} alt="" className="w-full max-h-72 object-contain rounded-2xl mb-4 bg-secondary/30" />}
+
+        {alreadyDone || submittedResult ? (
+          <div className="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-6 text-center">
+            <div className="text-emerald-700 font-black text-xl mb-1">✓ انتهت مشاركتك</div>
+            {submittedResult && (
+              <div className="text-lg font-bold">نتيجتك: {submittedResult.correct} / {submittedResult.total}</div>
+            )}
+            {alreadyDone && !submittedResult && (
+              <div className="text-sm text-muted-foreground">لقد شاركت في هذه المسابقة سابقاً</div>
+            )}
+          </div>
+        ) : !questions ? (
+          <div className="text-center py-8 text-muted-foreground">جاري التحميل...</div>
+        ) : currentQ ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-bold text-muted-foreground">السؤال {idx + 1} من {questions.length}</div>
+              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-black ${remaining <= 3 ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}`}>
+                <Clock className="h-4 w-4" /> {remaining}ث
+              </div>
+            </div>
+            <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+              <div className="bg-[image:var(--gradient-hero)] h-full transition-all" style={{ width: `${(remaining / currentQ.duration_seconds) * 100}%` }} />
+            </div>
+            <p className="text-xl font-bold leading-relaxed"><MathText text={currentQ.question} /></p>
+
+            {currentQ.is_multiple_choice && currentQ.options && currentQ.options.length > 0 ? (
+              <div className="grid sm:grid-cols-2 gap-2">
+                {currentQ.options.map((opt, i) => (
+                  <button key={i}
+                    onClick={() => recordAnswer(String(i))}
+                    className="text-right px-4 py-3 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition font-bold">
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{String.fromCharCode(0x0623 + i)}</span>
+                    <MathText text={opt} />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  value={textAnswer}
+                  onChange={(e) => setTextAnswer(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && textAnswer.trim()) recordAnswer(textAnswer.trim()); }}
+                  placeholder="اكتب إجابتك ثم اضغط Enter"
+                  className="flex-1 px-4 py-3 rounded-xl border border-border bg-background"
+                  autoFocus
+                />
+                <button onClick={() => textAnswer.trim() && recordAnswer(textAnswer.trim())} className="px-5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">
+                  <Send className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        <Reactions targetType="competition" targetId={comp.id} uid={uid} />
+      </div>
+
+      <CompetitionComments competitionId={comp.id} uid={uid} />
+      <SubmissionsList comp={comp} uid={uid} isTeacher={isTeacher} />
+    </div>
+  );
+}
+
+function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBack: () => void }) {
   const [now, setNow] = useState(Date.now());
   const [answer, setAnswer] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [subs, setSubs] = useState<(Sub & { name?: string; avatar_url?: string | null })[]>([]);
   const [isTeacher, setIsTeacher] = useState(false);
   const [subImage, setSubImage] = useState<File | null>(null);
   const [subLink, setSubLink] = useState("");
@@ -229,29 +472,10 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
     (async () => {
       const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", uid);
       setIsTeacher(!!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role))));
+      const { data } = await supabase.from("competition_submissions").select("id").eq("competition_id", comp.id).eq("user_id", uid);
+      setSubmitted(!!data?.length);
     })();
-  }, [uid]);
-
-  const loadSubs = async () => {
-    const { data } = await supabase.from("competition_submissions").select("*").eq("competition_id", comp.id);
-    const ids = (data || []).map((s) => s.user_id);
-    const { data: profs } = ids.length ? await supabase.from("profiles").select("id, display_name, avatar_url").in("id", ids) : { data: [] };
-    const nameMap: Record<string, { name: string; avatar: string | null }> = {};
-    (profs || []).forEach((p: any) => { nameMap[p.id] = { name: p.display_name || "—", avatar: p.avatar_url }; });
-    const list = (data || []).map((s: any) => ({ ...s, name: nameMap[s.user_id]?.name, avatar_url: nameMap[s.user_id]?.avatar }))
-      .sort((a: any, b: any) => Number(b.is_correct) - Number(a.is_correct) || a.time_taken_seconds - b.time_taken_seconds);
-    setSubs(list);
-    setSubmitted(!!data?.find((s) => s.user_id === uid));
-  };
-
-  useEffect(() => {
-    loadSubs();
-    const ch = supabase.channel(`comp-${comp.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "competition_submissions", filter: `competition_id=eq.${comp.id}` },
-        () => loadSubs()).subscribe();
-    return () => { supabase.removeChannel(ch); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [comp.id]);
+  }, [uid, comp.id]);
 
   const submitMC = async (idx: number) => {
     if (submitted || ended || sending) return;
@@ -274,25 +498,15 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
     let image_url: string | null = null;
     if (subImage) image_url = await uploadToBucket("competition-media", subImage, uid);
     const elapsed = Math.floor((Date.now() - startMs) / 1000);
-    const isCorrect = false; // التصحيح يتم من قِبل المعلم عبر markCorrect
     const { error } = await supabase.from("competition_submissions").insert({
       competition_id: comp.id, user_id: uid, answer: answer.trim() || "—",
       image_url, link_url: subLink.trim() || null,
-      time_taken_seconds: elapsed, is_correct: isCorrect,
+      time_taken_seconds: elapsed, is_correct: false,
     });
     setSending(false);
     if (error) return toast.error("فشل الإرسال: " + error.message);
-    toast.success(isCorrect ? "إجابة صحيحة! 🎉" : "تم تسجيل مشاركتك");
+    toast.success("تم تسجيل مشاركتك");
     setSubmitted(true); setAnswer(""); setSubImage(null); setSubLink("");
-  };
-
-  const markCorrect = async (subId: string, current: boolean) => {
-    const { error } = await supabase.from("competition_submissions")
-      .update({ is_correct: !current, teacher_approved: !current, approved_by: uid })
-      .eq("id", subId);
-    if (error) return toast.error(error.message);
-    toast.success(!current ? "تم اعتماد الإجابة كصحيحة ✓" : "تم إلغاء الاعتماد");
-    loadSubs();
   };
 
   const mins = Math.floor(remaining / 60);
@@ -309,21 +523,6 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
           <Clock className="h-4 w-4" />
           {ended ? "انتهت المسابقة" : `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`}
         </div>
-        {ended && subs.length > 0 && subs[0].is_correct && (
-          <div className="mb-4 bg-gradient-to-l from-amber-100 to-yellow-50 border-2 border-amber-400 rounded-2xl p-4 flex items-center gap-3">
-            <Crown className="h-10 w-10 text-amber-500" />
-            <div className="flex-1">
-              <div className="text-xs text-amber-700 font-bold">🏆 الفائز بالمسابقة</div>
-              <div className="font-black text-lg">{subs[0].name}</div>
-              <div className="text-xs text-muted-foreground">أجاب صحيحاً في {subs[0].time_taken_seconds} ثانية</div>
-            </div>
-          </div>
-        )}
-        {ended && subs.length > 0 && !subs[0].is_correct && (
-          <div className="mb-4 bg-secondary/50 border border-border rounded-2xl p-4 text-center text-sm text-muted-foreground">
-            انتهت المسابقة دون إجابة صحيحة معتمدة
-          </div>
-        )}
         {comp.image_url && <img src={comp.image_url} alt="" className="w-full max-h-80 object-contain rounded-2xl mb-4 bg-secondary/30" />}
         <p className="text-lg mb-4 leading-relaxed"><MathText text={comp.question} /></p>
         {!ended && !submitted && (
@@ -332,7 +531,7 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
               <div className="grid sm:grid-cols-2 gap-2">
                 {comp.options.map((opt, i) => (
                   <button key={i} disabled={sending}
-                    onClick={() => { setAnswer(String(i)); setTimeout(() => submitMC(i), 0); }}
+                    onClick={() => submitMC(i)}
                     className="text-right px-4 py-3 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition font-bold disabled:opacity-50">
                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{String.fromCharCode(0x0623 + i)}</span>
                     <MathText text={opt} />
@@ -341,21 +540,21 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
               </div>
             ) : (
               <>
-            <input value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="إجابتك..." className="w-full px-4 py-3 rounded-xl border border-border bg-background" />
-            <div className="flex gap-2 flex-wrap items-center">
-              <label className="inline-flex items-center gap-1 text-sm px-3 py-2 rounded-xl bg-secondary cursor-pointer hover:bg-secondary/70">
-                <ImageIcon className="h-4 w-4" /> صورة
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => setSubImage(e.target.files?.[0] || null)} />
-              </label>
-              {subImage && <span className="text-xs text-muted-foreground">{subImage.name}</span>}
-              <div className="flex-1 min-w-[200px] inline-flex items-center gap-1 bg-background border border-border rounded-xl px-3">
-                <Link2 className="h-4 w-4 text-muted-foreground" />
-                <input value={subLink} onChange={(e) => setSubLink(e.target.value)} placeholder="رابط (اختياري)" className="flex-1 py-2 bg-transparent outline-none text-sm" />
-              </div>
-              <button onClick={submit} disabled={sending} className="px-5 py-3 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
-                <Send className="h-4 w-4" />
-              </button>
-            </div>
+                <input value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="إجابتك..." className="w-full px-4 py-3 rounded-xl border border-border bg-background" />
+                <div className="flex gap-2 flex-wrap items-center">
+                  <label className="inline-flex items-center gap-1 text-sm px-3 py-2 rounded-xl bg-secondary cursor-pointer hover:bg-secondary/70">
+                    <ImageIcon className="h-4 w-4" /> صورة
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => setSubImage(e.target.files?.[0] || null)} />
+                  </label>
+                  {subImage && <span className="text-xs text-muted-foreground">{subImage.name}</span>}
+                  <div className="flex-1 min-w-[200px] inline-flex items-center gap-1 bg-background border border-border rounded-xl px-3">
+                    <Link2 className="h-4 w-4 text-muted-foreground" />
+                    <input value={subLink} onChange={(e) => setSubLink(e.target.value)} placeholder="رابط (اختياري)" className="flex-1 py-2 bg-transparent outline-none text-sm" />
+                  </div>
+                  <button onClick={submit} disabled={sending} className="px-5 py-3 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
+                    <Send className="h-4 w-4" />
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -365,42 +564,86 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
       </div>
 
       <CompetitionComments competitionId={comp.id} uid={uid} />
+      <SubmissionsList comp={comp} uid={uid} isTeacher={isTeacher} />
+    </div>
+  );
+}
 
-      <div className="bg-card rounded-3xl border border-border p-6">
-        <h3 className="font-bold mb-4 flex items-center gap-2"><Crown className="h-5 w-5 text-amber-500" /> مشاركات المتسابقين ({subs.length})</h3>
-        {subs.length === 0 ? (
-          <div className="text-center text-sm text-muted-foreground py-6">لا توجد مشاركات بعد</div>
-        ) : (
-          <div className="grid sm:grid-cols-2 gap-3">
-            {subs.map((s, i) => (
-              <div key={s.id} className="bg-secondary/40 rounded-2xl p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 text-xs font-black flex items-center justify-center">#{i + 1}</div>
-                  {s.avatar_url ? <img src={s.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" /> : <div className="w-8 h-8 rounded-full bg-[image:var(--gradient-hero)]" />}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate">{s.name}</div>
-                    <div className="text-[10px] text-muted-foreground">{s.time_taken_seconds}ث</div>
-                  </div>
-                  {s.is_correct && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">صحيح ✓</span>}
+function SubmissionsList({ comp, uid, isTeacher }: { comp: Comp; uid: string; isTeacher: boolean }) {
+  const [subs, setSubs] = useState<(Sub & { name?: string; avatar_url?: string | null })[]>([]);
+  const isMulti = Array.isArray(comp.questions) && comp.questions.length > 0;
+
+  const loadSubs = async () => {
+    const { data } = await supabase.from("competition_submissions").select("*").eq("competition_id", comp.id);
+    const ids = (data || []).map((s) => s.user_id);
+    const { data: profs } = ids.length ? await supabase.from("profiles").select("id, display_name, avatar_url").in("id", ids) : { data: [] };
+    const nameMap: Record<string, { name: string; avatar: string | null }> = {};
+    (profs || []).forEach((p: any) => { nameMap[p.id] = { name: p.display_name || "—", avatar: p.avatar_url }; });
+    const list = (data || []).map((s: any) => ({ ...s, name: nameMap[s.user_id]?.name, avatar_url: nameMap[s.user_id]?.avatar }))
+      .sort((a: any, b: any) => {
+        if (isMulti) return (b.correct_count || 0) - (a.correct_count || 0) || a.time_taken_seconds - b.time_taken_seconds;
+        return Number(b.is_correct) - Number(a.is_correct) || a.time_taken_seconds - b.time_taken_seconds;
+      });
+    setSubs(list);
+  };
+
+  useEffect(() => {
+    loadSubs();
+    const ch = supabase.channel(`comp-${comp.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "competition_submissions", filter: `competition_id=eq.${comp.id}` },
+        () => loadSubs()).subscribe();
+    return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comp.id]);
+
+  const markCorrect = async (subId: string, current: boolean) => {
+    const { error } = await supabase.from("competition_submissions")
+      .update({ is_correct: !current, teacher_approved: !current, approved_by: uid })
+      .eq("id", subId);
+    if (error) return toast.error(error.message);
+    toast.success(!current ? "تم اعتماد الإجابة كصحيحة ✓" : "تم إلغاء الاعتماد");
+    loadSubs();
+  };
+
+  return (
+    <div className="bg-card rounded-3xl border border-border p-6">
+      <h3 className="font-bold mb-4 flex items-center gap-2"><Crown className="h-5 w-5 text-amber-500" /> المتسابقون ({subs.length})</h3>
+      {subs.length === 0 ? (
+        <div className="text-center text-sm text-muted-foreground py-6">لا توجد مشاركات بعد</div>
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-3">
+          {subs.map((s, i) => (
+            <div key={s.id} className="bg-secondary/40 rounded-2xl p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 text-xs font-black flex items-center justify-center">#{i + 1}</div>
+                {s.avatar_url ? <img src={s.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" /> : <div className="w-8 h-8 rounded-full bg-[image:var(--gradient-hero)]" />}
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm truncate">{s.name}</div>
+                  <div className="text-[10px] text-muted-foreground">{s.time_taken_seconds}ث</div>
                 </div>
-                {s.image_url && <img src={s.image_url} alt="" className="w-full max-h-56 object-contain rounded-xl bg-background" />}
-                {s.answer && s.answer !== "—" && <div className="text-sm bg-background rounded-xl p-2"><b>الإجابة:</b> {s.answer}</div>}
-                {s.link_url && (
-                  <a href={s.link_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline break-all">
-                    <Link2 className="h-3 w-3" /> {s.link_url}
-                  </a>
-                )}
-                {isTeacher && (
-                  <button onClick={() => markCorrect(s.id, s.is_correct)}
-                    className={`w-full text-xs px-2 py-1.5 rounded-lg font-bold ${s.is_correct ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
-                    {s.is_correct ? "إلغاء الاعتماد" : "اعتماد كإجابة صحيحة ✓"}
-                  </button>
+                {isMulti ? (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold">{s.correct_count ?? 0}/{s.question_count ?? 0}</span>
+                ) : (
+                  s.is_correct && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">صحيح ✓</span>
                 )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              {s.image_url && <img src={s.image_url} alt="" className="w-full max-h-56 object-contain rounded-xl bg-background" />}
+              {!isMulti && s.answer && s.answer !== "—" && <div className="text-sm bg-background rounded-xl p-2"><b>الإجابة:</b> {s.answer}</div>}
+              {s.link_url && (
+                <a href={s.link_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline break-all">
+                  <Link2 className="h-3 w-3" /> {s.link_url}
+                </a>
+              )}
+              {!isMulti && isTeacher && (
+                <button onClick={() => markCorrect(s.id, s.is_correct)}
+                  className={`w-full text-xs px-2 py-1.5 rounded-lg font-bold ${s.is_correct ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
+                  {s.is_correct ? "إلغاء الاعتماد" : "اعتماد كإجابة صحيحة ✓"}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
