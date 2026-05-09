@@ -35,10 +35,13 @@ function AssistantPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) { navigate({ to: "/login" }); return; }
-      setUid(data.session.user.id);
+      if (data.session) setUid(data.session.user.id);
     });
-  }, [navigate]);
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUid(session?.user?.id ?? null);
+    });
+    return () => { sub.subscription.unsubscribe(); };
+  }, []);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -77,13 +80,13 @@ function AssistantPage() {
         const { data: refreshed } = await supabase.auth.refreshSession();
         token = refreshed.session?.access_token;
       }
-      if (!token) { toast.error("يجب تسجيل الدخول"); navigate({ to: "/login" }); setLoading(false); return; }
+      if (!token) { toast.error("سجّل الدخول لاستخدام المساعد"); setLoading(false); return; }
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
         body: JSON.stringify({ messages: next }),
       });
-      if (r.status === 401) { toast.error("انتهت الجلسة، سجّل الدخول مرة أخرى"); navigate({ to: "/login" }); setLoading(false); return; }
+      if (r.status === 401) { toast.error("سجّل الدخول لاستخدام المساعد"); setLoading(false); return; }
       if (r.status === 429) { toast.error("تجاوزنا حد الاستخدام، حاول بعد قليل"); setLoading(false); return; }
       if (r.status === 402) { toast.error("نفد رصيد المساعد، تواصل مع المشرف"); setLoading(false); return; }
       if (!r.ok || !r.body) {
@@ -137,7 +140,7 @@ function AssistantPage() {
         const { data: refreshed } = await supabase.auth.refreshSession();
         token = refreshed.session?.access_token;
       }
-      if (!token) { toast.error("يجب تسجيل الدخول"); navigate({ to: "/login" }); setLoading(false); return; }
+      if (!token) { toast.error("سجّل الدخول لاستخدام المساعد"); setLoading(false); return; }
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
