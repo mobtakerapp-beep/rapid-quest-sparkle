@@ -140,7 +140,7 @@ function AssistantPage() {
         const { data: refreshed } = await supabase.auth.refreshSession();
         token = refreshed.session?.access_token;
       }
-      if (!token) { toast.error("يجب تسجيل الدخول"); navigate({ to: "/login" }); setLoading(false); return; }
+      if (!token) { toast.error("سجّل الدخول لاستخدام المساعد"); setLoading(false); return; }
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
