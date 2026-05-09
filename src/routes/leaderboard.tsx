@@ -19,8 +19,8 @@ function LeaderboardPage() {
     (async () => {
       const { data: profs } = await supabase.from("profiles").select("id, display_name, role_type, points").order("points", { ascending: false }).limit(200);
       const all = (profs || []) as any as Row[];
-      setStudents(all.filter((p) => p.role_type === "student").slice(0, 50));
-      setTeachers(all.filter((p) => p.role_type === "teacher" || p.role_type === "supervisor").slice(0, 50));
+      setStudents(all.filter((p) => !p.role_type || p.role_type === "student").slice(0, 50));
+      setTeachers(all.filter((p) => ["teacher","supervisor","admin"].includes(p.role_type || "")).slice(0, 50));
       setLoading(false);
     })();
   }, []);
@@ -100,7 +100,7 @@ function LeaderboardPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-sm">{r.display_name || "—"}</div>
-                    <div className="text-xs text-muted-foreground">{r.role_type === "teacher" ? "معلم" : r.role_type === "supervisor" ? "مشرف" : "طالب"}</div>
+                    <div className="text-xs text-muted-foreground">{r.role_type === "teacher" ? "معلم" : r.role_type === "supervisor" ? "مشرف" : r.role_type === "admin" ? "أدمن" : "طالب"}</div>
                   </div>
                   <div className="flex items-center gap-1 font-black text-[var(--brand)]">
                     <Medal className="h-4 w-4" /> {r.points}
