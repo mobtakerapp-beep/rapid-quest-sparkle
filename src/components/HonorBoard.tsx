@@ -14,7 +14,7 @@ export function HonorBoard() {
         .or("role_type.is.null,role_type.eq.student")
         .order("points", { ascending: false }).limit(1),
       supabase.from("profiles").select("id, display_name, points, avatar_url, school, gender, role_type")
-        .in("role_type", ["teacher", "supervisor"])
+        .in("role_type", ["teacher", "supervisor", "admin"])
         .order("points", { ascending: false }).limit(1),
     ]);
     setTopStudent((students?.[0] as any) || null);
