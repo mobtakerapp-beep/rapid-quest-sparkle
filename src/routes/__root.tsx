@@ -7,8 +7,13 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
+import { GlobalNav } from "@/components/GlobalNav";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { ProtectContent } from "@/components/ProtectContent";
+import { EventReminderWatcher } from "@/components/EventReminderWatcher";
 
 function NotFoundComponent() {
   return (
@@ -72,20 +77,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "مبادرة كلنا معك" },
+      { name: "description", content: "Build interactive web applications with AI assistance, teacher dashboards, and gamified learning features." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "مبادرة كلنا معك" },
+      { property: "og:description", content: "Build interactive web applications with AI assistance, teacher dashboards, and gamified learning features." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "مبادرة كلنا معك" },
+      { name: "twitter:description", content: "Build interactive web applications with AI assistance, teacher dashboards, and gamified learning features." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f54ce436-6044-4106-8ff9-2efed3c4b011/id-preview-33be7ec4--24ef720a-6b26-4a7a-9e64-5e985faab057.lovable.app-1778223406620.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f54ce436-6044-4106-8ff9-2efed3c4b011/id-preview-33be7ec4--24ef720a-6b26-4a7a-9e64-5e985faab057.lovable.app-1778223406620.png" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", type: "image/png", href: "/icon-192.png" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -113,7 +122,14 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <ThemeProvider />
+      <ProtectContent />
+      <EventReminderWatcher />
+      <div className="app-content-with-nav">
+        <Outlet />
+      </div>
+      <GlobalNav />
+      <Toaster position="top-center" richColors dir="rtl" />
     </QueryClientProvider>
   );
 }

@@ -9,38 +9,435 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TeacherRouteImport } from './routes/teacher'
+import { Route as SupervisorsRouteImport } from './routes/supervisors'
+import { Route as SupervisorRouteImport } from './routes/supervisor'
+import { Route as QuizzesRouteImport } from './routes/quizzes'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as MessagesRouteImport } from './routes/messages'
+import { Route as MathBoardRouteImport } from './routes/math-board'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as LeaderboardRouteImport } from './routes/leaderboard'
+import { Route as GalleryContestsRouteImport } from './routes/gallery-contests'
+import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as CompetitionsRouteImport } from './routes/competitions'
+import { Route as ChatRouteImport } from './routes/chat'
+import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as BadgesRouteImport } from './routes/badges'
+import { Route as AssistantRouteImport } from './routes/assistant'
+import { Route as AssignmentsRouteImport } from './routes/assignments'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as ActivitiesRouteImport } from './routes/activities'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GalleryContestIdRouteImport } from './routes/gallery-contest.$id'
 
+const TeacherRoute = TeacherRouteImport.update({
+  id: '/teacher',
+  path: '/teacher',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupervisorsRoute = SupervisorsRouteImport.update({
+  id: '/supervisors',
+  path: '/supervisors',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupervisorRoute = SupervisorRouteImport.update({
+  id: '/supervisor',
+  path: '/supervisor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuizzesRoute = QuizzesRouteImport.update({
+  id: '/quizzes',
+  path: '/quizzes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MathBoardRoute = MathBoardRouteImport.update({
+  id: '/math-board',
+  path: '/math-board',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeaderboardRoute = LeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GalleryContestsRoute = GalleryContestsRouteImport.update({
+  id: '/gallery-contests',
+  path: '/gallery-contests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GalleryRoute = GalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompetitionsRoute = CompetitionsRouteImport.update({
+  id: '/competitions',
+  path: '/competitions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BadgesRoute = BadgesRouteImport.update({
+  id: '/badges',
+  path: '/badges',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssistantRoute = AssistantRouteImport.update({
+  id: '/assistant',
+  path: '/assistant',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssignmentsRoute = AssignmentsRouteImport.update({
+  id: '/assignments',
+  path: '/assignments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivitiesRoute = ActivitiesRouteImport.update({
+  id: '/activities',
+  path: '/activities',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GalleryContestIdRoute = GalleryContestIdRouteImport.update({
+  id: '/gallery-contest/$id',
+  path: '/gallery-contest/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/activities': typeof ActivitiesRoute
+  '/admin': typeof AdminRoute
+  '/assignments': typeof AssignmentsRoute
+  '/assistant': typeof AssistantRoute
+  '/badges': typeof BadgesRoute
+  '/calendar': typeof CalendarRoute
+  '/chat': typeof ChatRoute
+  '/competitions': typeof CompetitionsRoute
+  '/gallery': typeof GalleryRoute
+  '/gallery-contests': typeof GalleryContestsRoute
+  '/leaderboard': typeof LeaderboardRoute
+  '/login': typeof LoginRoute
+  '/math-board': typeof MathBoardRoute
+  '/messages': typeof MessagesRoute
+  '/profile': typeof ProfileRoute
+  '/quizzes': typeof QuizzesRoute
+  '/supervisor': typeof SupervisorRoute
+  '/supervisors': typeof SupervisorsRoute
+  '/teacher': typeof TeacherRoute
+  '/gallery-contest/$id': typeof GalleryContestIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/activities': typeof ActivitiesRoute
+  '/admin': typeof AdminRoute
+  '/assignments': typeof AssignmentsRoute
+  '/assistant': typeof AssistantRoute
+  '/badges': typeof BadgesRoute
+  '/calendar': typeof CalendarRoute
+  '/chat': typeof ChatRoute
+  '/competitions': typeof CompetitionsRoute
+  '/gallery': typeof GalleryRoute
+  '/gallery-contests': typeof GalleryContestsRoute
+  '/leaderboard': typeof LeaderboardRoute
+  '/login': typeof LoginRoute
+  '/math-board': typeof MathBoardRoute
+  '/messages': typeof MessagesRoute
+  '/profile': typeof ProfileRoute
+  '/quizzes': typeof QuizzesRoute
+  '/supervisor': typeof SupervisorRoute
+  '/supervisors': typeof SupervisorsRoute
+  '/teacher': typeof TeacherRoute
+  '/gallery-contest/$id': typeof GalleryContestIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/activities': typeof ActivitiesRoute
+  '/admin': typeof AdminRoute
+  '/assignments': typeof AssignmentsRoute
+  '/assistant': typeof AssistantRoute
+  '/badges': typeof BadgesRoute
+  '/calendar': typeof CalendarRoute
+  '/chat': typeof ChatRoute
+  '/competitions': typeof CompetitionsRoute
+  '/gallery': typeof GalleryRoute
+  '/gallery-contests': typeof GalleryContestsRoute
+  '/leaderboard': typeof LeaderboardRoute
+  '/login': typeof LoginRoute
+  '/math-board': typeof MathBoardRoute
+  '/messages': typeof MessagesRoute
+  '/profile': typeof ProfileRoute
+  '/quizzes': typeof QuizzesRoute
+  '/supervisor': typeof SupervisorRoute
+  '/supervisors': typeof SupervisorsRoute
+  '/teacher': typeof TeacherRoute
+  '/gallery-contest/$id': typeof GalleryContestIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/activities'
+    | '/admin'
+    | '/assignments'
+    | '/assistant'
+    | '/badges'
+    | '/calendar'
+    | '/chat'
+    | '/competitions'
+    | '/gallery'
+    | '/gallery-contests'
+    | '/leaderboard'
+    | '/login'
+    | '/math-board'
+    | '/messages'
+    | '/profile'
+    | '/quizzes'
+    | '/supervisor'
+    | '/supervisors'
+    | '/teacher'
+    | '/gallery-contest/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/activities'
+    | '/admin'
+    | '/assignments'
+    | '/assistant'
+    | '/badges'
+    | '/calendar'
+    | '/chat'
+    | '/competitions'
+    | '/gallery'
+    | '/gallery-contests'
+    | '/leaderboard'
+    | '/login'
+    | '/math-board'
+    | '/messages'
+    | '/profile'
+    | '/quizzes'
+    | '/supervisor'
+    | '/supervisors'
+    | '/teacher'
+    | '/gallery-contest/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/activities'
+    | '/admin'
+    | '/assignments'
+    | '/assistant'
+    | '/badges'
+    | '/calendar'
+    | '/chat'
+    | '/competitions'
+    | '/gallery'
+    | '/gallery-contests'
+    | '/leaderboard'
+    | '/login'
+    | '/math-board'
+    | '/messages'
+    | '/profile'
+    | '/quizzes'
+    | '/supervisor'
+    | '/supervisors'
+    | '/teacher'
+    | '/gallery-contest/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ActivitiesRoute: typeof ActivitiesRoute
+  AdminRoute: typeof AdminRoute
+  AssignmentsRoute: typeof AssignmentsRoute
+  AssistantRoute: typeof AssistantRoute
+  BadgesRoute: typeof BadgesRoute
+  CalendarRoute: typeof CalendarRoute
+  ChatRoute: typeof ChatRoute
+  CompetitionsRoute: typeof CompetitionsRoute
+  GalleryRoute: typeof GalleryRoute
+  GalleryContestsRoute: typeof GalleryContestsRoute
+  LeaderboardRoute: typeof LeaderboardRoute
+  LoginRoute: typeof LoginRoute
+  MathBoardRoute: typeof MathBoardRoute
+  MessagesRoute: typeof MessagesRoute
+  ProfileRoute: typeof ProfileRoute
+  QuizzesRoute: typeof QuizzesRoute
+  SupervisorRoute: typeof SupervisorRoute
+  SupervisorsRoute: typeof SupervisorsRoute
+  TeacherRoute: typeof TeacherRoute
+  GalleryContestIdRoute: typeof GalleryContestIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/teacher': {
+      id: '/teacher'
+      path: '/teacher'
+      fullPath: '/teacher'
+      preLoaderRoute: typeof TeacherRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/supervisors': {
+      id: '/supervisors'
+      path: '/supervisors'
+      fullPath: '/supervisors'
+      preLoaderRoute: typeof SupervisorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/supervisor': {
+      id: '/supervisor'
+      path: '/supervisor'
+      fullPath: '/supervisor'
+      preLoaderRoute: typeof SupervisorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quizzes': {
+      id: '/quizzes'
+      path: '/quizzes'
+      fullPath: '/quizzes'
+      preLoaderRoute: typeof QuizzesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/math-board': {
+      id: '/math-board'
+      path: '/math-board'
+      fullPath: '/math-board'
+      preLoaderRoute: typeof MathBoardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leaderboard': {
+      id: '/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof LeaderboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery-contests': {
+      id: '/gallery-contests'
+      path: '/gallery-contests'
+      fullPath: '/gallery-contests'
+      preLoaderRoute: typeof GalleryContestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/competitions': {
+      id: '/competitions'
+      path: '/competitions'
+      fullPath: '/competitions'
+      preLoaderRoute: typeof CompetitionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/badges': {
+      id: '/badges'
+      path: '/badges'
+      fullPath: '/badges'
+      preLoaderRoute: typeof BadgesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assistant': {
+      id: '/assistant'
+      path: '/assistant'
+      fullPath: '/assistant'
+      preLoaderRoute: typeof AssistantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assignments': {
+      id: '/assignments'
+      path: '/assignments'
+      fullPath: '/assignments'
+      preLoaderRoute: typeof AssignmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activities': {
+      id: '/activities'
+      path: '/activities'
+      fullPath: '/activities'
+      preLoaderRoute: typeof ActivitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +445,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gallery-contest/$id': {
+      id: '/gallery-contest/$id'
+      path: '/gallery-contest/$id'
+      fullPath: '/gallery-contest/$id'
+      preLoaderRoute: typeof GalleryContestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ActivitiesRoute: ActivitiesRoute,
+  AdminRoute: AdminRoute,
+  AssignmentsRoute: AssignmentsRoute,
+  AssistantRoute: AssistantRoute,
+  BadgesRoute: BadgesRoute,
+  CalendarRoute: CalendarRoute,
+  ChatRoute: ChatRoute,
+  CompetitionsRoute: CompetitionsRoute,
+  GalleryRoute: GalleryRoute,
+  GalleryContestsRoute: GalleryContestsRoute,
+  LeaderboardRoute: LeaderboardRoute,
+  LoginRoute: LoginRoute,
+  MathBoardRoute: MathBoardRoute,
+  MessagesRoute: MessagesRoute,
+  ProfileRoute: ProfileRoute,
+  QuizzesRoute: QuizzesRoute,
+  SupervisorRoute: SupervisorRoute,
+  SupervisorsRoute: SupervisorsRoute,
+  TeacherRoute: TeacherRoute,
+  GalleryContestIdRoute: GalleryContestIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
