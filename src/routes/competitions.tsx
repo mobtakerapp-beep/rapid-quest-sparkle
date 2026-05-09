@@ -230,6 +230,7 @@ function CompetitionsPage() {
                       </span>
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-2">{qCount} {qCount === 1 ? "سؤال" : "أسئلة"}</div>
+                    {ended && <CompetitionWinner competitionId={c.id} />}
                   </div>
                 </button>
               );
