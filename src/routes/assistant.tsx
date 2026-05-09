@@ -72,8 +72,12 @@ function AssistantPage() {
     setLoading(true);
     try {
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-tutor`;
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      if (!token) { toast.error("يجب تسجيل الدخول"); setLoading(false); return; }
+      let token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        token = refreshed.session?.access_token;
+      }
+      if (!token) { toast.error("يجب تسجيل الدخول"); navigate({ to: "/login" }); setLoading(false); return; }
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
