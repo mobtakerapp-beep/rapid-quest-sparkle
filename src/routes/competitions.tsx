@@ -10,7 +10,7 @@ import { ReportButton } from "@/components/ReportButton";
 
 export const Route = createFileRoute("/competitions")({ component: CompetitionsPage });
 
-type Comp = { id: string; title: string; description: string | null; question: string; image_url: string | null; duration_seconds: number; starts_at: string; ends_at: string; created_by: string };
+type Comp = { id: string; title: string; description: string | null; question: string; image_url: string | null; duration_seconds: number; starts_at: string; ends_at: string; created_by: string; is_multiple_choice?: boolean | null; options?: string[] | null };
 type Sub = { id: string; user_id: string; answer: string; image_url: string | null; link_url: string | null; submitted_at: string; time_taken_seconds: number; is_correct: boolean };
 
 async function uploadToBucket(bucket: string, file: File, uid: string): Promise<string | null> {
@@ -36,6 +36,9 @@ function CompetitionsPage() {
   const [duration, setDuration] = useState(300);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [isMC, setIsMC] = useState(true);
+  const [options, setOptions] = useState<string[]>(["", "", "", ""]);
+  const [correctIdx, setCorrectIdx] = useState(0);
   const questionRef = useRef<HTMLTextAreaElement>(null);
   const answerRef = useRef<HTMLInputElement>(null);
 
@@ -57,29 +60,42 @@ function CompetitionsPage() {
 
   const create = async () => {
     if (!uid || !title.trim() || !question.trim()) { toast.error("أكمل البيانات"); return; }
+    if (isMC) {
+      const filled = options.map((o) => o.trim()).filter(Boolean);
+      if (filled.length < 2) { toast.error("أضف خيارين على الأقل"); return; }
+      if (!options[correctIdx]?.trim()) { toast.error("حدد الإجابة الصحيحة"); return; }
+    } else if (!answer.trim()) {
+      toast.error("أدخل الإجابة الصحيحة"); return;
+    }
     setUploading(true);
     let image_url: string | null = null;
     if (imageFile) image_url = await uploadToBucket("competition-media", imageFile, uid);
     const starts = new Date();
     const ends = new Date(starts.getTime() + duration * 1000);
-    // ملاحظة: الإجابة الصحيحة لا تُحفظ في عمود competitions.correct_answer (محظور بسبب RLS)
-    // بل في جدول competition_secrets المحمي ولا يقرأه إلا منشئ المسابقة أو الأدمن.
+    const cleanOptions = isMC ? options.map((o) => o.trim()).filter(Boolean) : null;
     const { data: created, error } = await supabase.from("competitions").insert({
       title: title.trim(), question: question.trim(),
       image_url,
       duration_seconds: duration, starts_at: starts.toISOString(), ends_at: ends.toISOString(),
       created_by: uid,
-    }).select("id").single();
+      is_multiple_choice: isMC,
+      options: cleanOptions as any,
+    } as any).select("id").single();
     if (error) { setUploading(false); return toast.error(error.message); }
-    if (answer.trim() && created?.id) {
-      await supabase.from("competition_secrets" as any).insert({
-        competition_id: created.id,
-        correct_answer: answer.trim(),
-      });
+    if (created?.id) {
+      const secret: any = { competition_id: created.id };
+      if (isMC) {
+        secret.correct_index = correctIdx;
+        secret.correct_answer = options[correctIdx]?.trim() || null;
+      } else {
+        secret.correct_answer = answer.trim();
+      }
+      await supabase.from("competition_secrets" as any).insert(secret);
     }
     setUploading(false);
     toast.success("تم إنشاء المسابقة 🏆");
     setTitle(""); setQuestion(""); setAnswer(""); setImageFile(null); setShowForm(false);
+    setOptions(["", "", "", ""]); setCorrectIdx(0); setIsMC(true);
     load();
   };
 
@@ -115,8 +131,32 @@ function CompetitionsPage() {
                 <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان المسابقة" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
                 <textarea ref={questionRef} value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="السؤال (يدعم الكسور والجذور)" rows={3} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background resize-none" />
                 <MathToolbar targetRef={questionRef} onChange={setQuestion} />
-                <input ref={answerRef} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="الإجابة الصحيحة (اختياري للتحقق التلقائي)" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
-                <MathToolbar targetRef={answerRef} onChange={setAnswer} />
+                <div className="flex items-center gap-3 text-sm">
+                  <label className="inline-flex items-center gap-2">
+                    <input type="radio" checked={isMC} onChange={() => setIsMC(true)} /> اختيارات متعددة (أسرع)
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input type="radio" checked={!isMC} onChange={() => setIsMC(false)} /> إجابة نصية
+                  </label>
+                </div>
+                {isMC ? (
+                  <div className="space-y-2">
+                    <div className="text-xs text-muted-foreground">حدّد الإجابة الصحيحة بالنقر على الدائرة بجانبها</div>
+                    {options.map((opt, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input type="radio" name="correct" checked={correctIdx === i} onChange={() => setCorrectIdx(i)} className="h-4 w-4" />
+                        <input value={opt} onChange={(e) => setOptions((p) => p.map((o, j) => (j === i ? e.target.value : o)))}
+                          placeholder={`الخيار ${i + 1}`}
+                          className={`flex-1 px-4 py-2 rounded-xl border bg-background ${correctIdx === i ? "border-emerald-500" : "border-border"}`} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <input ref={answerRef} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="الإجابة الصحيحة (للتحقق التلقائي)" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
+                    <MathToolbar targetRef={answerRef} onChange={setAnswer} />
+                  </>
+                )}
                 <div>
                   <label className="block text-sm font-bold mb-1 inline-flex items-center gap-1"><ImageIcon className="h-4 w-4" /> صورة للمسابقة (اختياري)</label>
                   <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="text-sm" />
@@ -213,6 +253,20 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comp.id]);
 
+  const submitMC = async (idx: number) => {
+    if (submitted || ended || sending) return;
+    setSending(true);
+    const elapsed = Math.floor((Date.now() - startMs) / 1000);
+    const { error } = await supabase.from("competition_submissions").insert({
+      competition_id: comp.id, user_id: uid, answer: String(idx),
+      time_taken_seconds: elapsed, is_correct: false,
+    });
+    setSending(false);
+    if (error) return toast.error("فشل الإرسال: " + error.message);
+    toast.success("تم تسجيل إجابتك ✓");
+    setSubmitted(true);
+  };
+
   const submit = async () => {
     if (submitted || ended) return;
     if (!answer.trim() && !subImage && !subLink.trim()) { toast.error("أضف إجابة أو صورة أو رابط"); return; }
@@ -259,6 +313,19 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
         <p className="text-lg mb-4 leading-relaxed"><MathText text={comp.question} /></p>
         {!ended && !submitted && (
           <div className="space-y-2">
+            {comp.is_multiple_choice && comp.options && comp.options.length > 0 ? (
+              <div className="grid sm:grid-cols-2 gap-2">
+                {comp.options.map((opt, i) => (
+                  <button key={i} disabled={sending}
+                    onClick={() => { setAnswer(String(i)); setTimeout(() => submitMC(i), 0); }}
+                    className="text-right px-4 py-3 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition font-bold disabled:opacity-50">
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{String.fromCharCode(0x0623 + i)}</span>
+                    <MathText text={opt} />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <>
             <input value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="إجابتك..." className="w-full px-4 py-3 rounded-xl border border-border bg-background" />
             <div className="flex gap-2 flex-wrap items-center">
               <label className="inline-flex items-center gap-1 text-sm px-3 py-2 rounded-xl bg-secondary cursor-pointer hover:bg-secondary/70">
@@ -274,6 +341,8 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
                 <Send className="h-4 w-4" />
               </button>
             </div>
+              </>
+            )}
           </div>
         )}
         {submitted && <div className="text-emerald-600 font-bold">✓ تم تسجيل مشاركتك</div>}
