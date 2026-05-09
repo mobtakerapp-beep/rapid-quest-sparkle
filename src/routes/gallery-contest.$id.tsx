@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Trophy, Heart, Upload, Trash2, MessageCircle, Send } from "lucide-react";
+import { ArrowLeft, Trophy, Heart, Upload, Trash2, MessageCircle, Send, Crown } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/gallery-contest/$id")({ component: ContestPage });
@@ -112,6 +112,8 @@ function ContestPage() {
 
   const sorted = [...entries].sort((a, b) => (votes[b.id] || 0) - (votes[a.id] || 0));
   const myEntry = entries.find(e => e.user_id === uid);
+  const ended = !!(contest?.ends_at && new Date(contest.ends_at) < new Date());
+  const winner = ended && sorted.length > 0 && (votes[sorted[0].id] || 0) > 0 ? sorted[0] : null;
 
   if (!contest) return <div dir="rtl" className="min-h-screen flex items-center justify-center text-muted-foreground">جاري التحميل...</div>;
 
@@ -138,12 +140,22 @@ function ContestPage() {
           {contest.description && <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{contest.description}</p>}
           {contest.ends_at && (
             <div className="text-xs text-muted-foreground mt-2">
-              ينتهي {new Date(contest.ends_at).toLocaleDateString("ar-EG")}
+              {ended ? "انتهت" : "تنتهي"} {new Date(contest.ends_at).toLocaleDateString("ar-EG")}
+            </div>
+          )}
+          {winner && (
+            <div className="mt-4 bg-gradient-to-l from-amber-100 to-yellow-50 border-2 border-amber-400 rounded-2xl p-4 flex items-center gap-3">
+              <Crown className="h-10 w-10 text-amber-500" />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-amber-700 font-bold">🏆 الفائز بالمسابقة</div>
+                <div className="font-black text-lg truncate">{profiles[winner.user_id]?.display_name || "المشارك"}</div>
+                <div className="text-xs text-muted-foreground">بأعلى عدد إعجابات: {votes[winner.id]} ❤</div>
+              </div>
             </div>
           )}
         </div>
 
-        {!myEntry && uid && (
+        {!myEntry && uid && !ended && (
           <div className="bg-card rounded-3xl border border-border p-5 mb-5">
             <div className="font-bold mb-3">قدّم مشاركتك</div>
             <div className="flex flex-col sm:flex-row gap-2">
