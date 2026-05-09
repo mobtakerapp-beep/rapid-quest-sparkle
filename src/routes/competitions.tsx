@@ -253,6 +253,20 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comp.id]);
 
+  const submitMC = async (idx: number) => {
+    if (submitted || ended || sending) return;
+    setSending(true);
+    const elapsed = Math.floor((Date.now() - startMs) / 1000);
+    const { error } = await supabase.from("competition_submissions").insert({
+      competition_id: comp.id, user_id: uid, answer: String(idx),
+      time_taken_seconds: elapsed, is_correct: false,
+    });
+    setSending(false);
+    if (error) return toast.error("فشل الإرسال: " + error.message);
+    toast.success("تم تسجيل إجابتك ✓");
+    setSubmitted(true);
+  };
+
   const submit = async () => {
     if (submitted || ended) return;
     if (!answer.trim() && !subImage && !subLink.trim()) { toast.error("أضف إجابة أو صورة أو رابط"); return; }
