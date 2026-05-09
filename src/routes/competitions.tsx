@@ -710,3 +710,34 @@ function CompetitionComments({ competitionId, uid }: { competitionId: string; ui
     </div>
   );
 }
+
+function CompetitionWinner({ competitionId }: { competitionId: string }) {
+  const [winner, setWinner] = useState<{ name: string; score?: string } | null>(null);
+  useEffect(() => {
+    (async () => {
+      const { data: subs } = await supabase
+        .from("competition_submissions")
+        .select("user_id, is_correct, correct_count, question_count, time_taken_seconds")
+        .eq("competition_id", competitionId);
+      if (!subs?.length) return;
+      const sorted = [...subs].sort((a: any, b: any) => {
+        const ac = a.correct_count ?? (a.is_correct ? 1 : 0);
+        const bc = b.correct_count ?? (b.is_correct ? 1 : 0);
+        return bc - ac || a.time_taken_seconds - b.time_taken_seconds;
+      });
+      const top: any = sorted[0];
+      if (!top || (top.correct_count === 0 && !top.is_correct)) return;
+      const { data: prof } = await supabase.from("profiles").select("display_name").eq("id", top.user_id).maybeSingle();
+      const score = top.question_count
+        ? `${top.correct_count}/${top.question_count}`
+        : (top.is_correct ? "✓" : "");
+      setWinner({ name: (prof as any)?.display_name || "—", score });
+    })();
+  }, [competitionId]);
+  if (!winner) return null;
+  return (
+    <div className="mt-2 inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800 font-bold">
+      <Crown className="h-3 w-3" /> الفائز: {winner.name} {winner.score && <span className="opacity-70">({winner.score})</span>}
+    </div>
+  );
+}
