@@ -309,6 +309,21 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
           <Clock className="h-4 w-4" />
           {ended ? "انتهت المسابقة" : `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`}
         </div>
+        {ended && subs.length > 0 && subs[0].is_correct && (
+          <div className="mb-4 bg-gradient-to-l from-amber-100 to-yellow-50 border-2 border-amber-400 rounded-2xl p-4 flex items-center gap-3">
+            <Crown className="h-10 w-10 text-amber-500" />
+            <div className="flex-1">
+              <div className="text-xs text-amber-700 font-bold">🏆 الفائز بالمسابقة</div>
+              <div className="font-black text-lg">{subs[0].name}</div>
+              <div className="text-xs text-muted-foreground">أجاب صحيحاً في {subs[0].time_taken_seconds} ثانية</div>
+            </div>
+          </div>
+        )}
+        {ended && subs.length > 0 && !subs[0].is_correct && (
+          <div className="mb-4 bg-secondary/50 border border-border rounded-2xl p-4 text-center text-sm text-muted-foreground">
+            انتهت المسابقة دون إجابة صحيحة معتمدة
+          </div>
+        )}
         {comp.image_url && <img src={comp.image_url} alt="" className="w-full max-h-80 object-contain rounded-2xl mb-4 bg-secondary/30" />}
         <p className="text-lg mb-4 leading-relaxed"><MathText text={comp.question} /></p>
         {!ended && !submitted && (
