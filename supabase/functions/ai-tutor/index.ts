@@ -21,14 +21,20 @@ serve(async (req) => {
     // ------- Auth check (applies to ALL modes) -------
     const authHeader = req.headers.get("Authorization") || "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const sb = createClient(supabaseUrl, serviceKey);
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData } = await sb.auth.getUser(token);
-    const uid = userData?.user?.id;
-    if (!uid) {
+    if (!authHeader.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "يجب تسجيل الدخول" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    const uid = userData?.user?.id;
+    if (userErr || !uid) {
+      return new Response(JSON.stringify({ error: "يجب تسجيل الدخول" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const sb = createClient(supabaseUrl, serviceKey);
 
     // ------- Image generation mode -------
     if (mode === "image") {
