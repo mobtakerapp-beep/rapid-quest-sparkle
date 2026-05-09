@@ -20,7 +20,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      _bootstrap_exec: { Args: { _sql: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
