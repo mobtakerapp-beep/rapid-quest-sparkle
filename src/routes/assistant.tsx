@@ -35,10 +35,13 @@ function AssistantPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) { navigate({ to: "/login" }); return; }
-      setUid(data.session.user.id);
+      if (data.session) setUid(data.session.user.id);
     });
-  }, [navigate]);
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUid(session?.user?.id ?? null);
+    });
+    return () => { sub.subscription.unsubscribe(); };
+  }, []);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
