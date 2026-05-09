@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Trophy, Plus, Trash2, Calendar as CalIcon } from "lucide-react";
+import { ArrowLeft, Trophy, Plus, Trash2, Calendar as CalIcon, Crown } from "lucide-react";
 import { isVerifiedTeacher } from "@/lib/roles";
 import { DateTimePicker } from "@/components/DateTimePicker";
 
@@ -17,6 +17,7 @@ function ContestsPage() {
   const [uid, setUid] = useState<string | null>(null);
   const [isTeacher, setIsTeacher] = useState(false);
   const [contests, setContests] = useState<Contest[]>([]);
+  const [winners, setWinners] = useState<Record<string, { name: string; votes: number } | null>>({});
   const [showNew, setShowNew] = useState(false);
 
   useEffect(() => {
@@ -31,7 +32,38 @@ function ContestsPage() {
 
   const load = async () => {
     const { data } = await supabase.from("gallery_contests").select("*").order("created_at", { ascending: false });
-    setContests((data || []) as Contest[]);
+    const list = (data || []) as Contest[];
+    setContests(list);
+    // compute winners for ended contests
+    const ended = list.filter((c) => c.ends_at && new Date(c.ends_at) < new Date());
+    if (ended.length === 0) return;
+    const { data: entries } = await supabase.from("gallery_contest_entries")
+      .select("id, contest_id, user_id").in("contest_id", ended.map((c) => c.id));
+    if (!entries?.length) return;
+    const { data: votes } = await supabase.from("gallery_contest_votes")
+      .select("entry_id").in("entry_id", entries.map((e) => e.id));
+    const voteCount: Record<string, number> = {};
+    (votes || []).forEach((v: any) => { voteCount[v.entry_id] = (voteCount[v.entry_id] || 0) + 1; });
+    // group by contest, pick top
+    const topByContest: Record<string, { user_id: string; votes: number } | null> = {};
+    for (const c of ended) {
+      const ce = entries.filter((e: any) => e.contest_id === c.id);
+      if (!ce.length) { topByContest[c.id] = null; continue; }
+      let best = ce[0]; let bestV = voteCount[ce[0].id] || 0;
+      for (const e of ce) { const v = voteCount[e.id] || 0; if (v > bestV) { best = e; bestV = v; } }
+      topByContest[c.id] = bestV > 0 ? { user_id: best.user_id, votes: bestV } : null;
+    }
+    const winnerIds = Object.values(topByContest).filter(Boolean).map((w) => w!.user_id);
+    const { data: profs } = winnerIds.length
+      ? await supabase.from("profiles").select("id, display_name").in("id", winnerIds)
+      : { data: [] as any[] };
+    const nameMap: Record<string, string> = {};
+    (profs || []).forEach((p: any) => { nameMap[p.id] = p.display_name || "—"; });
+    const out: Record<string, { name: string; votes: number } | null> = {};
+    for (const [cid, w] of Object.entries(topByContest)) {
+      out[cid] = w ? { name: nameMap[w.user_id] || "متسابق", votes: w.votes } : null;
+    }
+    setWinners(out);
   };
 
   const delContest = async (id: string) => {
@@ -70,6 +102,10 @@ function ContestsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {contests.map((c) => (
+              (() => {
+                const ended = c.ends_at && new Date(c.ends_at) < new Date();
+                const w = winners[c.id];
+                return (
               <Link key={c.id} to="/gallery-contest/$id" params={{ id: c.id }}
                 className="bg-card border border-border rounded-2xl overflow-hidden shadow-[var(--shadow-card)] hover:shadow-lg transition block">
                 <div className="h-32 bg-[image:var(--gradient-warm)] flex items-center justify-center text-white text-3xl font-bold">
@@ -88,11 +124,26 @@ function ContestsPage() {
                   {c.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{c.description}</p>}
                   {c.ends_at && (
                     <div className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                      <CalIcon className="h-3 w-3" /> ينتهي {new Date(c.ends_at).toLocaleDateString("ar-EG")}
+                      <CalIcon className="h-3 w-3" /> {ended ? "انتهت" : "ينتهي"} {new Date(c.ends_at).toLocaleDateString("ar-EG")}
                     </div>
+                  )}
+                  {ended && w && (
+                    <div className="mt-3 bg-gradient-to-l from-amber-100 to-yellow-50 border border-amber-300 rounded-xl p-2 flex items-center gap-2">
+                      <Crown className="h-5 w-5 text-amber-500" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] text-amber-700 font-bold">🏆 الفائز</div>
+                        <div className="text-sm font-black truncate">{w.name}</div>
+                      </div>
+                      <span className="text-xs font-bold text-amber-700">{w.votes} ❤</span>
+                    </div>
+                  )}
+                  {ended && !w && (
+                    <div className="mt-3 text-xs text-muted-foreground">لا توجد مشاركات بأصوات</div>
                   )}
                 </div>
               </Link>
+                );
+              })()
             ))}
           </div>
         )}
