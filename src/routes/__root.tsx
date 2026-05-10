@@ -116,35 +116,9 @@ function RootShell({ children }: { children: React.ReactNode }) {
     </html>
   );
 }
-import { useEffect } from 'react';
-import { supabase } from "@/integrations/supabase/client";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-
-  useEffect(() => {
-    // إعداد اشتراك الـ Realtime لكل الجداول
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // راقب الإضافة والتعديل والحذف
-          schema: 'public',
-        },
-        (payload) => {
-          console.log('حصل تغيير في البيانات يا مروة!:', payload);
-          // تحديث البيانات في الموقع فوراً بدون Refresh
-          queryClient.invalidateQueries();
-        }
-      )
-      .subscribe();
-
-    // تنظيف الاشتراك لما الصفحة تقفل
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
