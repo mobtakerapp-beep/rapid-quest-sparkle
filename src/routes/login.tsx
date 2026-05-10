@@ -32,10 +32,12 @@ function LoginPage() {
       const { data } = await supabase.rpc(attempt.fn as any, { _code: trimmed });
       if (data) {
         toast.success(attempt.success);
+        setAdminCode("");
         return;
       }
     }
     toast.error("الكود غير صحيح");
+    setAdminCode("");
   };
 
   useEffect(() => {
