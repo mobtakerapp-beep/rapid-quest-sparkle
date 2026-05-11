@@ -216,23 +216,39 @@ function CompetitionsPage() {
             ) : comps.map((c) => {
               const ended = new Date(c.ends_at) < new Date();
               const qCount = Array.isArray(c.questions) ? c.questions.length : 1;
+              const canDelete = canCreate && (c.created_by === uid || canCreate);
+              const onDelete = async (e: React.MouseEvent) => {
+                e.stopPropagation();
+                if (!confirm("حذف المسابقة نهائياً؟")) return;
+                const { error } = await supabase.from("competitions").delete().eq("id", c.id);
+                if (error) return toast.error("لا تملك صلاحية الحذف");
+                toast.success("تم الحذف");
+                setComps((p) => p.filter((x) => x.id !== c.id));
+              };
               return (
-                <button key={c.id} onClick={() => setActive(c)} className="text-right bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg transition">
-                  {c.image_url && <img src={c.image_url} alt="" className="w-full h-40 object-cover" />}
-                  <div className="p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1">
-                        <h3 className="font-bold">{c.title}</h3>
-                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{c.question}</p>
+                <div key={c.id} className="relative">
+                  <button onClick={() => setActive(c)} className="w-full text-right bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg transition">
+                    {c.image_url && <img src={c.image_url} alt="" className="w-full h-40 object-cover" />}
+                    <div className="p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex-1">
+                          <h3 className="font-bold">{c.title}</h3>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{c.question}</p>
+                        </div>
+                        <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${ended ? "bg-secondary text-muted-foreground" : "bg-emerald-100 text-emerald-700"}`}>
+                          {ended ? "انتهت" : "نشطة"}
+                        </span>
                       </div>
-                      <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${ended ? "bg-secondary text-muted-foreground" : "bg-emerald-100 text-emerald-700"}`}>
-                        {ended ? "انتهت" : "نشطة"}
-                      </span>
+                      <div className="text-[11px] text-muted-foreground mt-2">{qCount} {qCount === 1 ? "سؤال" : "أسئلة"}</div>
+                      {ended && <CompetitionWinner competitionId={c.id} />}
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-2">{qCount} {qCount === 1 ? "سؤال" : "أسئلة"}</div>
-                    {ended && <CompetitionWinner competitionId={c.id} />}
-                  </div>
-                </button>
+                  </button>
+                  {canDelete && (
+                    <button onClick={onDelete} className="absolute top-2 left-2 p-1.5 rounded-lg bg-destructive/90 text-white hover:bg-destructive shadow" title="حذف">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
