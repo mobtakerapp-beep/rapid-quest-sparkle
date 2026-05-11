@@ -20,13 +20,13 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Find wrangler config
+        run: find dist -name "wrangler.json" -o -name "wrangler.toml" 2>/dev/null; ls -la dist/; ls -la dist/server/ 2>/dev/null || echo "no dist/server"
+
       - name: Remove root wrangler.toml
         run: rm -f wrangler.toml
 
       - name: Remove .wrangler cache
         run: rm -rf .wrangler
 
-      - name: Deploy to Cloudflare
-        run: cd dist/server && npx wrangler deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+     
