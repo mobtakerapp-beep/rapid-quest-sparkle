@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Workers
+name: Deploy to Cloudflare Pages
 
 on:
   push:
@@ -20,13 +20,10 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Find wrangler config
-        run: find dist -name "wrangler.json" -o -name "wrangler.toml" 2>/dev/null; ls -la dist/; ls -la dist/server/ 2>/dev/null || echo "no dist/server"
-
-      - name: Remove root wrangler.toml
-        run: rm -f wrangler.toml
-
-      - name: Remove .wrangler cache
-        run: rm -rf .wrangler
-
-     
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 7cb2fc5a9946d4b0065ea3e0939a5abf
+          projectName: kollona-maaak-site
+          directory: dist
