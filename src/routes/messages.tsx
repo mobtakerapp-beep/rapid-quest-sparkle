@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Send, MessageSquare, Search, ImagePlus, MoreVertical, Ban, Flag, ShieldOff } from "lucide-react";
+import { ArrowLeft, Send, MessageSquare, Search, ImagePlus, MoreVertical, Ban, Flag, ShieldOff, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/messages")({
@@ -77,6 +77,23 @@ function MessagesPage() {
     setReportReason("");
     setReportOpen(false);
     setMenuOpen(false);
+  };
+
+  const deleteConversation = async () => {
+    if (!uid || !active) return;
+    if (!confirm("حذف كل الرسائل في هذه المحادثة؟ لا يمكن التراجع.")) return;
+    const { error } = await supabase.rpc("delete_conversation_with" as any, { _other: active.id });
+    if (error) return toast.error("فشل حذف المحادثة");
+    setMsgs([]);
+    toast.success("تم حذف المحادثة");
+    setMenuOpen(false);
+  };
+
+  const deleteMessage = async (id: string) => {
+    if (!confirm("حذف هذه الرسالة؟")) return;
+    const { error } = await supabase.from("direct_messages").delete().eq("id", id);
+    if (error) return toast.error("فشل الحذف");
+    setMsgs((p) => p.filter((m) => m.id !== id));
   };
 
   useEffect(() => {
