@@ -39,3 +39,11 @@ externalPort = 80
 deploymentTarget = "autoscale"
 run = ["npx", "wrangler", "dev", "--port=5000", "--host=0.0.0.0"]
 build = ["npm", "run", "build"]
+
+[userenv]
+
+[userenv.shared]
+VITE_SUPABASE_URL = "https://qysyunyewjvggazhukmm.supabase.co"
+VITE_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5c3l1bnlld2p2Z2dhemh1a21tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMzU1MzcsImV4cCI6MjA5MzkxMTUzN30.uR5wV1EXdlBHMkyl5djc9krOPU6VXkXuYYXLDZF0NtU"
+SUPABASE_URL = "https://qysyunyewjvggazhukmm.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5c3l1bnlld2p2Z2dhemh1a21tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMzU1MzcsImV4cCI6MjA5MzkxMTUzN30.uR5wV1EXdlBHMkyl5djc9krOPU6VXkXuYYXLDZF0NtU"
