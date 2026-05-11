@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Megaphone, Plus, X, Trophy, Star } from "lucide-react";
+import { Megaphone, Plus, X, Star } from "lucide-react";
 import { toast } from "sonner";
 
 type TickerItem = { id: string; text: string; type: "auto" | "custom" };
@@ -107,10 +107,19 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
         const incoming = payload as TickerItem;
         setItems((prev) => {
           if (prev.some((x) => x.id === incoming.id)) return prev;
-          return [incoming, ...prev];
+          const updated = [incoming, ...prev];
+          if (incoming.type === "custom") {
+            const existing = loadCustomItems();
+            if (!existing.some((x) => x.id === incoming.id)) {
+              saveCustomItems([incoming, ...existing]);
+            }
+          }
+          return updated;
         });
       })
       .on("broadcast", { event: "remove_item" }, ({ payload }: any) => {
+        const updated = loadCustomItems().filter((x) => x.id !== payload.id);
+        saveCustomItems(updated);
         setItems((prev) => prev.filter((x) => x.id !== payload.id));
       })
       .subscribe();
@@ -133,7 +142,7 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
     saveCustomItems(updated);
     setItems((prev) => [item, ...prev]);
     channelRef.current?.send({ type: "broadcast", event: "new_item", payload: item });
-    toast.success("تمت إضافة الإعلان للشريط");
+    toast.success("تمت إضافة الإعلان للشريط ✅");
     setNewText("");
     setShowAdd(false);
   };
@@ -143,14 +152,21 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
     saveCustomItems(updated);
     setItems((prev) => prev.filter((x) => x.id !== id));
     channelRef.current?.send({ type: "broadcast", event: "remove_item", payload: { id } });
+    toast.success("تم حذف الإعلان");
   };
 
-  if (items.length === 0) return null;
+  const customItems = loadCustomItems();
+  const allItems = items.length > 0 ? items : (canManage ? [] : null);
 
-  const displayText = items.map((it) => it.text).join("   ✦   ");
+  if (!canManage && items.length === 0) return null;
+  if (items.length === 0 && !canManage) return null;
+
+  const displayText = items.length > 0
+    ? items.map((it) => it.text).join("   ✦   ")
+    : "لا توجد أخبار حالياً — يمكنك إضافة إعلان من زر الإضافة";
 
   return (
-    <div dir="rtl" className="relative bg-gradient-to-r from-amber-600 via-orange-500 to-yellow-500 text-white text-sm font-bold shadow-md overflow-hidden">
+    <div dir="rtl" className="relative bg-gradient-to-r from-amber-600 via-orange-500 to-yellow-500 text-white text-sm font-bold shadow-md overflow-hidden z-[150]">
       <div className="flex items-center">
         <div className="flex items-center gap-1.5 px-3 py-2 bg-black/20 shrink-0 border-l border-white/20 z-10">
           <Megaphone className="h-4 w-4" />
@@ -158,17 +174,21 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
         </div>
 
         <div className="flex-1 overflow-hidden py-2 px-2">
-          <div
-            ref={tickerRef}
-            className="whitespace-nowrap inline-block"
-            style={{
-              animation: `ticker-scroll ${Math.max(20, items.length * 12)}s linear infinite`,
-            }}
-          >
-            {displayText}
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-            {displayText}
-          </div>
+          {items.length > 0 ? (
+            <div
+              ref={tickerRef}
+              className="whitespace-nowrap inline-block"
+              style={{
+                animation: `ticker-scroll ${Math.max(20, items.length * 12)}s linear infinite`,
+              }}
+            >
+              {displayText}
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              {displayText}
+            </div>
+          ) : (
+            <span className="text-white/70 text-xs">أضف أول إعلان من زر الإضافة ←</span>
+          )}
         </div>
 
         {canManage && (
@@ -185,7 +205,7 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       {showAdd && canManage && (
         <div
           dir="rtl"
-          className="absolute top-full right-0 z-50 bg-card border border-border rounded-2xl shadow-xl p-4 w-80 mt-1"
+          className="absolute top-full right-0 z-[200] bg-card border border-border rounded-2xl shadow-xl p-4 w-80 mt-1"
           style={{ color: "var(--foreground)" }}
         >
           <div className="flex items-center justify-between mb-3">
@@ -211,13 +231,13 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
             نشر الإعلان
           </button>
 
-          {loadCustomItems().length > 0 && (
+          {customItems.length > 0 && (
             <div className="mt-3 space-y-1">
-              <div className="text-xs text-muted-foreground font-bold mb-1">الإعلانات المخصصة:</div>
-              {loadCustomItems().map((it) => (
+              <div className="text-xs text-muted-foreground font-bold mb-1">الإعلانات المخصصة ({customItems.length}):</div>
+              {customItems.map((it) => (
                 <div key={it.id} className="flex items-center gap-2 text-xs bg-secondary/60 rounded-xl px-3 py-2">
                   <span className="flex-1 truncate">{it.text}</span>
-                  <button onClick={() => removeItem(it.id)} className="text-destructive shrink-0">
+                  <button onClick={() => removeItem(it.id)} className="text-destructive shrink-0 hover:opacity-70">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -246,9 +266,29 @@ export function TickerWithRole() {
       if (!data.session) return;
       const id = data.session.user.id;
       setUserId(id);
-      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", id);
-      setCanManage(!!roles?.some((r: any) => ["admin", "supervisor"].includes(String(r.role))));
+      const [{ data: roles }, { data: profile }] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", id),
+        supabase.from("profiles").select("role_type").eq("id", id).maybeSingle(),
+      ]);
+      const manageRoles = ["admin", "supervisor", "teacher"];
+      const hasRoleInTable = !!roles?.some((r: any) => manageRoles.includes(String(r.role)));
+      const hasRoleInProfile = manageRoles.includes(String((profile as any)?.role_type || ""));
+      setCanManage(hasRoleInTable || hasRoleInProfile);
     });
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_, s) => {
+      if (!s?.user) { setUserId(null); setCanManage(false); return; }
+      const id = s.user.id;
+      setUserId(id);
+      const [{ data: roles }, { data: profile }] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", id),
+        supabase.from("profiles").select("role_type").eq("id", id).maybeSingle(),
+      ]);
+      const manageRoles = ["admin", "supervisor", "teacher"];
+      const hasRoleInTable = !!roles?.some((r: any) => manageRoles.includes(String(r.role)));
+      const hasRoleInProfile = manageRoles.includes(String((profile as any)?.role_type || ""));
+      setCanManage(hasRoleInTable || hasRoleInProfile);
+    });
+    return () => { sub.subscription.unsubscribe(); };
   }, []);
 
   return <NewsTicker userId={userId} canManage={canManage} />;

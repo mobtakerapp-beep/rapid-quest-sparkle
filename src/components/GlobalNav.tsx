@@ -57,7 +57,7 @@ export function GlobalNav() {
   const roleLabel = roleLabelFor(roleType, gender).replace("أيها ", "").replace("أيتها ", "");
 
   return (
-    <div className="fixed top-3 left-3 z-[200] flex items-center gap-1 bg-card/95 backdrop-blur border border-border rounded-2xl px-2 py-1 shadow-xl" dir="rtl">
+    <div className="fixed top-[46px] left-3 z-[190] flex items-center gap-1 bg-card/95 backdrop-blur border border-border rounded-2xl px-2 py-1 shadow-xl" dir="rtl">
       <button onClick={toggleDark} className="p-2 rounded-xl hover:bg-secondary" aria-label="الوضع الليلي">
         {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </button>

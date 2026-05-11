@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, ClipboardList, Plus, X, Clock, Paperclip, FileText } from "lucide-react";
+import { ArrowLeft, ClipboardList, Plus, X, Clock, Paperclip, FileText, MessageSquare, Check } from "lucide-react";
 import { toast } from "sonner";
 import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
@@ -16,7 +16,6 @@ function AssignmentsPage() {
   const navigate = useNavigate();
   const [uid, setUid] = useState<string | null>(null);
   const [isTeacher, setIsTeacher] = useState(false);
-  const [roleType, setRoleType] = useState<string | null>(null);
   const [list, setList] = useState<A[]>([]);
   const [active, setActive] = useState<A | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -33,8 +32,10 @@ function AssignmentsPage() {
         supabase.from("user_roles").select("role").eq("user_id", id),
         supabase.from("profiles").select("role_type").eq("id", id).maybeSingle(),
       ]);
-      setRoleType((profile as any)?.role_type || null);
-      setIsTeacher(!!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role))));
+      const manageRoles = ["admin", "teacher", "supervisor"];
+      const fromTable = !!roles?.some((r) => manageRoles.includes(String(r.role)));
+      const fromProfile = manageRoles.includes(String((profile as any)?.role_type || ""));
+      setIsTeacher(fromTable || fromProfile);
       load();
     });
   }, [navigate]);
@@ -93,7 +94,7 @@ function AssignmentsPage() {
         <div className="grid gap-3">
           {list.length === 0 ? <div className="text-center text-muted-foreground py-16 text-sm">لا توجد واجبات</div>
             : list.map((a) => {
-              const canDelete = isTeacher && (a.teacher_id === uid || isTeacher);
+              const canDelete = isTeacher;
               const onDelete = async (e: React.MouseEvent) => {
                 e.stopPropagation();
                 if (!confirm("حذف الواجب نهائياً؟")) return;
@@ -135,6 +136,11 @@ function AssignmentView({ a, uid, isTeacher, onBack }: { a: A; uid: string; isTe
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const [mySub, setMySub] = useState<S | null>(null);
 
+  const [gradingItem, setGradingItem] = useState<{ sid: string; score: number; label: string } | null>(null);
+  const [feedbackInput, setFeedbackInput] = useState("");
+  const [commentingId, setCommentingId] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState("");
+
   const load = async () => {
     const { data } = await supabase.from("assignment_submissions").select("*").eq("assignment_id", a.id);
     const ids = (data || []).map((s) => s.student_id);
@@ -167,16 +173,33 @@ function AssignmentView({ a, uid, isTeacher, onBack }: { a: A; uid: string; isTe
     } finally { setUploading(false); }
   };
 
-  const grade = async (sid: string, g: number, label: string) => {
-    const fb = prompt("ملاحظة (اختياري):") || null;
-    const { error } = await supabase.from("assignment_submissions").update({ grade: g, feedback: fb, graded_by: uid, graded_at: new Date().toISOString() }).eq("id", sid);
+  const grade = async (sid: string, score: number) => {
+    const fb = feedbackInput.trim() || null;
+    const { error } = await supabase.from("assignment_submissions")
+      .update({ grade: score, feedback: fb, graded_by: uid, graded_at: new Date().toISOString() })
+      .eq("id", sid);
     if (error) return toast.error(error.message);
-    toast.success(`تم التصحيح: ${label}`); load();
+    toast.success(`تم التصحيح${fb ? " مع التعليق" : ""} ✅`);
+    setGradingItem(null);
+    setFeedbackInput("");
+    load();
+  };
+
+  const addCommentOnly = async (sid: string) => {
+    if (!commentText.trim()) return toast.error("اكتب تعليقاً");
+    const { error } = await supabase.from("assignment_submissions")
+      .update({ feedback: commentText.trim(), graded_by: uid, graded_at: new Date().toISOString() })
+      .eq("id", sid);
+    if (error) return toast.error(error.message);
+    toast.success("تم إضافة التعليق 💬");
+    setCommentingId(null);
+    setCommentText("");
+    load();
   };
 
   const isOwner = uid === a.teacher_id;
-  const showAnswerBox = !isOwner && !mySub;
-  const showSubmissionsList = isOwner || isTeacher;
+  const showAnswerBox = !isTeacher && !mySub;
+  const showSubmissionsList = isTeacher || isOwner;
 
   return (
     <div dir="rtl" className="min-h-screen bg-background">
@@ -206,9 +229,16 @@ function AssignmentView({ a, uid, isTeacher, onBack }: { a: A; uid: string; isTe
             </button>
           </div>
         )}
-        {!isOwner && mySub && (
+
+        {isTeacher && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-200 dark:border-amber-700 p-4 text-sm text-amber-800 dark:text-amber-200 font-bold">
+            👁‍🗨 أنت في وضع المراجعة — يمكنك تصحيح إجابات الطلاب وإضافة تعليقات
+          </div>
+        )}
+
+        {!isTeacher && mySub && (
           <div className="bg-card rounded-3xl border border-border p-6">
-            <h3 className="font-bold mb-2">إجابتك (تم التسليم)</h3>
+            <h3 className="font-bold mb-2">إجابتك (تم التسليم) ✅</h3>
             {mySub.content && <div className="text-sm whitespace-pre-wrap"><MathText text={mySub.content} /></div>}
             {mySub.file_url && (
               <a href={mySub.file_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-2 text-sm text-[var(--brand)] font-bold">
@@ -221,40 +251,128 @@ function AssignmentView({ a, uid, isTeacher, onBack }: { a: A; uid: string; isTe
                 {mySub.feedback && <div className="text-sm mt-1">💬 <MathText text={mySub.feedback} /></div>}
               </div>
             )}
+            {mySub.grade === null && (
+              <div className="mt-3 p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-sm">
+                ⏳ بانتظار تصحيح المعلم
+              </div>
+            )}
           </div>
         )}
 
         {showSubmissionsList && (
           <div className="bg-card rounded-3xl border border-border p-6">
             <h3 className="font-bold mb-3">تسليمات الطلاب ({subs.length})</h3>
-            {subs.length === 0 ? <div className="text-sm text-muted-foreground">لا توجد تسليمات</div>
-              : <div className="space-y-3">
+            {subs.length === 0
+              ? <div className="text-sm text-muted-foreground">لا توجد تسليمات بعد</div>
+              : <div className="space-y-4">
                 {subs.map((s) => (
-                  <div key={s.id} className="p-4 rounded-xl border border-border">
+                  <div key={s.id} className="p-4 rounded-2xl border border-border bg-background">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="font-bold">{s.name}</div>
+                      <div className="font-bold text-sm">{s.name}</div>
                       {s.grade !== null && (
-                        <span className={`text-xs px-2 py-1 rounded-full ${s.grade >= 10 ? "bg-emerald-100 text-emerald-700" : s.grade >= 5 ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"}`}>
+                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${s.grade >= 10 ? "bg-emerald-100 text-emerald-700" : s.grade >= 5 ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"}`}>
                           {s.grade >= 10 ? "✅ صحيحة" : s.grade >= 5 ? `${s.grade}/10` : "❌ خطأ"}
                         </span>
                       )}
                     </div>
-                    {s.content && <div className="text-sm whitespace-pre-wrap mb-2"><MathText text={s.content} /></div>}
+                    {s.content && <div className="text-sm whitespace-pre-wrap mb-2 p-3 bg-secondary/40 rounded-xl"><MathText text={s.content} /></div>}
                     {s.file_url && (
                       <a href={s.file_url} target="_blank" rel="noreferrer" className="mb-2 inline-flex items-center gap-2 text-xs text-[var(--brand)] font-bold">
                         <FileText className="h-3.5 w-3.5" /> عرض المرفق
                       </a>
                     )}
-                    <div className="flex gap-2 flex-wrap mt-2">
-                      <button onClick={() => grade(s.id, 10, "صحيحة")} className="text-xs px-3 py-1.5 rounded-lg bg-emerald-500 text-white font-bold">✅ صحيحة</button>
-                      <button onClick={() => grade(s.id, 0, "خطأ")} className="text-xs px-3 py-1.5 rounded-lg bg-rose-500 text-white font-bold">❌ خطأ</button>
-                      {[5, 6, 7, 8, 9].map((g) => (
-                        <button key={g} onClick={() => grade(s.id, g, `${g}/10`)} className="text-xs px-2.5 py-1.5 rounded-lg bg-secondary font-bold">{g}</button>
-                      ))}
-                    </div>
+                    {s.feedback && (
+                      <div className="mb-2 flex items-start gap-1.5 text-xs text-muted-foreground bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-2">
+                        <MessageSquare className="h-3.5 w-3.5 mt-0.5 text-blue-500 shrink-0" />
+                        <span><MathText text={s.feedback} /></span>
+                      </div>
+                    )}
+
+                    {gradingItem?.sid === s.id ? (
+                      <div className="mt-2 space-y-2 bg-secondary/30 rounded-xl p-3">
+                        <div className="text-xs font-bold text-muted-foreground">
+                          تصحيح: <span className="text-foreground">{gradingItem.label}</span>
+                        </div>
+                        <textarea
+                          value={feedbackInput}
+                          onChange={(e) => setFeedbackInput(e.target.value)}
+                          placeholder="تعليق للطالب... (اختياري)"
+                          rows={2}
+                          className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm resize-none"
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => grade(s.id, gradingItem.score)}
+                            className="flex items-center gap-1 text-xs px-4 py-2 rounded-xl bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition"
+                          >
+                            <Check className="h-3.5 w-3.5" /> تأكيد
+                          </button>
+                          <button
+                            onClick={() => { setGradingItem(null); setFeedbackInput(""); }}
+                            className="text-xs px-4 py-2 rounded-xl bg-secondary font-bold hover:bg-secondary/80 transition"
+                          >
+                            إلغاء
+                          </button>
+                        </div>
+                      </div>
+                    ) : commentingId === s.id ? (
+                      <div className="mt-2 space-y-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3">
+                        <div className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                          <MessageSquare className="h-3.5 w-3.5" /> إضافة تعليق
+                        </div>
+                        <textarea
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value)}
+                          placeholder="اكتب تعليقك للطالب..."
+                          rows={2}
+                          className="w-full px-3 py-2 rounded-xl border border-blue-200 bg-background text-sm resize-none"
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => addCommentOnly(s.id)}
+                            className="flex items-center gap-1 text-xs px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
+                          >
+                            <Check className="h-3.5 w-3.5" /> حفظ التعليق
+                          </button>
+                          <button
+                            onClick={() => { setCommentingId(null); setCommentText(""); }}
+                            className="text-xs px-4 py-2 rounded-xl bg-secondary font-bold hover:bg-secondary/80 transition"
+                          >
+                            إلغاء
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 flex-wrap mt-2">
+                        <button
+                          onClick={() => { setGradingItem({ sid: s.id, score: 10, label: "✅ صحيحة" }); setFeedbackInput(""); }}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition"
+                        >✅ صحيحة</button>
+                        <button
+                          onClick={() => { setGradingItem({ sid: s.id, score: 0, label: "❌ خطأ" }); setFeedbackInput(""); }}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-rose-500 text-white font-bold hover:bg-rose-600 transition"
+                        >❌ خطأ</button>
+                        {[5, 6, 7, 8, 9].map((g) => (
+                          <button
+                            key={g}
+                            onClick={() => { setGradingItem({ sid: s.id, score: g, label: `${g}/10` }); setFeedbackInput(""); }}
+                            className="text-xs px-2.5 py-1.5 rounded-lg bg-secondary font-bold hover:bg-secondary/80 transition"
+                          >{g}/10</button>
+                        ))}
+                        <button
+                          onClick={() => { setCommentingId(s.id); setCommentText(s.feedback || ""); }}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 font-bold hover:bg-blue-200 transition flex items-center gap-1"
+                        >
+                          <MessageSquare className="h-3 w-3" /> تعليق فقط
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
-              </div>}
+              </div>
+            }
           </div>
         )}
       </main>
