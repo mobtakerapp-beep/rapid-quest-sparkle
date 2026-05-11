@@ -1,0 +1,13 @@
+name = "rapid-quest-sparkle"
+type = "javascript"
+account_id = ""
+workers_dev = true
+route = ""
+zone_id = ""
+main = "dist/index.js"
+compatibility_date = "2024-01-01"
+
+[env.production]
+routes = [
+  { pattern = "example.com/*", zone_id = "" }
+]
