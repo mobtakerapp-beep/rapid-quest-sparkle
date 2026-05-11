@@ -14,6 +14,8 @@ import { GlobalNav } from "@/components/GlobalNav";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ProtectContent } from "@/components/ProtectContent";
 import { EventReminderWatcher } from "@/components/EventReminderWatcher";
+import { TickerWithRole } from "@/components/NewsTicker";
+import { DhikrReminder } from "@/components/DhikrReminder";
 
 function NotFoundComponent() {
   return (
@@ -151,6 +153,8 @@ function RootComponent() {
       <ThemeProvider />
       <ProtectContent />
       <EventReminderWatcher />
+      <DhikrReminder />
+      <TickerWithRole />
       <div className="app-content-with-nav">
         <Outlet />
       </div>

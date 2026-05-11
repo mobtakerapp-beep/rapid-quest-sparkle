@@ -63,7 +63,7 @@ export function GlobalNav() {
       </button>
       {uid && <NotificationBell userId={uid} />}
       {uid && (
-        <Link to="/messages" className="p-2 rounded-xl hover:bg-secondary" aria-label="الرسائل الخاصة" title="الرسائل الخاصة">
+        <Link to={"/messages" as any} className="p-2 rounded-xl hover:bg-secondary" aria-label="الرسائل الخاصة" title="الرسائل الخاصة">
           <MessageSquare className="h-5 w-5" />
         </Link>
       )}

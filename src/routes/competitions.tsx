@@ -72,6 +72,7 @@ function CompetitionsPage() {
   const [comps, setComps] = useState<Comp[]>([]);
   const [active, setActive] = useState<Comp | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [userSubmittedIds, setUserSubmittedIds] = useState<Set<string>>(new Set());
 
   const [title, setTitle] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -81,16 +82,22 @@ function CompetitionsPage() {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) { navigate({ to: "/login" }); return; }
-      setUid(data.session.user.id);
-      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.session.user.id);
+      const id = data.session.user.id;
+      setUid(id);
+      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", id);
       setCanCreate(!!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role))));
-      load();
+      load(id);
     });
   }, [navigate]);
 
-  const load = async () => {
+  const load = async (userId?: string) => {
     const { data } = await supabase.from("competitions").select("*").order("starts_at", { ascending: false }).limit(50);
     setComps((data || []) as Comp[]);
+    const id = userId || uid;
+    if (id) {
+      const { data: subs } = await supabase.from("competition_submissions").select("competition_id").eq("user_id", id);
+      setUserSubmittedIds(new Set((subs || []).map((s: any) => s.competition_id)));
+    }
   };
 
   // Realtime: auto-refresh competitions list
@@ -258,7 +265,9 @@ function CompetitionsPage() {
             {comps.length === 0 ? (
               <div className="text-center text-muted-foreground py-16 text-sm col-span-full">لا توجد مسابقات بعد</div>
             ) : comps.map((c) => {
-              const ended = new Date(c.ends_at) < new Date();
+              const timePassed = new Date(c.ends_at) < new Date();
+              const userDone = userSubmittedIds.has(c.id);
+              const showEnded = userDone || timePassed;
               const qCount = Array.isArray(c.questions) ? c.questions.length : 1;
               const onDelete = async (e: React.MouseEvent) => {
                 e.stopPropagation();
@@ -278,12 +287,12 @@ function CompetitionsPage() {
                           <h3 className="font-bold">{c.title}</h3>
                           <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{c.question}</p>
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${ended ? "bg-secondary text-muted-foreground" : "bg-emerald-100 text-emerald-700"}`}>
-                          {ended ? "انتهت" : "نشطة"}
+                        <span className={`text-xs px-2 py-1 rounded-full shrink-0 font-semibold ${showEnded ? "bg-secondary text-muted-foreground" : "bg-emerald-100 text-emerald-700"}`}>
+                          {userDone ? "✓ حللتها" : timePassed ? "انتهت" : "نشطة"}
                         </span>
                       </div>
                       <div className="text-[11px] text-muted-foreground mt-2">{qCount} {qCount === 1 ? "سؤال" : "أسئلة"}</div>
-                      {ended && <CompetitionWinner competitionId={c.id} />}
+                      {showEnded && <CompetitionWinner competitionId={c.id} />}
                     </div>
                   </button>
                   {canCreate && (
@@ -783,7 +792,7 @@ function CompetitionComments({ competitionId, uid }: { competitionId: string; ui
 }
 
 function CompetitionWinner({ competitionId }: { competitionId: string }) {
-  const [winner, setWinner] = useState<{ name: string; score?: string } | null>(null);
+  const [winner, setWinner] = useState<{ name: string; score?: string; time?: number } | null>(null);
   useEffect(() => {
     (async () => {
       const { data: subs } = await supabase.from("competition_submissions")
@@ -801,13 +810,26 @@ function CompetitionWinner({ competitionId }: { competitionId: string }) {
       const score = top.question_count
         ? `${top.correct_count}/${top.question_count}`
         : (top.is_correct ? "✓" : "");
-      setWinner({ name: (prof as any)?.display_name || "—", score });
+      setWinner({ name: (prof as any)?.display_name || "—", score, time: top.time_taken_seconds });
     })();
   }, [competitionId]);
   if (!winner) return null;
+  const formatTime = (s: number) => s >= 60 ? `${Math.floor(s/60)}د ${s%60}ث` : `${s}ث`;
   return (
-    <div className="mt-2 inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800 font-bold">
-      <Crown className="h-3 w-3" /> الفائز: {winner.name} {winner.score && <span className="opacity-70">({winner.score})</span>}
+    <div className="mt-2 flex flex-wrap gap-1">
+      <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800 font-bold">
+        <Crown className="h-3 w-3" /> الفائز: {winner.name}
+      </div>
+      {winner.score && (
+        <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold">
+          🏆 {winner.score}
+        </div>
+      )}
+      {winner.time != null && (
+        <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-bold">
+          <Clock className="h-3 w-3" /> {formatTime(winner.time)}
+        </div>
+      )}
     </div>
   );
 }
