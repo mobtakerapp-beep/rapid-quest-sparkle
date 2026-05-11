@@ -28,8 +28,8 @@ jobs:
       
       - name: Remove .wrangler cache
         run: rm -rf .wrangler
-      
-      - name: Deploy to Cloudflare
-        run: cd dist/server && npx wrangler deploy
+
+    - name: Deploy to Cloudflare
+        run: npx wrangler pages deploy dist --project-name=اسم-مشروعك-في-كلاود-فلير
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
