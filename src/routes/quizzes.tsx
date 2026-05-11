@@ -118,15 +118,33 @@ function QuizzesPage() {
         )}
         <div className="grid gap-3">
           {filtered.length === 0 ? <div className="text-center text-muted-foreground py-16 text-sm">لا توجد اختبارات في هذا التصنيف</div>
-            : filtered.map((q) => (
-              <button key={q.id} onClick={() => openQuiz(q.id)} className="text-right bg-card rounded-2xl border border-border p-4 hover:shadow-lg transition">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="font-bold">{q.title}</div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] font-bold">{q.subject || "عام"}</span>
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">{Array.isArray(q.questions) ? q.questions.length : 0} أسئلة</div>
-              </button>
-            ))}
+            : filtered.map((q) => {
+              const canDelete = isTeacher;
+              const onDelete = async (e: React.MouseEvent) => {
+                e.stopPropagation();
+                if (!confirm("حذف الاختبار نهائياً؟")) return;
+                const { error } = await supabase.from("quizzes").delete().eq("id", q.id);
+                if (error) return toast.error("لا تملك صلاحية الحذف");
+                toast.success("تم الحذف");
+                setList((p) => p.filter((x) => x.id !== q.id));
+              };
+              return (
+              <div key={q.id} className="relative">
+                <button onClick={() => openQuiz(q.id)} className="w-full text-right bg-card rounded-2xl border border-border p-4 hover:shadow-lg transition">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-bold">{q.title}</div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] font-bold">{q.subject || "عام"}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">{Array.isArray(q.questions) ? q.questions.length : 0} أسئلة</div>
+                </button>
+                {canDelete && (
+                  <button onClick={onDelete} className="absolute top-2 left-2 p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              );
+            })}
         </div>
       </main>
     </div>

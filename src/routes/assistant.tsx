@@ -51,9 +51,9 @@ function AssistantPage() {
     if (file.size > 5 * 1024 * 1024) { toast.error("الصورة كبيرة (5 ميجا حد أقصى)"); return; }
     setUploadingImage(true);
     try {
-      const ext = file.name.split(".").pop();
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
       const path = `${uid}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("chat-images").upload(path, file);
+      const { error: upErr } = await supabase.storage.from("chat-images").upload(path, file, { contentType: file.type || "image/png", upsert: false });
       if (upErr) throw upErr;
       const url = supabase.storage.from("chat-images").getPublicUrl(path).data.publicUrl;
       const reader = new FileReader();

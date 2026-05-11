@@ -1014,6 +1014,7 @@ export type Database = {
       claim_admin_role: { Args: { _code: string }; Returns: boolean }
       claim_supervisor_role: { Args: { _code: string }; Returns: boolean }
       claim_teacher_role: { Args: { _code: string }; Returns: boolean }
+      delete_conversation_with: { Args: { _other: string }; Returns: number }
       generate_class_code: { Args: never; Returns: string }
       get_competition_for_attempt: {
         Args: { _id: string }

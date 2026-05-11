@@ -157,7 +157,16 @@ function CalendarPage() {
               <div key={day}>
                 <div className="text-sm font-bold text-muted-foreground mb-2">{day}</div>
                 <div className="space-y-2">
-                  {list.map((e) => (
+                  {list.map((e) => {
+                    const canDelete = isTeacher && (e.created_by === uid || isTeacher);
+                    const onDelete = async () => {
+                      if (!confirm("حذف الفعالية؟")) return;
+                      const { error } = await supabase.from("events").delete().eq("id", e.id);
+                      if (error) return toast.error("لا تملك صلاحية الحذف");
+                      toast.success("تم الحذف");
+                      setEvents((p) => p.filter((x) => x.id !== e.id));
+                    };
+                    return (
                     <div key={e.id} className="bg-card rounded-2xl border border-border p-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
@@ -167,10 +176,18 @@ function CalendarPage() {
                             {new Date(e.starts_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
                           </div>
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded-full ${typeColors[e.type] || typeColors.general}`}>{e.type}</span>
+                        <div className="flex items-center gap-1">
+                          <span className={`text-xs px-2 py-1 rounded-full ${typeColors[e.type] || typeColors.general}`}>{e.type}</span>
+                          {canDelete && (
+                            <button onClick={onDelete} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}

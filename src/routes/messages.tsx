@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Send, MessageSquare, Search, ImagePlus, MoreVertical, Ban, Flag, ShieldOff } from "lucide-react";
+import { ArrowLeft, Send, MessageSquare, Search, ImagePlus, MoreVertical, Ban, Flag, ShieldOff, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/messages")({
@@ -77,6 +77,23 @@ function MessagesPage() {
     setReportReason("");
     setReportOpen(false);
     setMenuOpen(false);
+  };
+
+  const deleteConversation = async () => {
+    if (!uid || !active) return;
+    if (!confirm("حذف كل الرسائل في هذه المحادثة؟ لا يمكن التراجع.")) return;
+    const { error } = await supabase.rpc("delete_conversation_with" as any, { _other: active.id });
+    if (error) return toast.error("فشل حذف المحادثة");
+    setMsgs([]);
+    toast.success("تم حذف المحادثة");
+    setMenuOpen(false);
+  };
+
+  const deleteMessage = async (id: string) => {
+    if (!confirm("حذف هذه الرسالة؟")) return;
+    const { error } = await supabase.from("direct_messages").delete().eq("id", id);
+    if (error) return toast.error("فشل الحذف");
+    setMsgs((p) => p.filter((m) => m.id !== id));
   };
 
   useEffect(() => {
@@ -208,13 +225,16 @@ function MessagesPage() {
                   <MoreVertical className="h-4 w-4" />
                 </button>
                 {menuOpen && (
-                  <div className="absolute top-12 left-2 z-20 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px]">
+                  <div className="absolute top-12 left-2 z-20 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[200px]">
                     <button onClick={toggleBlock} className="w-full text-right px-3 py-2 text-sm hover:bg-secondary flex items-center gap-2">
                       {isBlocked ? <ShieldOff className="h-4 w-4 text-emerald-600" /> : <Ban className="h-4 w-4 text-destructive" />}
                       {isBlocked ? "إلغاء الحظر" : "حظر هذا المستخدم"}
                     </button>
                     <button onClick={() => { setReportOpen(true); setMenuOpen(false); }} className="w-full text-right px-3 py-2 text-sm hover:bg-secondary flex items-center gap-2 border-t border-border">
                       <Flag className="h-4 w-4 text-amber-600" /> الإبلاغ عنه للإدارة
+                    </button>
+                    <button onClick={deleteConversation} className="w-full text-right px-3 py-2 text-sm hover:bg-secondary flex items-center gap-2 border-t border-border text-destructive">
+                      <Trash2 className="h-4 w-4" /> حذف كل المحادثة
                     </button>
                   </div>
                 )}
@@ -236,7 +256,12 @@ function MessagesPage() {
                 {msgs.map((m) => {
                   const me = m.sender_id === uid;
                   return (
-                    <div key={m.id} className={`flex ${me ? "justify-start" : "justify-end"}`}>
+                    <div key={m.id} className={`group flex items-center gap-1 ${me ? "justify-start" : "justify-end"}`}>
+                      {me && !m.id.startsWith("temp-") && (
+                        <button onClick={() => deleteMessage(m.id)} className="opacity-0 group-hover:opacity-100 transition p-1 rounded-md hover:bg-destructive/10 text-destructive" title="حذف الرسالة">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <div className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${me ? "bg-[var(--brand)] text-white" : "bg-secondary"}`}>
                         {m.image_url && (
                           <a href={m.image_url} target="_blank" rel="noreferrer">
