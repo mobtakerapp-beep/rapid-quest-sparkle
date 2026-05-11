@@ -256,7 +256,12 @@ function MessagesPage() {
                 {msgs.map((m) => {
                   const me = m.sender_id === uid;
                   return (
-                    <div key={m.id} className={`flex ${me ? "justify-start" : "justify-end"}`}>
+                    <div key={m.id} className={`group flex items-center gap-1 ${me ? "justify-start" : "justify-end"}`}>
+                      {me && !m.id.startsWith("temp-") && (
+                        <button onClick={() => deleteMessage(m.id)} className="opacity-0 group-hover:opacity-100 transition p-1 rounded-md hover:bg-destructive/10 text-destructive" title="حذف الرسالة">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <div className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${me ? "bg-[var(--brand)] text-white" : "bg-secondary"}`}>
                         {m.image_url && (
                           <a href={m.image_url} target="_blank" rel="noreferrer">
