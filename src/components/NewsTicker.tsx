@@ -19,6 +19,17 @@ function saveCustomItems(items: TickerItem[]) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
 }
 
+function getRoleLabel(roleType?: string): string {
+  switch (roleType) {
+    case "teacher":    return "المعلم";
+    case "student":    return "الطالب";
+    case "admin":      return "المشرف";
+    case "supervisor": return "المشرف";
+    case "parent":     return "ولي الأمر";
+    default:           return "";
+  }
+}
+
 async function fetchAutoItems(): Promise<TickerItem[]> {
   const items: TickerItem[] = [];
   try {
@@ -46,10 +57,11 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       if (!top || (top.correct_count === 0 && !top.is_correct)) continue;
       const { data: prof } = await supabase
         .from("profiles")
-        .select("display_name")
+        .select("display_name, role_type")
         .eq("id", top.user_id)
         .maybeSingle();
       const name = (prof as any)?.display_name || "—";
+      const roleLabel = getRoleLabel((prof as any)?.role_type);
       const score = top.question_count
         ? `${top.correct_count}/${top.question_count}`
         : (top.is_correct ? "إجابة صحيحة" : "");
@@ -58,23 +70,25 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
         : `${top.time_taken_seconds}ث`;
       items.push({
         id: `comp-${comp.id}`,
-        text: `🏆 الفائز في "${comp.title}": ${name}${score ? ` — النتيجة: ${score}` : ""} — الوقت: ${time}`,
+        text: `🏆 الفائز في "${comp.title}": ${roleLabel} ${name}${score ? ` — النتيجة: ${score}` : ""} — الوقت: ${time}`,
         type: "auto",
       });
     }
 
     const { data: topProfiles } = await supabase
       .from("profiles")
-      .select("display_name, points")
+      .select("display_name, points, role_type")
       .order("points", { ascending: false })
       .limit(3);
 
     (topProfiles || []).forEach((p: any, i: number) => {
       if (!p.display_name || !p.points) return;
       const medals = ["🥇", "🥈", "🥉"];
+      const roleLabel = getRoleLabel(p.role_type);
+      const nameWithRole = roleLabel ? `${roleLabel} ${p.display_name}` : p.display_name;
       items.push({
         id: `profile-${i}`,
-        text: `${medals[i]} أعلى نقاط: ${p.display_name} — ${p.points} نقطة`,
+        text: `${medals[i]} أعلى نقاط: ${nameWithRole} — ${p.points} نقطة`,
         type: "auto",
       });
     });
