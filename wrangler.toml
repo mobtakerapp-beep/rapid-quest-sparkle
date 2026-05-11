@@ -1,6 +1,6 @@
 name = "rapid-quest-sparkle"
 type = "javascript"
-account_id = ""
+account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
 workers_dev = true
 route = ""
 zone_id = ""
@@ -9,5 +9,5 @@ compatibility_date = "2024-01-01"
 
 [env.production]
 routes = [
-  { pattern = "example.com/*", zone_id = "" }
+  { pattern = "your-domain.com/*", zone_id = "YOUR_ZONE_ID" }
 ]
