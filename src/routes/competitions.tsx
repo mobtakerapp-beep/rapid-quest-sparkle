@@ -288,7 +288,7 @@ function CompetitionsPage() {
                           <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{c.question}</p>
                         </div>
                         <span className={`text-xs px-2 py-1 rounded-full shrink-0 font-semibold ${showEnded ? "bg-secondary text-muted-foreground" : "bg-emerald-100 text-emerald-700"}`}>
-                          {userDone ? "✓ حللتها" : timePassed ? "انتهت" : "نشطة"}
+                          {userDone || timePassed ? "انتهت" : "● نشطة"}
                         </span>
                       </div>
                       <div className="text-[11px] text-muted-foreground mt-2">{qCount} {qCount === 1 ? "سؤال" : "أسئلة"}</div>

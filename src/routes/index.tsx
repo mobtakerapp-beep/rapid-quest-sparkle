@@ -130,7 +130,7 @@ function Index() {
           <span className="text-sm font-medium">منصة تعليمية تفاعلية</span>
         </div>
 
-        <div className="mx-auto mb-4 h-40 w-40 md:h-52 md:w-52 rounded-full overflow-hidden flex items-center justify-center shadow-xl ring-4 ring-[var(--brand)]/20">
+        <div className="mx-auto mb-4 h-40 w-40 md:h-52 md:w-52 rounded-full overflow-hidden flex items-center justify-center shadow-xl ring-4 ring-[var(--brand)]/20 bg-white">
           <img src={logo} alt="شعار مبادرة كلنا معاً" className="h-full w-full object-cover" width={400} height={400} />
         </div>
 

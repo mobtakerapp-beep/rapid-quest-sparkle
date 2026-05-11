@@ -307,7 +307,7 @@ export function TickerWithRole() {
         supabase.from("user_roles").select("role").eq("user_id", id),
         supabase.from("profiles").select("role_type").eq("id", id).maybeSingle(),
       ]);
-      const manageRoles = ["admin", "supervisor", "teacher"];
+      const manageRoles = ["admin", "supervisor"];
       const hasRoleInTable = !!roles?.some((r: any) => manageRoles.includes(String(r.role)));
       const hasRoleInProfile = manageRoles.includes(String((profile as any)?.role_type || ""));
       setCanManage(hasRoleInTable || hasRoleInProfile);

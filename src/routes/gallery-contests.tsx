@@ -30,6 +30,16 @@ function ContestsPage() {
     });
   }, [navigate]);
 
+  useEffect(() => {
+    const ch = supabase.channel("gallery-contests-rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "gallery_contests" }, () => load())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "gallery_contests" }, () => load())
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "gallery_contests" }, () => load())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "gallery_contest_votes" }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
   const load = async () => {
     const { data } = await supabase.from("gallery_contests").select("*").order("created_at", { ascending: false });
     const list = (data || []) as Contest[];

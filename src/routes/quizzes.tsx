@@ -163,7 +163,7 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
   const [qs] = useState(() => rawQs.map((q) => ({ ...q })));
   const mcCount = qs.filter((q) => (q.type || "mc") === "mc").length;
 
-  // Load previous attempt — students can take only ONCE; teachers can preview without restriction
+  // Load previous attempt — students can take only ONCE; teachers preview without submitting
   useEffect(() => {
     if (isTeacher) { setLoaded(true); return; }
     (async () => {
@@ -260,7 +260,7 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
                 const correctAfter = done && correctIdx !== undefined && oi === correctIdx;
                 const wrongAfter = done && sel && correctIdx !== undefined && oi !== correctIdx;
                 return (
-                  <button key={oi} disabled={done} onClick={() => setAnswers({ ...answers, [i]: oi })}
+                  <button key={oi} disabled={done || isTeacher} onClick={() => setAnswers({ ...answers, [i]: oi })}
                     className={`text-right px-4 py-3 rounded-xl border-2 transition ${
                       correctAfter ? "border-emerald-500 bg-emerald-50" :
                       wrongAfter ? "border-rose-500 bg-rose-50" :
@@ -272,7 +272,11 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
             )}
           </div>
         ))}
-        {!done ? (
+        {isTeacher ? (
+          <div dir="rtl" className="text-center bg-secondary/60 rounded-2xl border border-border p-4 text-sm text-muted-foreground font-bold">
+            👀 أنت تشاهد الاختبار بصفة مراجع — لا يمكنك الإجابة
+          </div>
+        ) : !done ? (
           <button onClick={submit}
             disabled={qs.some((q, i) => (q.type || "mc") === "mc" ? answers[i] === undefined : !essays[i]?.trim())}
             className="w-full px-5 py-3 rounded-2xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">إنهاء الاختبار</button>
