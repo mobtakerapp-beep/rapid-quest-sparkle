@@ -89,7 +89,6 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
   const [showAdd, setShowAdd] = useState(false);
   const [newText, setNewText] = useState("");
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const tickerRef = useRef<HTMLDivElement>(null);
 
   const refresh = async () => {
     const auto = await fetchAutoItems();
@@ -156,104 +155,130 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
   };
 
   const customItems = loadCustomItems();
-  const allItems = items.length > 0 ? items : (canManage ? [] : null);
 
   if (!canManage && items.length === 0) return null;
-  if (items.length === 0 && !canManage) return null;
 
   const displayText = items.length > 0
     ? items.map((it) => it.text).join("   ✦   ")
     : "لا توجد أخبار حالياً — يمكنك إضافة إعلان من زر الإضافة";
 
   return (
-    <div dir="rtl" className="relative bg-gradient-to-r from-amber-600 via-orange-500 to-yellow-500 text-white text-sm font-bold shadow-md overflow-hidden z-[150]">
-      <div className="flex items-center">
-        <div className="flex items-center gap-1.5 px-3 py-2 bg-black/20 shrink-0 border-l border-white/20 z-10">
-          <Megaphone className="h-4 w-4" />
-          <span className="text-xs font-black">أخبار</span>
-        </div>
+    <>
+      {/* ── شريط الأخبار ── */}
+      <div
+        dir="rtl"
+        className="relative bg-gradient-to-r from-amber-600 via-orange-500 to-yellow-500 text-white text-sm font-bold shadow-md z-[150]"
+      >
+        <div className="flex items-center">
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-black/20 shrink-0 border-l border-white/20 z-10">
+            <Megaphone className="h-4 w-4" />
+            <span className="text-xs font-black">أخبار</span>
+          </div>
 
-        <div className="flex-1 overflow-hidden py-2 px-2">
-          {items.length > 0 ? (
-            <div
-              ref={tickerRef}
-              className="whitespace-nowrap inline-block"
-              style={{
-                animation: `ticker-scroll ${Math.max(20, items.length * 12)}s linear infinite`,
-              }}
+          {/* النص المتحرك — overflow-hidden هنا فقط على النص */}
+          <div className="flex-1 overflow-hidden py-2 px-2">
+            {items.length > 0 ? (
+              <div
+                className="whitespace-nowrap inline-block"
+                style={{
+                  animation: `ticker-scroll ${Math.max(20, items.length * 12)}s linear infinite`,
+                }}
+              >
+                {displayText}
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                {displayText}
+              </div>
+            ) : (
+              <span className="text-white/70 text-xs">أضف أول إعلان من زر الإضافة ←</span>
+            )}
+          </div>
+
+          {canManage && (
+            <button
+              onClick={() => setShowAdd((v) => !v)}
+              className="flex items-center gap-1 px-3 py-2 bg-black/20 hover:bg-black/30 transition shrink-0 border-r border-white/20 text-xs font-bold"
             >
-              {displayText}
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-              {displayText}
-            </div>
-          ) : (
-            <span className="text-white/70 text-xs">أضف أول إعلان من زر الإضافة ←</span>
+              <Plus className="h-3.5 w-3.5" />
+              إضافة
+            </button>
           )}
         </div>
 
-        {canManage && (
-          <button
-            onClick={() => setShowAdd((v) => !v)}
-            className="flex items-center gap-1 px-3 py-2 bg-black/20 hover:bg-black/30 transition shrink-0 border-r border-white/20 text-xs font-bold"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            إضافة
-          </button>
-        )}
+        <style>{`
+          @keyframes ticker-scroll {
+            0%   { transform: translateX(100vw); }
+            100% { transform: translateX(-100%); }
+          }
+        `}</style>
       </div>
 
+      {/* ── نافذة الإضافة — خارج overflow-hidden تماماً ── */}
       {showAdd && canManage && (
-        <div
-          dir="rtl"
-          className="absolute top-full right-0 z-[200] bg-card border border-border rounded-2xl shadow-xl p-4 w-80 mt-1"
-          style={{ color: "var(--foreground)" }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <span className="font-bold text-sm flex items-center gap-1">
-              <Star className="h-4 w-4 text-amber-500" /> إضافة إعلان للشريط
-            </span>
-            <button onClick={() => setShowAdd(false)} className="p-1 hover:bg-secondary rounded-lg">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <textarea
-            value={newText}
-            onChange={(e) => setNewText(e.target.value)}
-            placeholder="اكتب نص الإعلان..."
-            rows={2}
-            className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm resize-none mb-3"
+        <>
+          {/* طبقة شفافة لإغلاق النافذة عند الضغط خارجها */}
+          <div
+            className="fixed inset-0 z-[210]"
+            onClick={() => setShowAdd(false)}
           />
-          <button
-            onClick={addItem}
-            disabled={!newText.trim()}
-            className="w-full py-2 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold text-sm disabled:opacity-50"
+          <div
+            dir="rtl"
+            className="fixed top-10 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 z-[220] bg-card border border-border rounded-2xl shadow-2xl p-4"
+            style={{ color: "var(--foreground)" }}
           >
-            نشر الإعلان
-          </button>
-
-          {customItems.length > 0 && (
-            <div className="mt-3 space-y-1">
-              <div className="text-xs text-muted-foreground font-bold mb-1">الإعلانات المخصصة ({customItems.length}):</div>
-              {customItems.map((it) => (
-                <div key={it.id} className="flex items-center gap-2 text-xs bg-secondary/60 rounded-xl px-3 py-2">
-                  <span className="flex-1 truncate">{it.text}</span>
-                  <button onClick={() => removeItem(it.id)} className="text-destructive shrink-0 hover:opacity-70">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
+            <div className="flex items-center justify-between mb-3">
+              <span className="font-bold text-sm flex items-center gap-1">
+                <Star className="h-4 w-4 text-amber-500" /> إضافة إعلان للشريط
+              </span>
+              <button
+                onClick={() => setShowAdd(false)}
+                className="p-1 hover:bg-secondary rounded-lg"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-          )}
-        </div>
-      )}
 
-      <style>{`
-        @keyframes ticker-scroll {
-          0% { transform: translateX(100vw); }
-          100% { transform: translateX(-100%); }
-        }
-      `}</style>
-    </div>
+            <textarea
+              value={newText}
+              onChange={(e) => setNewText(e.target.value)}
+              placeholder="اكتب نص الإعلان هنا..."
+              rows={3}
+              autoFocus
+              className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm resize-none mb-3 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+
+            <button
+              onClick={addItem}
+              disabled={!newText.trim()}
+              className="w-full py-2 rounded-xl bg-gradient-to-l from-amber-500 to-orange-500 text-white font-bold text-sm disabled:opacity-40 hover:opacity-90 transition"
+            >
+              نشر الإعلان ✓
+            </button>
+
+            {customItems.length > 0 && (
+              <div className="mt-3 space-y-1">
+                <div className="text-xs text-muted-foreground font-bold mb-1">
+                  الإعلانات الحالية ({customItems.length}):
+                </div>
+                {customItems.map((it) => (
+                  <div
+                    key={it.id}
+                    className="flex items-center gap-2 text-xs bg-secondary/60 rounded-xl px-3 py-2"
+                  >
+                    <span className="flex-1 truncate">{it.text}</span>
+                    <button
+                      onClick={() => removeItem(it.id)}
+                      className="text-destructive shrink-0 hover:opacity-70"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
@@ -262,9 +287,7 @@ export function TickerWithRole() {
   const [canManage, setCanManage] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session) return;
-      const id = data.session.user.id;
+    const loadPermissions = async (id: string) => {
       setUserId(id);
       const [{ data: roles }, { data: profile }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", id),
@@ -274,20 +297,17 @@ export function TickerWithRole() {
       const hasRoleInTable = !!roles?.some((r: any) => manageRoles.includes(String(r.role)));
       const hasRoleInProfile = manageRoles.includes(String((profile as any)?.role_type || ""));
       setCanManage(hasRoleInTable || hasRoleInProfile);
+    };
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) loadPermissions(data.session.user.id);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_, s) => {
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_, s) => {
       if (!s?.user) { setUserId(null); setCanManage(false); return; }
-      const id = s.user.id;
-      setUserId(id);
-      const [{ data: roles }, { data: profile }] = await Promise.all([
-        supabase.from("user_roles").select("role").eq("user_id", id),
-        supabase.from("profiles").select("role_type").eq("id", id).maybeSingle(),
-      ]);
-      const manageRoles = ["admin", "supervisor", "teacher"];
-      const hasRoleInTable = !!roles?.some((r: any) => manageRoles.includes(String(r.role)));
-      const hasRoleInProfile = manageRoles.includes(String((profile as any)?.role_type || ""));
-      setCanManage(hasRoleInTable || hasRoleInProfile);
+      loadPermissions(s.user.id);
     });
+
     return () => { sub.subscription.unsubscribe(); };
   }, []);
 
