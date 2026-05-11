@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Send, MessageSquare, Search, ImagePlus, MoreVertical, Ban, Flag, ShieldOff, Trash2 } from "lucide-react";
+import { ArrowLeft, Send, MessageSquare, Search, ImagePlus, MoreVertical, Ban, Flag, ShieldOff, Trash2, Smile } from "lucide-react";
 import { toast } from "sonner";
+import EmojiPicker, { Theme } from "emoji-picker-react";
 
 export const Route = createFileRoute("/messages")({
   validateSearch: (s) => ({ with: (s.with as string) || "" }),
@@ -11,6 +12,8 @@ export const Route = createFileRoute("/messages")({
 
 type Profile = { id: string; display_name: string | null; role_type: string | null; avatar_url: string | null };
 type DM = { id: string; sender_id: string; receiver_id: string; content: string; image_url: string | null; created_at: string };
+
+const MSG_EMOJIS = ["❤️", "😂", "👍", "🔥", "😮", "🥰"];
 
 function MessagesPage() {
   const navigate = useNavigate();
@@ -25,6 +28,9 @@ function MessagesPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState<string | false>(false);
+  const [msgReactions, setMsgReactions] = useState<Record<string, Record<string, number>>>({});
+  const [myReactions, setMyReactions] = useState<Record<string, string>>({});
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,13 +102,44 @@ function MessagesPage() {
     setMsgs((p) => p.filter((m) => m.id !== id));
   };
 
+  const loadReactions = async (messageIds: string[]) => {
+    if (!messageIds.length || !uid) return;
+    const { data } = await supabase.from("reactions").select("target_id, emoji, user_id")
+      .eq("target_type", "dm").in("target_id", messageIds);
+    const counts: Record<string, Record<string, number>> = {};
+    const mine: Record<string, string> = {};
+    (data || []).forEach((r: any) => {
+      if (!counts[r.target_id]) counts[r.target_id] = {};
+      counts[r.target_id][r.emoji] = (counts[r.target_id][r.emoji] || 0) + 1;
+      if (r.user_id === uid) mine[r.target_id] = r.emoji;
+    });
+    setMsgReactions(counts);
+    setMyReactions(mine);
+  };
+
+  const toggleMsgReaction = async (msgId: string, emoji: string) => {
+    if (!uid) return;
+    const current = myReactions[msgId];
+    if (current) {
+      await supabase.from("reactions").delete()
+        .eq("target_type", "dm").eq("target_id", msgId).eq("user_id", uid).eq("emoji", current);
+    }
+    if (current !== emoji) {
+      await supabase.from("reactions").insert({ target_type: "dm", target_id: msgId, user_id: uid, emoji });
+    }
+    const ids = msgs.map((m) => m.id);
+    loadReactions(ids);
+  };
+
   useEffect(() => {
     if (!uid || !active) return;
     const load = async () => {
       const { data } = await supabase.from("direct_messages").select("*")
         .or(`and(sender_id.eq.${uid},receiver_id.eq.${active.id}),and(sender_id.eq.${active.id},receiver_id.eq.${uid})`)
         .order("created_at", { ascending: true }).limit(200);
-      setMsgs((data || []) as DM[]);
+      const list = (data || []) as DM[];
+      setMsgs(list);
+      loadReactions(list.map((m) => m.id));
       setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     };
     load();
@@ -111,7 +148,6 @@ function MessagesPage() {
         const m = p.new as DM;
         if ((m.sender_id === uid && m.receiver_id === active.id) || (m.sender_id === active.id && m.receiver_id === uid)) {
           setMsgs((prev) => {
-            // dedupe by id, and replace any optimistic temp from same sender with same content
             if (prev.some((x) => x.id === m.id)) return prev;
             const tempIdx = prev.findIndex((x) => x.id.startsWith("temp-") && x.sender_id === m.sender_id && x.content === m.content && x.image_url === m.image_url);
             if (tempIdx >= 0) {
@@ -121,7 +157,11 @@ function MessagesPage() {
           });
           setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
         }
-      }).subscribe();
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "reactions", filter: "target_type=eq.dm" }, () => {
+        setMsgs((prev) => { loadReactions(prev.map((m) => m.id)); return prev; });
+      })
+      .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [uid, active]);
 
@@ -150,7 +190,6 @@ function MessagesPage() {
     const path = `${uid}/${Date.now()}.${ext}`;
     const { error: upErr } = await supabase.storage.from("dm-images").upload(path, file);
     if (upErr) return toast.error("فشل رفع الصورة");
-    // الـ bucket خاص — رابط موقّع طويل الأمد (سنة)
     const { data: signed } = await supabase.storage.from("dm-images").createSignedUrl(path, 60 * 60 * 24 * 365);
     const url = signed?.signedUrl || "";
     const tempId = `temp-${Date.now()}`;
@@ -255,21 +294,63 @@ function MessagesPage() {
               <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {msgs.map((m) => {
                   const me = m.sender_id === uid;
+                  const reactions = msgReactions[m.id] || {};
+                  const myEmoji = myReactions[m.id];
+                  const hasReactions = Object.keys(reactions).length > 0;
                   return (
-                    <div key={m.id} className={`group flex items-center gap-1 ${me ? "justify-start" : "justify-end"}`}>
-                      {me && !m.id.startsWith("temp-") && (
-                        <button onClick={() => deleteMessage(m.id)} className="opacity-0 group-hover:opacity-100 transition p-1 rounded-md hover:bg-destructive/10 text-destructive" title="حذف الرسالة">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      <div className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${me ? "bg-[var(--brand)] text-white" : "bg-secondary"}`}>
-                        {m.image_url && (
-                          <a href={m.image_url} target="_blank" rel="noreferrer">
-                            <img src={m.image_url} alt="" className="rounded-xl max-w-full max-h-64 object-cover mb-1" />
-                          </a>
+                    <div key={m.id} className="group">
+                      <div className={`flex items-center gap-1 ${me ? "justify-start" : "justify-end"}`}>
+                        {me && !m.id.startsWith("temp-") && (
+                          <button onClick={() => deleteMessage(m.id)} className="opacity-0 group-hover:opacity-100 transition p-1 rounded-md hover:bg-destructive/10 text-destructive" title="حذف الرسالة">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         )}
-                        {m.content && m.content !== "📷 صورة" && <div>{m.content}</div>}
+                        {!m.id.startsWith("temp-") && (
+                          <div className="relative opacity-0 group-hover:opacity-100 transition">
+                            <button
+                              onClick={() => setShowEmojiPicker(showEmojiPicker === m.id ? false : m.id)}
+                              className="p-1 rounded-md hover:bg-secondary text-muted-foreground"
+                              title="تفاعل"
+                            >
+                              <Smile className="h-3.5 w-3.5" />
+                            </button>
+                            {showEmojiPicker === m.id && (
+                              <div className={`absolute z-30 ${me ? "left-0" : "right-0"} bottom-8 bg-card border border-border rounded-2xl shadow-xl p-2 flex gap-1`}>
+                                {MSG_EMOJIS.map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    onClick={() => { toggleMsgReaction(m.id, emoji); setShowEmojiPicker(false); }}
+                                    className={`text-lg p-1.5 rounded-xl hover:bg-secondary transition ${myEmoji === emoji ? "bg-[var(--brand)]/15 ring-1 ring-[var(--brand)]" : ""}`}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${me ? "bg-[var(--brand)] text-white" : "bg-secondary"}`}>
+                          {m.image_url && (
+                            <a href={m.image_url} target="_blank" rel="noreferrer">
+                              <img src={m.image_url} alt="" className="rounded-xl max-w-full max-h-64 object-cover mb-1" />
+                            </a>
+                          )}
+                          {m.content && m.content !== "📷 صورة" && <div>{m.content}</div>}
+                        </div>
                       </div>
+                      {hasReactions && (
+                        <div className={`flex gap-1 mt-0.5 flex-wrap ${me ? "justify-start pr-8" : "justify-end pl-8"}`}>
+                          {Object.entries(reactions).map(([emoji, count]) => (
+                            <button
+                              key={emoji}
+                              onClick={() => toggleMsgReaction(m.id, emoji)}
+                              className={`text-xs px-1.5 py-0.5 rounded-full border transition ${myEmoji === emoji ? "bg-[var(--brand)]/15 border-[var(--brand)] text-[var(--brand)]" : "bg-card border-border hover:bg-secondary"}`}
+                            >
+                              {emoji} {count > 1 ? count : ""}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -280,13 +361,23 @@ function MessagesPage() {
                   لقد قمت بحظر هذا المستخدم — لا يمكنك إرسال رسائل إليه. اضغط القائمة لإلغاء الحظر.
                 </div>
               ) : (
-                <div className="p-3 border-t border-border flex gap-2">
+                <div className="p-3 border-t border-border flex gap-2 relative">
+                  {showEmojiPicker === "input" && (
+                    <div className="absolute bottom-full mb-2 right-0 z-30">
+                      <EmojiPicker theme={Theme.AUTO} width={300} height={350}
+                        onEmojiClick={(e) => { setText((t) => t + e.emoji); setShowEmojiPicker(false); }} />
+                    </div>
+                  )}
                   <label className="p-2 rounded-xl bg-secondary hover:bg-secondary/80 cursor-pointer" title="إرسال صورة">
                     <ImagePlus className="h-5 w-5" />
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                       const f = e.target.files?.[0]; if (f) sendImage(f); e.target.value = "";
                     }} />
                   </label>
+                  <button onClick={() => setShowEmojiPicker(showEmojiPicker === "input" ? false : "input")}
+                    className="p-2 rounded-xl bg-secondary hover:bg-secondary/80" title="إيموجي">
+                    <Smile className="h-5 w-5" />
+                  </button>
                   <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
                     placeholder="اكتب رسالة..." className="flex-1 px-4 py-2 rounded-xl bg-background border border-border" />
                   <button onClick={send} disabled={!text.trim()}

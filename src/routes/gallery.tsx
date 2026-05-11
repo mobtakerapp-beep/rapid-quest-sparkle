@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Image as ImageIcon, Upload, Trash2, Sparkles, Video, Send, Smile, X } from "lucide-react";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { ReportButton } from "@/components/ReportButton";
+import { Reactions } from "@/components/Reactions";
 
 export const Route = createFileRoute("/gallery")({ component: GalleryPage });
 
@@ -53,6 +54,25 @@ function GalleryPage() {
     }
   };
 
+  useEffect(() => {
+    const ch = supabase.channel("gallery-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: "category=eq.gallery" }, (payload) => {
+        const newItem = payload.new as Item;
+        setItems((prev) => {
+          if (prev.some((i) => i.id === newItem.id)) return prev;
+          return [newItem, ...prev];
+        });
+        supabase.from("profiles").select("id, display_name").eq("id", newItem.user_id).maybeSingle().then(({ data }) => {
+          if (data) setProfiles((p) => ({ ...p, [data.id]: data }));
+        });
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: "category=eq.gallery" }, (payload) => {
+        setItems((prev) => prev.filter((i) => i.id !== (payload.old as any).id));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -85,7 +105,6 @@ function GalleryPage() {
       if (error) throw error;
       toast.success("تم النشر ✨");
       setFile(null); setPreview(null); setCaption("");
-      load();
     } catch (e: any) {
       toast.error(e.message || "فشل النشر");
     } finally { setUploading(false); }
@@ -115,7 +134,6 @@ function GalleryPage() {
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-5xl">
-        {/* Upload */}
         <div className="bg-card rounded-3xl border border-border p-5 mb-6 shadow-[var(--shadow-card)] relative">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-[var(--brand)]" />
@@ -153,7 +171,6 @@ function GalleryPage() {
           </div>
         </div>
 
-        {/* Grid */}
         {items.length === 0 ? (
           <div className="text-center text-muted-foreground py-20 text-sm">لا توجد إبداعات بعد. كن أول من يشارك! 🎨</div>
         ) : (
@@ -222,36 +239,50 @@ function ItemModal({ item, uid, isAdmin, authorName, onClose }: { item: Item; ui
   const [sending, setSending] = useState(false);
   const vid = item.image_url ? isVideo(item.image_url) : false;
 
+  const loadComments = async () => {
+    const { data } = await supabase.from("gallery_comments").select("*").eq("item_id", item.id).order("created_at");
+    const list = (data || []) as Comment[];
+    setComments(list);
+    const ids = Array.from(new Set(list.map((c) => c.user_id)));
+    if (ids.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, display_name").in("id", ids);
+      const map: Record<string, Profile> = {};
+      profs?.forEach((p) => (map[p.id] = p));
+      setProfiles(map);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from("gallery_comments").select("*").eq("item_id", item.id).order("created_at");
-      const list = (data || []) as Comment[];
-      setComments(list);
-      const ids = Array.from(new Set(list.map((c) => c.user_id)));
-      if (ids.length) {
-        const { data: profs } = await supabase.from("profiles").select("id, display_name").in("id", ids);
-        const map: Record<string, Profile> = {};
-        profs?.forEach((p) => (map[p.id] = p));
-        setProfiles(map);
-      }
-    })();
+    loadComments();
+
+    const ch = supabase.channel(`gallery-comments-${item.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "gallery_comments", filter: `item_id=eq.${item.id}` }, (payload) => {
+        const newComment = payload.new as Comment;
+        setComments((prev) => {
+          if (prev.some((c) => c.id === newComment.id)) return prev;
+          return [...prev, newComment];
+        });
+        supabase.from("profiles").select("id, display_name").eq("id", newComment.user_id).maybeSingle().then(({ data }) => {
+          if (data) setProfiles((p) => ({ ...p, [data.id]: data }));
+        });
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "gallery_comments", filter: `item_id=eq.${item.id}` }, (payload) => {
+        setComments((prev) => prev.filter((c) => c.id !== (payload.old as any).id));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(ch); };
   }, [item.id]);
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim()) return;
     setSending(true);
-    const { data, error } = await supabase.from("gallery_comments")
-      .insert({ item_id: item.id, user_id: uid, content: text.trim() })
-      .select().maybeSingle();
+    const { error } = await supabase.from("gallery_comments")
+      .insert({ item_id: item.id, user_id: uid, content: text.trim() });
     setSending(false);
     if (error) return toast.error(`فشل الإرسال: ${error.message}`);
-    if (data) setComments((p) => [...p, data as Comment]);
     setText("");
-    if (!profiles[uid]) {
-      const { data: me } = await supabase.from("profiles").select("id, display_name").eq("id", uid).maybeSingle();
-      if (me) setProfiles((p) => ({ ...p, [uid]: me }));
-    }
   };
 
   const delComment = async (id: string) => {
@@ -278,6 +309,11 @@ function ItemModal({ item, uid, isAdmin, authorName, onClose }: { item: Item; ui
             </div>
             <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary"><X className="h-4 w-4" /></button>
           </div>
+
+          <div className="px-4 pt-3 pb-1 border-b border-border">
+            <Reactions targetType="gallery" targetId={item.id} uid={uid} />
+          </div>
+
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {comments.length === 0 && <div className="text-center text-muted-foreground text-sm py-8">لا توجد تعليقات بعد</div>}
             {comments.map((c) => {
@@ -328,5 +364,3 @@ function ItemModal({ item, uid, isAdmin, authorName, onClose }: { item: Item; ui
     </div>
   );
 }
-
-

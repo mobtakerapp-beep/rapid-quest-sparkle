@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Sparkles, Bot, Image as ImageIcon, X, Palette, Pencil, Eraser, Trash2 } from "lucide-react";
+import { ArrowLeft, Send, Sparkles, Bot, Image as ImageIcon, X, Palette, Pencil, Eraser, Trash2, Download } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -11,14 +11,22 @@ export const Route = createFileRoute("/assistant")({ component: AssistantPage })
 
 type Msg = { role: "user" | "assistant"; content: string; imageUrl?: string; generatedImage?: string };
 
-// Render React children, wrapping any string segment with <MathText/> so
-// math/Arabic-digit conversion works without flattening React nodes to "[object Object]".
 function renderWithMath(children: any): any {
   if (children == null || typeof children === "boolean") return children;
   if (typeof children === "string") return <MathText text={children} />;
   if (typeof children === "number") return <MathText text={String(children)} />;
   if (Array.isArray(children)) return children.map((c, i) => <span key={i}>{renderWithMath(c)}</span>);
   return children;
+}
+
+function downloadImage(url: string) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `assistant-image-${Date.now()}.png`;
+  a.target = "_blank";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function AssistantPage() {
@@ -192,7 +200,19 @@ function AssistantPage() {
             <div key={i} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"}`}>
               <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${m.role === "user" ? "bg-[image:var(--gradient-hero)] text-white" : "bg-card border border-border"}`}>
                 {m.imageUrl && <img src={m.imageUrl} alt="" className="mb-2 rounded-xl max-h-64 object-contain bg-white/20" />}
-                {m.generatedImage && <img src={m.generatedImage} alt="" className="mb-2 rounded-xl max-h-80 object-contain bg-white/20" />}
+                {m.generatedImage && (
+                  <div className="relative mb-2 group">
+                    <img src={m.generatedImage} alt="" className="rounded-xl max-h-80 object-contain bg-white/20 w-full" />
+                    <button
+                      onClick={() => downloadImage(m.generatedImage!)}
+                      className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 hover:bg-black text-white p-2 rounded-xl flex items-center gap-1.5 text-xs font-bold"
+                      title="تحميل الصورة"
+                    >
+                      <Download className="h-4 w-4" />
+                      تحميل
+                    </button>
+                  </div>
+                )}
                 {m.role === "assistant" ? (
                   <div className="prose prose-sm max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1" dir="rtl">
                     <ReactMarkdown

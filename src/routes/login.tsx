@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Mail, Lock, Shield, ArrowRight, KeyRound } from "lucide-react";
+import { Mail, Lock, Shield, ArrowRight, KeyRound, X } from "lucide-react";
 import logo from "@/assets/original-logo-reference.jpg";
 import { playLoginSound } from "@/lib/sounds";
 
@@ -12,12 +12,21 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [adminCode, setAdminCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rememberEmail, setRememberEmail] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("remembered-email");
+    if (saved) {
+      setEmail(saved);
+      setRememberEmail(true);
+    }
+  }, []);
 
   const claimAccessCode = async (code: string) => {
     const trimmed = code.trim();
@@ -49,11 +58,35 @@ function LoginPage() {
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) { toast.error("أدخل بريدك الإلكتروني أولاً"); return; }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}/login`,
+      });
+      if (error) throw error;
+      toast.success("تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني");
+      setMode("signin");
+    } catch (err: any) {
+      toast.error(err.message || "حدث خطأ");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       const normalizedEmail = email.trim().toLowerCase();
+
+      if (rememberEmail) {
+        localStorage.setItem("remembered-email", normalizedEmail);
+      } else {
+        localStorage.removeItem("remembered-email");
+      }
 
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
@@ -66,7 +99,6 @@ function LoginPage() {
         });
         if (error) throw error;
         if (adminCode && data.user) {
-          // wait briefly for session, then claim the matching role
           setTimeout(async () => {
             await claimAccessCode(adminCode);
           }, 800);
@@ -98,87 +130,150 @@ function LoginPage() {
           <div className="h-16 w-16 mx-auto rounded-2xl flex items-center justify-center mb-4 shadow-[var(--shadow-soft)] ring-1 ring-border overflow-hidden">
             <img src={logo} alt="شعار مبادرة كلنا معاً" className="h-full w-full object-cover" width={64} height={64} />
           </div>
-          <h1 className="text-2xl font-black">{mode === "signin" ? "تسجيل الدخول" : "إنشاء حساب"}</h1>
-          <p className="text-sm text-muted-foreground mt-1">انضم لمجتمع كلنا معك</p>
+          <h1 className="text-2xl font-black">
+            {mode === "signin" ? "تسجيل الدخول" : mode === "signup" ? "إنشاء حساب" : "نسيت كلمة المرور"}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {mode === "forgot" ? "سنرسل لك رابط إعادة التعيين على بريدك" : "انضم لمجتمع كلنا معك"}
+          </p>
         </div>
 
-        <form onSubmit={handleAuth} className="space-y-3">
-          {mode === "signup" && (
+        {mode === "forgot" ? (
+          <form onSubmit={handleForgotPassword} className="space-y-3">
             <div className="relative">
               <input
+                type="email"
                 required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="الاسم"
-                name="name"
-                autoComplete="name"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="البريد الإلكتروني"
+                name="email"
+                autoComplete="email"
+                inputMode="email"
+                autoCapitalize="none"
+                dir="ltr"
                 className="w-full pr-10 pl-4 py-3 rounded-xl border border-border bg-background"
               />
-              <Shield className="absolute right-3 top-3.5 h-4 w-4 text-muted-foreground" />
+              <Mail className="absolute right-3 top-3.5 h-4 w-4 text-muted-foreground" />
             </div>
-          )}
-          <div className="relative">
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="البريد الإلكتروني"
-              name="email"
-              autoComplete="email"
-              inputMode="email"
-              autoCapitalize="none"
-              dir="ltr"
-              className="w-full pr-10 pl-4 py-3 rounded-xl border border-border bg-background"
-            />
-            <Mail className="absolute right-3 top-3.5 h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="relative">
-            <input
-              type="password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="كلمة المرور"
-              name="password"
-              autoComplete={mode === "signin" ? "current-password" : "new-password"}
-              className="w-full pr-10 pl-4 py-3 rounded-xl border border-border bg-background"
-            />
-            <Lock className="absolute right-3 top-3.5 h-4 w-4 text-muted-foreground" />
-          </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold shadow-[var(--shadow-soft)] hover:scale-[1.02] transition disabled:opacity-50"
+            >
+              {loading ? "جاري الإرسال..." : "إرسال رابط إعادة التعيين"}
+              <ArrowRight className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("signin")}
+              className="w-full text-center text-sm text-muted-foreground hover:text-foreground flex items-center justify-center gap-1"
+            >
+              <X className="h-3.5 w-3.5" /> إلغاء
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleAuth} className="space-y-3">
+            {mode === "signup" && (
+              <div className="relative">
+                <input
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="الاسم"
+                  name="name"
+                  autoComplete="name"
+                  className="w-full pr-10 pl-4 py-3 rounded-xl border border-border bg-background"
+                />
+                <Shield className="absolute right-3 top-3.5 h-4 w-4 text-muted-foreground" />
+              </div>
+            )}
+            <div className="relative">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="البريد الإلكتروني"
+                name="email"
+                autoComplete="email"
+                inputMode="email"
+                autoCapitalize="none"
+                dir="ltr"
+                className="w-full pr-10 pl-4 py-3 rounded-xl border border-border bg-background"
+              />
+              <Mail className="absolute right-3 top-3.5 h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="relative">
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="كلمة المرور"
+                name="password"
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                className="w-full pr-10 pl-4 py-3 rounded-xl border border-border bg-background"
+              />
+              <Lock className="absolute right-3 top-3.5 h-4 w-4 text-muted-foreground" />
+            </div>
 
-          <details className="rounded-xl border border-dashed border-border p-3">
-            <summary className="text-xs text-muted-foreground cursor-pointer flex items-center gap-2">
-              <KeyRound className="h-3.5 w-3.5" /> كود صلاحيات (اختياري)
-            </summary>
-            <input
-              value={adminCode}
-              onChange={(e) => setAdminCode(e.target.value)}
-              placeholder="كود الأدمن / المشرف / المعلم"
-              className="mt-2 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
-            />
-          </details>
+            {mode === "signin" && (
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberEmail}
+                    onChange={(e) => setRememberEmail(e.target.checked)}
+                    className="rounded"
+                  />
+                  تذكر بريدي الإلكتروني
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setMode("forgot")}
+                  className="text-sm text-[var(--brand)] hover:underline"
+                >
+                  نسيت كلمة المرور؟
+                </button>
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold shadow-[var(--shadow-soft)] hover:scale-[1.02] transition disabled:opacity-50"
-          >
-            {loading ? "جاري..." : mode === "signin" ? "دخول" : "إنشاء"}
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </form>
+            <details className="rounded-xl border border-dashed border-border p-3">
+              <summary className="text-xs text-muted-foreground cursor-pointer flex items-center gap-2">
+                <KeyRound className="h-3.5 w-3.5" /> كود صلاحيات (اختياري)
+              </summary>
+              <input
+                value={adminCode}
+                onChange={(e) => setAdminCode(e.target.value)}
+                placeholder="كود الأدمن / المشرف / المعلم"
+                className="mt-2 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
+              />
+            </details>
 
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          {mode === "signin" ? "ليس لديك حساب؟" : "لديك حساب؟"}{" "}
-          <button
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            className="text-[var(--brand)] font-semibold hover:underline"
-          >
-            {mode === "signin" ? "إنشاء حساب" : "تسجيل الدخول"}
-          </button>
-        </p>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold shadow-[var(--shadow-soft)] hover:scale-[1.02] transition disabled:opacity-50"
+            >
+              {loading ? "جاري..." : mode === "signin" ? "دخول" : "إنشاء"}
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </form>
+        )}
+
+        {mode !== "forgot" && (
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            {mode === "signin" ? "ليس لديك حساب؟" : "لديك حساب؟"}{" "}
+            <button
+              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+              className="text-[var(--brand)] font-semibold hover:underline"
+            >
+              {mode === "signin" ? "إنشاء حساب" : "تسجيل الدخول"}
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );
