@@ -225,13 +225,16 @@ function MessagesPage() {
                   <MoreVertical className="h-4 w-4" />
                 </button>
                 {menuOpen && (
-                  <div className="absolute top-12 left-2 z-20 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[180px]">
+                  <div className="absolute top-12 left-2 z-20 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[200px]">
                     <button onClick={toggleBlock} className="w-full text-right px-3 py-2 text-sm hover:bg-secondary flex items-center gap-2">
                       {isBlocked ? <ShieldOff className="h-4 w-4 text-emerald-600" /> : <Ban className="h-4 w-4 text-destructive" />}
                       {isBlocked ? "إلغاء الحظر" : "حظر هذا المستخدم"}
                     </button>
                     <button onClick={() => { setReportOpen(true); setMenuOpen(false); }} className="w-full text-right px-3 py-2 text-sm hover:bg-secondary flex items-center gap-2 border-t border-border">
                       <Flag className="h-4 w-4 text-amber-600" /> الإبلاغ عنه للإدارة
+                    </button>
+                    <button onClick={deleteConversation} className="w-full text-right px-3 py-2 text-sm hover:bg-secondary flex items-center gap-2 border-t border-border text-destructive">
+                      <Trash2 className="h-4 w-4" /> حذف كل المحادثة
                     </button>
                   </div>
                 )}
