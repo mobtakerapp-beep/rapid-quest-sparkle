@@ -116,6 +116,20 @@ function CompetitionsPage() {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
+  // Realtime: تحديث حالة البطاقة فوراً عند إرسال الإجابة
+  useEffect(() => {
+    if (!uid) return;
+    const ch = supabase.channel(`my-submissions-${uid}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "competition_submissions",
+        filter: `user_id=eq.${uid}`,
+      }, (p: any) => {
+        setUserSubmittedIds((prev) => new Set([...prev, p.new.competition_id]));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [uid]);
+
   const updateQ = (i: number, patch: Partial<MQ>) => {
     setQuestions((p) => p.map((q, j) => (j === i ? { ...q, ...patch } : q)));
   };
