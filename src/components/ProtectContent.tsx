@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 export function ProtectContent() {
   useEffect(() => {
-    // Skip protection inside Lovable preview iframe so editor stays usable
+    // Skip protection inside preview iframes (e.g. Replit preview pane)
     const inIframe = (() => { try { return window.self !== window.top; } catch { return true; } })();
     if (inIframe) return;
 
