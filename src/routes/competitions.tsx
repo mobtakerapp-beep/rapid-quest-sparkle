@@ -427,7 +427,7 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
   // shuffleMap[qi][displayIdx] = originalIdx — so we can send the original index to the server
   const shuffleMapRef = useRef<Record<number, number[]>>({});
   const [idx, setIdx] = useState(0);
-  // answers: { questionIdx -> option TEXT (for MC) or typed text }
+  // answers: { questionIdx -> originalIdx string (MC) or typed text }
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [textAnswer, setTextAnswer] = useState("");
   const [now, setNow] = useState(Date.now());
@@ -441,6 +441,8 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
   const submitting = useRef(false);
   // Local ref to questions for use in callbacks
   const questionsRef = useRef<MQ[] | null>(null);
+  // Keep original (unshuffled) questions for review display
+  const originalQsRef = useRef<MQ[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -459,18 +461,26 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
         const { data, error } = await supabase.rpc("get_competition_for_attempt", { _id: comp.id });
         if (error) { toast.error(error.message); return; }
         const row: any = Array.isArray(data) ? data[0] : data;
-        const rawQs = (row?.questions as MQ[] | null) || (comp.questions as MQ[]);
-        // Shuffle MC options for each question; track original index mapping
+        const rawQs: MQ[] = (row?.questions as MQ[] | null) || (comp.questions as MQ[]) || [];
+        // Store original unshuffled questions for review display
+        originalQsRef.current = rawQs;
+        // Shuffle MC options for each question using Fisher-Yates; track original index mapping.
+        // Condition: shuffle any question that has ≥2 options (regardless of is_multiple_choice flag
+        // which may be stripped by the RPC).
         const map: Record<number, number[]> = {};
-        const qs = rawQs ? rawQs.map((q, qi) => {
-          if (!q.is_multiple_choice || !q.options?.length) return q;
-          const indices = q.options.map((_: any, i: number) => i).sort(() => Math.random() - 0.5);
+        const qs = rawQs.map((q, qi) => {
+          if (!q.options?.length || q.options.length < 2) return q;
+          const indices: number[] = q.options.map((_: any, i: number) => i);
+          for (let i = indices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [indices[i], indices[j]] = [indices[j], indices[i]];
+          }
           map[qi] = indices; // map[qi][displayIdx] = originalIdx
           return { ...q, options: indices.map((i: number) => q.options![i]) };
-        }) : null;
+        });
         shuffleMapRef.current = map;
-        setQuestions(qs && qs.length ? qs : null);
-        questionsRef.current = qs && qs.length ? qs : null;
+        setQuestions(qs.length ? qs : null);
+        questionsRef.current = qs.length ? qs : null;
         setQuestionStartedAt(Date.now());
       }
     })();
@@ -497,14 +507,15 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
     const total = r?.question_count ?? (questionsRef.current?.length ?? 0);
     setSubmittedResult({ correct, total });
 
-    // Build review data — for MC map stored index back to option text for display
-    const qs = questionsRef.current;
-    if (qs) {
-      setReviewData(qs.map((q, qi) => {
+    // Build review data — use ORIGINAL (unshuffled) questions so idx lookup is correct
+    const origQs = originalQsRef.current;
+    if (origQs.length) {
+      setReviewData(origQs.map((q, qi) => {
         const raw = finalAnswers[String(qi)];
         let display = raw ?? "—";
-        if (q.is_multiple_choice && q.options && raw !== undefined) {
+        if (q.options?.length && raw !== undefined) {
           const idx = parseInt(raw, 10);
+          // raw = originalIdx → index into original unshuffled options gives the correct text
           if (!isNaN(idx) && q.options[idx] !== undefined) display = q.options[idx];
         }
         return { question: q.question, userAnswer: display, options: q.options };
@@ -706,6 +717,18 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
   const remaining = comp.ends_at ? Math.max(0, Math.floor((endMs - now) / 1000)) : Infinity;
   const ended = comp.ends_at ? remaining === 0 : false;
 
+  // Shuffle single-question MC options once (stable ref pattern)
+  const singleShuffleRef = useRef<{ options: string[]; map: number[] } | null>(null);
+  if (!singleShuffleRef.current && comp.options?.length) {
+    const indices: number[] = comp.options.map((_: any, i: number) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    singleShuffleRef.current = { options: indices.map((i) => comp.options![i]), map: indices };
+  }
+  const shuffledSingle = singleShuffleRef.current;
+
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
@@ -720,13 +743,13 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
     })();
   }, [uid, comp.id]);
 
-  const submitMC = async (opt: string) => {
+  const submitMC = async (originalIdx: number) => {
     if (isTeacher || submitted || ended || sending) return;
     setSending(true);
     const elapsed = Math.floor((Date.now() - startMs) / 1000);
-    // Send option TEXT for text-based comparison in RPC
+    // Send the original index (before shuffle) so server can compare against correct_index
     const { error } = await supabase.from("competition_submissions").insert({
-      competition_id: comp.id, user_id: uid, answer: opt,
+      competition_id: comp.id, user_id: uid, answer: String(originalIdx),
       time_taken_seconds: elapsed, is_correct: false,
     });
     setSending(false);
@@ -804,12 +827,12 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
           </div>
         ) : !ended ? (
           <div className="space-y-2">
-            {comp.is_multiple_choice && comp.options && comp.options.length > 0 ? (
+            {comp.is_multiple_choice && shuffledSingle ? (
               <div className="grid sm:grid-cols-2 gap-2">
-                {comp.options.map((opt, i) => (
-                  <button key={i} disabled={sending} onClick={() => submitMC(opt)}
+                {shuffledSingle.options.map((opt, di) => (
+                  <button key={di} disabled={sending} onClick={() => submitMC(shuffledSingle.map[di])}
                     className="text-right px-4 py-3 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition font-bold disabled:opacity-50">
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{['أ','ب','ج','د','هـ','و'][i] ?? String(i+1)}</span>
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{['أ','ب','ج','د','هـ','و'][di] ?? String(di+1)}</span>
                     <MathText text={opt} />
                   </button>
                 ))}

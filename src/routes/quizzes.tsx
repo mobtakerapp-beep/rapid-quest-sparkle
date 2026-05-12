@@ -80,6 +80,19 @@ function QuizzesPage() {
     const { error } = await supabase.from("quizzes").insert({ title: title.trim(), subject, questions: questions as any, created_by: uid });
     if (error) return toast.error(error.message);
     toast.success("تم إضافة الاختبار للبنك 🎯");
+    // Notify all students about the new quiz
+    const { data: students } = await supabase.from("profiles").select("id").eq("role_type", "student");
+    if (students?.length) {
+      await supabase.from("notifications").insert(
+        students.map((s) => ({
+          user_id: s.id,
+          title: `اختبار جديد 🎯`,
+          body: `تم إضافة اختبار جديد: "${title.trim()}" — مادة: ${subject}`,
+          type: "quiz",
+          link: "/quizzes",
+        }))
+      );
+    }
     setTitle(""); setSubject("عام"); setQuestions([{ question: "", options: ["", "", "", ""], correct: 0, type: "mc" }]); setShowForm(false); load(uid ?? undefined);
   };
 
@@ -189,19 +202,26 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
   const [loaded, setLoaded] = useState(false);
   const [previousDetails, setPreviousDetails] = useState<any[] | null>(null);
   const rawQs = Array.isArray(quiz.questions) ? quiz.questions : [];
-  // Shuffle MC options randomly per question; track mapping back to original index for scoring.
-  const shuffleMapRef = useRef<Record<number, number[]>>({});
-  const [qs] = useState(() => {
+  // Shuffle MC options using a stable ref so qs and map are ALWAYS in sync.
+  // Using a ref (not useState) avoids any Strict-Mode double-invoke mismatch.
+  const shuffleRef = useRef<{ qs: Q[]; map: Record<number, number[]> } | null>(null);
+  if (!shuffleRef.current) {
     const map: Record<number, number[]> = {};
-    const shuffled = rawQs.map((q: any, qi: number) => {
+    const shuffledQs = rawQs.map((q: any, qi: number) => {
       if ((q.type || "mc") !== "mc" || !q.options?.length) return q;
-      const indices: number[] = q.options.map((_: any, i: number) => i).sort(() => Math.random() - 0.5);
+      // Fisher-Yates for true uniform randomness
+      const indices: number[] = q.options.map((_: any, i: number) => i);
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
       map[qi] = indices; // map[qi][displayIdx] = originalIdx
       return { ...q, options: indices.map((i: number) => q.options[i]) };
     });
-    shuffleMapRef.current = map;
-    return shuffled;
-  });
+    shuffleRef.current = { qs: shuffledQs, map };
+  }
+  const qs = shuffleRef.current.qs;
+  const shuffleMap = shuffleRef.current.map;
   const mcCount = qs.filter((q) => (q.type || "mc") === "mc").length;
 
   // Load previous attempt — students can take only ONCE; teachers preview without submitting
@@ -233,7 +253,7 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
     qs.forEach((q: any, i: number) => {
       if ((q.type || "mc") === "essay") essMap[String(i)] = essays[i] || "";
       else if (typeof answers[i] === "number") {
-        const map = shuffleMapRef.current[i];
+        const map = shuffleMap[i];
         const originalIdx = map ? map[answers[i]] : answers[i];
         ansMap[String(i)] = originalIdx;
       }
