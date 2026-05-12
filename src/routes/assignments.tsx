@@ -38,14 +38,31 @@ function AssignmentsPage() {
       const fromTable = !!roles?.some((r) => manageRoles.includes(String(r.role)));
       const fromProfile = manageRoles.includes(String((profile as any)?.role_type || ""));
       setIsTeacher(fromTable || fromProfile);
-      load();
+      load(id);
     });
   }, [navigate]);
 
-  const load = async () => {
-    const { data } = await supabase.from("assignments").select("*").order("created_at", { ascending: false });
+  const [mySubIds, setMySubIds] = useState<Set<string>>(new Set());
+
+  const load = async (userId?: string) => {
+    const id = userId ?? uid;
+    const [{ data }, { data: mySubs }] = await Promise.all([
+      supabase.from("assignments").select("*").order("created_at", { ascending: false }),
+      id ? supabase.from("assignment_submissions").select("assignment_id").eq("student_id", id) : Promise.resolve({ data: [] }),
+    ]);
     setList((data || []) as A[]);
+    setMySubIds(new Set(((mySubs as any[]) || []).map((s) => s.assignment_id)));
   };
+
+  useEffect(() => {
+    if (!uid) return;
+    const ch = supabase.channel(`assignments-subs-${uid}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "assignment_submissions", filter: `student_id=eq.${uid}` }, (p: any) => {
+        setMySubIds((prev) => new Set([...prev, p.new.assignment_id]));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [uid]);
 
   const create = async () => {
     if (!uid || !title.trim()) return toast.error("أدخل العنوان");
@@ -117,9 +134,16 @@ function AssignmentsPage() {
               return (
               <div key={a.id} className="relative">
                 <button onClick={() => setActive(a)} className="w-full text-right bg-card rounded-2xl border border-border p-4 hover:shadow-lg transition">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="font-bold">{a.title}</div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] font-bold">{a.subject || "عام"}</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {!isTeacher && (
+                        mySubIds.has(a.id)
+                          ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 font-bold flex items-center gap-0.5"><Check className="h-2.5 w-2.5" /> شاركت</span>
+                          : <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 font-bold">● نشطة</span>
+                      )}
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] font-bold">{a.subject || "عام"}</span>
+                    </div>
                   </div>
                   {a.description && <div className="text-xs text-muted-foreground mt-1 line-clamp-2"><MathText text={a.description} /></div>}
                   {a.due_at && <div className="text-xs text-amber-600 mt-2 inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {new Date(a.due_at).toLocaleString("ar-EG")}</div>}

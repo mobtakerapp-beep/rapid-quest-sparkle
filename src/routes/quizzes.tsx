@@ -189,8 +189,19 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
   const [loaded, setLoaded] = useState(false);
   const [previousDetails, setPreviousDetails] = useState<any[] | null>(null);
   const rawQs = Array.isArray(quiz.questions) ? quiz.questions : [];
-  // No client-side shuffle: keeps option indices aligned with server-stored `correct` for scoring.
-  const [qs] = useState(() => rawQs.map((q) => ({ ...q })));
+  // Shuffle MC options randomly per question; track mapping back to original index for scoring.
+  const shuffleMapRef = useRef<Record<number, number[]>>({});
+  const [qs] = useState(() => {
+    const map: Record<number, number[]> = {};
+    const shuffled = rawQs.map((q: any, qi: number) => {
+      if ((q.type || "mc") !== "mc" || !q.options?.length) return q;
+      const indices: number[] = q.options.map((_: any, i: number) => i).sort(() => Math.random() - 0.5);
+      map[qi] = indices; // map[qi][displayIdx] = originalIdx
+      return { ...q, options: indices.map((i: number) => q.options[i]) };
+    });
+    shuffleMapRef.current = map;
+    return shuffled;
+  });
   const mcCount = qs.filter((q) => (q.type || "mc") === "mc").length;
 
   // Load previous attempt — students can take only ONCE; teachers preview without submitting
@@ -216,12 +227,16 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
   }, [quiz.id, uid, isTeacher]);
 
   const submit = async () => {
-    // Send selections to server; server scores using real correct answers (which the client doesn't have).
+    // Send selections to server; map shuffled display index back to original index for scoring.
     const ansMap: Record<string, number> = {};
     const essMap: Record<string, string> = {};
-    qs.forEach((q, i) => {
+    qs.forEach((q: any, i: number) => {
       if ((q.type || "mc") === "essay") essMap[String(i)] = essays[i] || "";
-      else if (typeof answers[i] === "number") ansMap[String(i)] = answers[i];
+      else if (typeof answers[i] === "number") {
+        const map = shuffleMapRef.current[i];
+        const originalIdx = map ? map[answers[i]] : answers[i];
+        ansMap[String(i)] = originalIdx;
+      }
     });
     const { data, error } = await supabase.rpc("submit_quiz_attempt" as any, {
       _quiz_id: quiz.id,
@@ -327,8 +342,7 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
 
 function QuestionEditor({ q, qi, onChange }: { q: Q; qi: number; onChange: (q: Q) => void }) {
   const qRef = useRef<HTMLInputElement>(null);
-  const optRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const [focused, setFocused] = useState<number>(-1);
+  const correctRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
   const onPickImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -348,6 +362,20 @@ function QuestionEditor({ q, qi, onChange }: { q: Q; qi: number; onChange: (q: Q
     } finally { setUploading(false); e.target.value = ""; }
   };
 
+  // For MC: options[0] = correct answer, options[1..3] = wrong answers, correct = 0
+  const opts = q.options.length >= 4 ? q.options : ["", "", "", ""];
+  const correctAnswer = opts[0] || "";
+  const wrongAnswers = [opts[1] || "", opts[2] || "", opts[3] || ""];
+
+  const setCorrectAnswer = (v: string) => {
+    const o = [...opts]; o[0] = v;
+    onChange({ ...q, options: o, correct: 0 });
+  };
+  const setWrongAnswer = (wi: number, v: string) => {
+    const o = [...opts]; o[wi + 1] = v;
+    onChange({ ...q, options: o, correct: 0 });
+  };
+
   return (
     <div className="p-3 rounded-xl border border-border space-y-2">
       <div className="text-[11px] font-bold text-muted-foreground">
@@ -355,19 +383,12 @@ function QuestionEditor({ q, qi, onChange }: { q: Q; qi: number; onChange: (q: Q
       </div>
       <input
         ref={qRef}
-        onFocus={() => setFocused(-1)}
         value={q.question}
         onChange={(e) => onChange({ ...q, question: e.target.value })}
         placeholder={`السؤال ${qi + 1}`}
         className="w-full px-3 py-2 rounded-lg border border-border bg-background"
       />
-      <MathToolbar
-        targetRef={focused === -1 ? qRef : { current: optRefs.current[focused] }}
-        onChange={(v) => {
-          if (focused === -1) onChange({ ...q, question: v });
-          else { const opts = [...q.options]; opts[focused] = v; onChange({ ...q, options: opts }); }
-        }}
-      />
+      <MathToolbar targetRef={qRef} onChange={(v) => onChange({ ...q, question: v })} />
       <div className="flex items-center gap-2 flex-wrap">
         <label className="cursor-pointer text-xs px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 inline-flex items-center gap-1">
           📷 {q.image_url ? "تغيير الصورة" : "إضافة صورة (اختياري)"}
@@ -381,19 +402,33 @@ function QuestionEditor({ q, qi, onChange }: { q: Q; qi: number; onChange: (q: Q
         )}
         {uploading && <span className="text-xs text-muted-foreground">جاري الرفع...</span>}
       </div>
-      {(q.type || "mc") === "mc" && q.options.map((o, oi) => (
-        <div key={oi} className="flex gap-2 items-center">
-          <input type="radio" checked={q.correct === oi} onChange={() => onChange({ ...q, correct: oi })} />
-          <input
-            ref={(el) => { optRefs.current[oi] = el; }}
-            onFocus={() => setFocused(oi)}
-            value={o}
-            onChange={(e) => { const opts = [...q.options]; opts[oi] = e.target.value; onChange({ ...q, options: opts }); }}
-            placeholder={`الخيار ${oi + 1}`}
-            className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm"
-          />
+      {(q.type || "mc") === "mc" && (
+        <div className="space-y-1.5">
+          <div className="text-[10px] text-muted-foreground font-bold">اكتب الإجابة الصحيحة ثم 3 إجابات خاطئة — ستظهر عشوائية للطالب</div>
+          <div className="flex items-center gap-2">
+            <span className="text-emerald-600">✅</span>
+            <input
+              ref={correctRef}
+              value={correctAnswer}
+              onChange={(e) => setCorrectAnswer(e.target.value)}
+              placeholder="الإجابة الصحيحة"
+              className="flex-1 px-3 py-2 rounded-lg border-2 border-emerald-500 bg-background text-sm font-bold"
+            />
+          </div>
+          <MathToolbar targetRef={correctRef} onChange={(v) => setCorrectAnswer(v)} />
+          {wrongAnswers.map((w, wi) => (
+            <div key={wi} className="flex items-center gap-2">
+              <span className="text-rose-500">❌</span>
+              <input
+                value={w}
+                onChange={(e) => setWrongAnswer(wi, e.target.value)}
+                placeholder={`إجابة خاطئة ${wi + 1}`}
+                className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm"
+              />
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }

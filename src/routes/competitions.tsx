@@ -350,6 +350,21 @@ function CompetitionsPage() {
 function QuestionEditor({ index, q, onChange, onRemove, canRemove }: { index: number; q: MQ; onChange: (patch: Partial<MQ>) => void; onRemove: () => void; canRemove: boolean }) {
   const qRef = useRef<HTMLTextAreaElement>(null);
   const aRef = useRef<HTMLInputElement>(null);
+
+  // For MC: options[0] = correct answer, options[1..3] = wrong answers
+  const opts = q.options || ["", "", "", ""];
+  const correctAnswer = opts[0] || "";
+  const wrong = [opts[1] || "", opts[2] || "", opts[3] || ""];
+
+  const setCorrectAnswer = (v: string) => {
+    const o = [...opts]; o[0] = v;
+    onChange({ options: o, correct_index: 0 });
+  };
+  const setWrong = (wi: number, v: string) => {
+    const o = [...opts]; o[wi + 1] = v;
+    onChange({ options: o, correct_index: 0 });
+  };
+
   return (
     <div className="rounded-2xl border-2 border-border bg-secondary/30 p-4 space-y-2">
       <div className="flex items-center justify-between">
@@ -362,7 +377,7 @@ function QuestionEditor({ index, q, onChange, onRemove, canRemove }: { index: nu
       <MathToolbar targetRef={qRef} onChange={(v) => onChange({ question: v })} />
       <div className="flex items-center gap-3 text-sm">
         <label className="inline-flex items-center gap-2">
-          <input type="radio" checked={q.is_multiple_choice} onChange={() => onChange({ is_multiple_choice: true })} /> اختيارات متعددة
+          <input type="radio" checked={q.is_multiple_choice} onChange={() => onChange({ is_multiple_choice: true, options: opts.length >= 4 ? opts : ["","","",""], correct_index: 0 })} /> اختيارات متعددة
         </label>
         <label className="inline-flex items-center gap-2">
           <input type="radio" checked={!q.is_multiple_choice} onChange={() => onChange({ is_multiple_choice: false })} /> إجابة نصية
@@ -370,18 +385,25 @@ function QuestionEditor({ index, q, onChange, onRemove, canRemove }: { index: nu
       </div>
       {q.is_multiple_choice ? (
         <div className="space-y-2">
-          {(q.options || []).map((opt, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input type="radio" name={`correct-${index}`} checked={q.correct_index === i} onChange={() => onChange({ correct_index: i })} className="h-4 w-4" />
-              <input value={opt} onChange={(e) => onChange({ options: (q.options || []).map((o, j) => (j === i ? e.target.value : o)) })}
-                placeholder={`الخيار ${i + 1}`}
-                className={`flex-1 px-3 py-2 rounded-xl border bg-background ${q.correct_index === i ? "border-emerald-500" : "border-border"}`} />
+          <div className="text-xs text-muted-foreground font-bold mb-1">اكتب الإجابة الصحيحة أولاً ثم الإجابات الخاطئة — ستظهر عشوائية للطالب</div>
+          <div className="flex items-center gap-2">
+            <span className="text-emerald-600 text-lg">✅</span>
+            <input value={correctAnswer} onChange={(e) => setCorrectAnswer(e.target.value)}
+              placeholder="الإجابة الصحيحة"
+              className="flex-1 px-3 py-2 rounded-xl border-2 border-emerald-500 bg-background font-bold" />
+          </div>
+          {wrong.map((w, wi) => (
+            <div key={wi} className="flex items-center gap-2">
+              <span className="text-rose-500 text-lg">❌</span>
+              <input value={w} onChange={(e) => setWrong(wi, e.target.value)}
+                placeholder={`إجابة خاطئة ${wi + 1}`}
+                className="flex-1 px-3 py-2 rounded-xl border border-border bg-background" />
             </div>
           ))}
         </div>
       ) : (
         <>
-          <input ref={aRef} value={q.correct_answer || ""} onChange={(e) => onChange({ correct_answer: e.target.value })} placeholder="الإجابة الصحيحة" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
+          <input ref={aRef} value={q.correct_answer || ""} onChange={(e) => onChange({ correct_answer: e.target.value })} placeholder="الإجابة الصحيحة" className="w-full px-4 py-2.5 rounded-xl border border-emerald-500 border-2 bg-background" />
           <MathToolbar targetRef={aRef} onChange={(v) => onChange({ correct_answer: v })} />
         </>
       )}
@@ -402,6 +424,8 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
 
 function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBack: () => void }) {
   const [questions, setQuestions] = useState<MQ[] | null>(null);
+  // shuffleMap[qi][displayIdx] = originalIdx — so we can send the original index to the server
+  const shuffleMapRef = useRef<Record<number, number[]>>({});
   const [idx, setIdx] = useState(0);
   // answers: { questionIdx -> option TEXT (for MC) or typed text }
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -435,7 +459,16 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
         const { data, error } = await supabase.rpc("get_competition_for_attempt", { _id: comp.id });
         if (error) { toast.error(error.message); return; }
         const row: any = Array.isArray(data) ? data[0] : data;
-        const qs = (row?.questions as MQ[] | null) || (comp.questions as MQ[]);
+        const rawQs = (row?.questions as MQ[] | null) || (comp.questions as MQ[]);
+        // Shuffle MC options for each question; track original index mapping
+        const map: Record<number, number[]> = {};
+        const qs = rawQs ? rawQs.map((q, qi) => {
+          if (!q.is_multiple_choice || !q.options?.length) return q;
+          const indices = q.options.map((_: any, i: number) => i).sort(() => Math.random() - 0.5);
+          map[qi] = indices; // map[qi][displayIdx] = originalIdx
+          return { ...q, options: indices.map((i: number) => q.options![i]) };
+        }) : null;
+        shuffleMapRef.current = map;
         setQuestions(qs && qs.length ? qs : null);
         questionsRef.current = qs && qs.length ? qs : null;
         setQuestionStartedAt(Date.now());
@@ -621,14 +654,18 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
             <p className="text-xl font-bold leading-relaxed"><MathText text={currentQ.question} /></p>
             {currentQ.is_multiple_choice && currentQ.options && currentQ.options.length > 0 ? (
               <div className="grid sm:grid-cols-2 gap-2">
-                {currentQ.options.map((opt, i) => (
-                  // Send the option INDEX (as string) — RPC compares selected index against stored correct_index
-                  <button key={i} onClick={() => recordAnswer(String(i))}
+                {currentQ.options.map((opt, di) => {
+                  // Convert display index to original index before sending to server
+                  const map = shuffleMapRef.current[idx];
+                  const originalIdx = map ? map[di] : di;
+                  return (
+                  <button key={di} onClick={() => recordAnswer(String(originalIdx))}
                     className="text-right px-4 py-3 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition font-bold">
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{['أ','ب','ج','د','هـ','و'][i] ?? String(i+1)}</span>
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{['أ','ب','ج','د','هـ','و'][di] ?? String(di+1)}</span>
                     <MathText text={opt} />
                   </button>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="flex gap-2">

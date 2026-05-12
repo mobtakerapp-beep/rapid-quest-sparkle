@@ -139,36 +139,57 @@ function TeacherDashboard() {
         </div>
 
         {stats.length > 0 && (
-          <div className="bg-card rounded-3xl border border-border p-5 mb-6">
-            <div className="font-bold mb-3">أعلى 10 طلاب نشاطاً</div>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={stats.slice(0, 10).map((s) => ({ name: (s.display_name || "—").slice(0, 10), النقاط: s.points }))}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="النقاط" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="mb-6 rounded-3xl overflow-hidden border border-border" style={{ background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4c1d95 100%)" }}>
+            <div className="p-5">
+              <div className="font-bold mb-1 text-white text-lg">🏆 أعلى 10 طلاب نشاطاً</div>
+              <div className="text-xs text-indigo-200 mb-4">مرتبون حسب عدد النقاط</div>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={stats.slice(0, 10).map((s) => ({ name: (s.display_name || "—").slice(0, 8), النقاط: s.points }))} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#a78bfa" />
+                      <stop offset="100%" stopColor="#7c3aed" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#c4b5fd" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: "#c4b5fd" }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: "#1e1b4b", border: "1px solid #4c1d95", borderRadius: 12, color: "#e9d5ff" }}
+                    cursor={{ fill: "rgba(167,139,250,0.1)" }}
+                  />
+                  <Bar dataKey="النقاط" fill="url(#barGrad)" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         )}
 
         <div className="bg-card rounded-3xl border border-border overflow-hidden">
-          <div className="p-4 font-bold border-b border-border">قائمة الطلاب</div>
+          <div className="p-4 font-bold border-b border-border flex items-center gap-2">
+            <span>قائمة الطلاب</span>
+            <span className="text-xs text-muted-foreground font-normal">({stats.length} طالب)</span>
+          </div>
           {stats.length === 0 ? (
             <div className="text-center text-sm text-muted-foreground p-8">لا يوجد طلاب مسجلين بعد</div>
           ) : stats.map((s, i) => (
-            <div key={s.id} className="flex items-center gap-3 p-4 border-b border-border last:border-0">
-              <div className="w-8 text-center font-bold text-muted-foreground">#{i + 1}</div>
-              <div className="h-10 w-10 rounded-full bg-[image:var(--gradient-warm)] flex items-center justify-center text-white font-bold">
+            <div key={s.id} className="flex items-center gap-3 p-4 border-b border-border last:border-0 hover:bg-secondary/30 transition">
+              <div className="w-7 text-center font-black text-muted-foreground text-sm">
+                {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+              </div>
+              <div className="h-11 w-11 rounded-full flex items-center justify-center text-white font-black text-lg shrink-0"
+                style={{ background: `hsl(${(i * 47) % 360} 70% 50%)` }}>
                 {(s.display_name || "ط").charAt(0)}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm">{s.display_name || "بدون اسم"}</div>
+                <div className="font-bold text-sm truncate">{s.display_name || "بدون اسم"}</div>
                 <div className="text-xs text-muted-foreground">{s.grade || "—"} • {s.comments} تعليق</div>
               </div>
-              <div className="font-black text-[var(--brand)]">{s.points} نقطة</div>
-              <Link to="/messages" search={{ with: s.id }} className="text-xs px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80">رسالة</Link>
+              <div className="flex flex-col items-end gap-0.5">
+                <div className="font-black text-[var(--brand)] text-base">{s.points}</div>
+                <div className="text-[10px] text-muted-foreground">نقطة</div>
+              </div>
+              <Link to="/messages" search={{ with: s.id }} className="text-xs px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 shrink-0">رسالة</Link>
             </div>
           ))}
         </div>
