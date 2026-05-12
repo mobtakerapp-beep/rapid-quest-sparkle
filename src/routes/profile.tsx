@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, User as UserIcon, GraduationCap, BookOpen, Heart, LogOut, Shield, Key, Camera, Palette } from "lucide-react";
+import { FullPageLoader } from "@/components/LoadingSpinner";
 import { playLogoutSound } from "@/lib/sounds";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
 // MyCertificates and MyBadges now live on the /badges page
@@ -186,7 +187,7 @@ function ProfilePage() {
     { v: "gold", label: "ذهبي", grad: "from-amber-400 to-yellow-600" },
   ];
 
-  if (loading) return <div dir="rtl" className="min-h-screen flex items-center justify-center text-muted-foreground">جاري التحميل...</div>;
+  if (loading) return <FullPageLoader />;
 
   // الرتب القابلة للاختيار من المستخدم: طالب أو ولي أمر فقط.
   // المعلم والمشرف يُفعَّلان حصرياً عبر الكود السري في الأسفل.

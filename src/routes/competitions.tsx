@@ -106,7 +106,6 @@ function CompetitionsPage() {
     }
   };
 
-  // Realtime: auto-refresh competitions list
   useEffect(() => {
     const ch = supabase.channel("competitions-list")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "competitions" }, (p) => {
@@ -122,7 +121,6 @@ function CompetitionsPage() {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
-  // Realtime: تحديث حالة البطاقة فوراً عند إرسال الإجابة
   useEffect(() => {
     if (!uid) return;
     const ch = supabase.channel(`my-submissions-${uid}`)
@@ -164,7 +162,6 @@ function CompetitionsPage() {
     const cleanQuestions: MQ[] = questions.map((q) => {
       const rawOptions = (q.options || []).map((o) => o.trim());
       const cleanOptions = q.is_multiple_choice ? rawOptions.filter(Boolean) : undefined;
-      // Remap correct_index after filtering so empty-option gaps don't shift the index
       const originalCorrectText = rawOptions[q.correct_index ?? 0] ?? "";
       const remappedIdx = cleanOptions
         ? Math.max(0, cleanOptions.indexOf(originalCorrectText))
@@ -185,7 +182,6 @@ function CompetitionsPage() {
     const starts = new Date();
     const ends = new Date(starts.getTime() + totalDuration * 1000);
 
-    // Step 1: Insert WITHOUT questions to avoid the broken BEFORE trigger FK error
     const { data: inserted, error: insertErr } = await supabase.from("competitions").insert({
       title: title.trim(),
       question: first.question,
@@ -206,26 +202,25 @@ function CompetitionsPage() {
 
     const compId = (inserted as any).id;
 
-    // Step 2: Insert secrets row manually (now the competition row exists)
+    // Store ALL question answers as JSON array for correct grading
     const allAnswers = cleanQuestions.map((q) => ({
       correct_index: q.correct_index ?? null,
       correct_answer: q.correct_answer ?? null,
       is_multiple_choice: q.is_multiple_choice,
     }));
+
     await supabase.from("competition_secrets" as any).upsert({
       competition_id: compId,
-      correct_answer: first.correct_answer ?? null,
+      correct_answer: JSON.stringify(allAnswers),
       correct_index: first.correct_index ?? null,
     }, { onConflict: "competition_id" });
 
-    // Step 3: Update with questions (trigger will run but competition_secrets already exists so upsert is safe)
     const { error: updateErr } = await supabase.from("competitions").update({
       questions: cleanQuestions as any,
     }).eq("id", compId);
 
     setUploading(false);
     if (updateErr) {
-      // Questions scrub failed but competition was created - still usable
       toast.error("تحذير: فشل حفظ الأسئلة كاملة. حاول مرة أخرى.");
       return;
     }
@@ -300,9 +295,8 @@ function CompetitionsPage() {
             {comps.length === 0 ? (
               <div className="text-center text-muted-foreground py-16 text-sm col-span-full">لا توجد مسابقات بعد</div>
             ) : comps.map((c) => {
-              const timePassed = new Date(c.ends_at) < new Date();
+              const timePassed = c.ends_at ? new Date(c.ends_at) < new Date() : false;
               const userDone = userSubmittedIds.has(c.id);
-              const showEnded = userDone;
               const showWinner = userDone || timePassed;
               const qCount = Array.isArray(c.questions) ? c.questions.length : 1;
               const onDelete = async (e: React.MouseEvent) => {
@@ -330,8 +324,8 @@ function CompetitionsPage() {
                           <h3 className="font-bold">{c.title}</h3>
                           <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{c.question}</p>
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded-full shrink-0 font-semibold ${showEnded ? "bg-secondary text-muted-foreground" : "bg-emerald-100 text-emerald-700"}`}>
-                          {userDone ? "انتهت" : "● نشطة"}
+                        <span className={`text-xs px-2 py-1 rounded-full shrink-0 font-semibold ${userDone ? "bg-secondary text-muted-foreground" : "bg-emerald-100 text-emerald-700"}`}>
+                          {userDone ? "شاركت ✓" : "● نشطة"}
                         </span>
                       </div>
                       <div className="text-[11px] text-muted-foreground mt-2">{qCount} {qCount === 1 ? "سؤال" : "أسئلة"}</div>
@@ -409,6 +403,7 @@ function CompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBac
 function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onBack: () => void }) {
   const [questions, setQuestions] = useState<MQ[] | null>(null);
   const [idx, setIdx] = useState(0);
+  // answers: { questionIdx -> option TEXT (for MC) or typed text }
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [textAnswer, setTextAnswer] = useState("");
   const [now, setNow] = useState(Date.now());
@@ -416,35 +411,44 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
   const [submittedResult, setSubmittedResult] = useState<{ correct: number; total: number } | null>(null);
   const [alreadyDone, setAlreadyDone] = useState(false);
   const [startTime] = useState(Date.now());
-  const [isTeacher, setIsTeacher] = useState(false);
-  const [fullQuestions, setFullQuestions] = useState<MQ[] | null>(null);
-  const [submittedAnswers, setSubmittedAnswers] = useState<Record<string, string> | null>(null);
+  const [isTeacher, setIsTeacher] = useState<boolean | null>(null);
+  // Store question texts + student answers for result review (no correct answers needed)
+  const [reviewData, setReviewData] = useState<{ question: string; userAnswer: string; options?: string[] }[] | null>(null);
   const submitting = useRef(false);
+  // Local ref to questions for use in callbacks
+  const questionsRef = useRef<MQ[] | null>(null);
 
   useEffect(() => {
     (async () => {
       const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", uid);
-      setIsTeacher(!!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role))));
+      const teacher = !!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role)));
+      setIsTeacher(teacher);
+
       const { data: existing } = await supabase.from("competition_submissions").select("id, correct_count, question_count").eq("competition_id", comp.id).eq("user_id", uid).maybeSingle();
       if (existing) {
         setAlreadyDone(true);
         if (existing.correct_count != null) setSubmittedResult({ correct: existing.correct_count, total: existing.question_count || 0 });
       }
-      const { data, error } = await supabase.rpc("get_competition_for_attempt", { _id: comp.id });
-      if (error) { toast.error(error.message); return; }
-      const row: any = Array.isArray(data) ? data[0] : data;
-      const qs = row?.questions as MQ[] | null;
-      setQuestions(qs && qs.length ? qs : (comp.questions as MQ[]));
-      setQuestionStartedAt(Date.now());
+
+      // Load questions for students who haven't submitted yet, or teachers
+      if (!existing || teacher) {
+        const { data, error } = await supabase.rpc("get_competition_for_attempt", { _id: comp.id });
+        if (error) { toast.error(error.message); return; }
+        const row: any = Array.isArray(data) ? data[0] : data;
+        const qs = (row?.questions as MQ[] | null) || (comp.questions as MQ[]);
+        setQuestions(qs && qs.length ? qs : null);
+        questionsRef.current = qs && qs.length ? qs : null;
+        setQuestionStartedAt(Date.now());
+      }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comp.id, uid]);
 
   useEffect(() => {
-    if (alreadyDone || submittedResult) return;
+    if (alreadyDone || submittedResult || isTeacher) return;
     const t = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(t);
-  }, [alreadyDone, submittedResult]);
+  }, [alreadyDone, submittedResult, isTeacher]);
 
   const finalize = async (finalAnswers: Record<string, string>) => {
     if (submitting.current) return;
@@ -456,17 +460,26 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
     submitting.current = false;
     if (error) { toast.error(error.message); return; }
     const r: any = Array.isArray(data) ? data[0] : data;
-    setSubmittedResult({ correct: r?.correct_count ?? 0, total: r?.question_count ?? 0 });
-    setSubmittedAnswers(finalAnswers);
-    // Fetch full questions (with correct_index) for result review
-    const { data: compRow } = await supabase.from("competitions").select("questions").eq("id", comp.id).single();
-    if (compRow?.questions) setFullQuestions(compRow.questions as MQ[]);
-    toast.success(`انتهت المسابقة! ${r?.correct_count ?? 0}/${r?.question_count ?? 0}`);
+    const correct = r?.correct_count ?? 0;
+    const total = r?.question_count ?? (questionsRef.current?.length ?? 0);
+    setSubmittedResult({ correct, total });
+
+    // Build review data from local question state (no correct answer info - scrubbed from DB)
+    const qs = questionsRef.current;
+    if (qs) {
+      setReviewData(qs.map((q, qi) => ({
+        question: q.question,
+        userAnswer: finalAnswers[String(qi)] ?? "—",
+        options: q.options,
+      })));
+    }
+    toast.success(`انتهت المسابقة! أصبت ${correct} من ${total} 🎉`);
   };
 
   const goNext = (storedAnswers: Record<string, string>) => {
-    if (!questions) return;
-    if (idx + 1 >= questions.length) {
+    const qs = questionsRef.current;
+    if (!qs) return;
+    if (idx + 1 >= qs.length) {
       finalize(storedAnswers);
     } else {
       setIdx(idx + 1);
@@ -475,17 +488,54 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
     }
   };
 
+  // val: for MC = option TEXT, for text = typed string
   const recordAnswer = (val: string) => {
     if (isTeacher) return;
-    if (!questions) return;
+    const qs = questionsRef.current;
+    if (!qs) return;
     const next = { ...answers, [String(idx)]: val };
     setAnswers(next);
     goNext(next);
   };
 
+  // Loading state until we know if teacher or not
+  if (isTeacher === null) {
+    return (
+      <div className="space-y-4">
+        <button onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+          <ArrowLeft className="h-4 w-4" /> العودة للقائمة
+        </button>
+        <div className="text-center py-8 text-muted-foreground">جاري التحميل...</div>
+      </div>
+    );
+  }
+
+  // Teachers skip the quiz — go directly to submissions and comments
+  if (isTeacher) {
+    return (
+      <div className="space-y-4">
+        <button onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+          <ArrowLeft className="h-4 w-4" /> العودة للقائمة
+        </button>
+        <div className="bg-card rounded-3xl border border-border p-6">
+          <h2 className="text-2xl font-black mb-2">{comp.title}</h2>
+          {comp.image_url && <img src={comp.image_url} alt="" className="w-full max-h-72 object-contain rounded-2xl mb-4 bg-secondary/30" />}
+          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-2xl p-4 text-amber-700 font-bold text-sm mb-4">
+            👁️ وضع المراجعة — يمكنك مشاهدة إجابات الطلاب والتعليق، لكن لا تشارك في الإجابة
+          </div>
+          <Reactions targetType="competition" targetId={comp.id} uid={uid} />
+        </div>
+        <CompetitionComments competitionId={comp.id} uid={uid} />
+        <SubmissionsList comp={comp} uid={uid} isTeacher={true} />
+      </div>
+    );
+  }
+
   const currentQ = questions?.[idx];
   const remaining = currentQ ? Math.max(0, Math.ceil((questionStartedAt + currentQ.duration_seconds * 1000 - now) / 1000)) : 0;
 
+  // Auto-advance when timer hits 0
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     if (!currentQ || alreadyDone || submittedResult) return;
     if (remaining <= 0) {
@@ -507,15 +557,18 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
 
         {alreadyDone || submittedResult ? (
           <div className="space-y-4">
+            {/* بطاقة "أنا أستطيع ذلك" */}
             <div className="bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 rounded-2xl p-6 text-center">
-              <div className="text-4xl mb-2">🌟</div>
-              <div className="text-emerald-700 dark:text-emerald-400 font-black text-2xl mb-1">أنا أستطيع ذلك!</div>
+              <div className="text-5xl mb-3">🌟</div>
+              <div className="text-emerald-700 dark:text-emerald-400 font-black text-2xl mb-2">أنا أستطيع ذلك!</div>
               {submittedResult && (
                 <>
-                  <div className="text-lg font-bold mt-2">نتيجتك: {submittedResult.correct} / {submittedResult.total}</div>
-                  <div className="mt-1 text-sm text-muted-foreground">
+                  <div className="text-2xl font-black mt-2 mb-1">
+                    {submittedResult.correct} / {submittedResult.total}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
                     {submittedResult.correct === submittedResult.total
-                      ? "🎉 إجابات صحيحة بالكامل — رائع جداً!"
+                      ? "🎉 ممتاز! إجابات صحيحة بالكامل!"
                       : submittedResult.correct > submittedResult.total / 2
                       ? "👏 أداء جيد — استمر في المحاولة!"
                       : "💪 لا تستسلم — المحاولة والتعلم هما المفتاح!"}
@@ -526,43 +579,25 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
                 <div className="text-sm text-muted-foreground mt-2">لقد شاركت في هذه المسابقة سابقاً</div>
               )}
             </div>
-            {/* Per-question breakdown shown after fresh submission */}
-            {fullQuestions && submittedAnswers && (
+
+            {/* مراجعة الإجابات — تعرض إجابة الطالب فقط بدون الكشف عن الصواب والخطأ */}
+            {reviewData && reviewData.length > 0 && (
               <div className="space-y-3">
-                <h3 className="font-black text-lg">مراجعة الإجابات</h3>
-                {fullQuestions.map((fq, qi) => {
-                  const userAns = submittedAnswers[String(qi)] ?? "";
-                  const correctIdx = fq.correct_index ?? -1;
-                  const isCorrect = fq.is_multiple_choice
-                    ? userAns === String(correctIdx)
-                    : userAns.toLowerCase().trim() === (fq.correct_answer || "").toLowerCase().trim();
-                  const userLabel = fq.is_multiple_choice
-                    ? (fq.options?.[parseInt(userAns)] ?? (userAns === "" ? "—" : userAns))
-                    : (userAns || "—");
-                  const correctLabel = fq.is_multiple_choice
-                    ? (fq.options?.[correctIdx] ?? fq.correct_answer ?? "")
-                    : (fq.correct_answer ?? "");
-                  return (
-                    <div key={qi} className={`rounded-2xl border-2 p-4 ${isCorrect ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30" : "border-rose-300 bg-rose-50 dark:bg-rose-950/30"}`}>
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <p className="font-bold text-sm leading-relaxed flex-1"><MathText text={fq.question} /></p>
-                        <span className={`text-xl shrink-0 ${isCorrect ? "text-emerald-600" : "text-rose-500"}`}>{isCorrect ? "✓" : "✗"}</span>
-                      </div>
-                      {!isCorrect && (
-                        <div className="space-y-1 text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="text-rose-500 font-bold">إجابتك:</span>
-                            <span className="text-rose-700 dark:text-rose-400"><MathText text={userLabel} /></span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-emerald-600 font-bold">الإجابة الصحيحة:</span>
-                            <span className="text-emerald-700 dark:text-emerald-400 font-black"><MathText text={correctLabel} /></span>
-                          </div>
-                        </div>
-                      )}
+                <h3 className="font-black text-lg">إجاباتك</h3>
+                {reviewData.map((rd, qi) => (
+                  <div key={qi} className="rounded-2xl border border-border bg-secondary/30 p-4">
+                    <p className="font-bold text-sm leading-relaxed mb-2">
+                      <span className="text-muted-foreground text-xs me-1">{qi + 1}.</span>
+                      <MathText text={rd.question} />
+                    </p>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground">إجابتك:</span>
+                      <span className="font-bold bg-card px-2 py-0.5 rounded-lg border border-border">
+                        <MathText text={rd.userAnswer || "—"} />
+                      </span>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -580,14 +615,11 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
               <div className="bg-[image:var(--gradient-hero)] h-full transition-all" style={{ width: `${(remaining / currentQ.duration_seconds) * 100}%` }} />
             </div>
             <p className="text-xl font-bold leading-relaxed"><MathText text={currentQ.question} /></p>
-            {isTeacher ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center text-amber-700 font-bold text-sm">
-                👁️ وضع المراجعة — المعلمون والمشرفون يطّلعون فقط ولا يجيبون
-              </div>
-            ) : currentQ.is_multiple_choice && currentQ.options && currentQ.options.length > 0 ? (
+            {currentQ.is_multiple_choice && currentQ.options && currentQ.options.length > 0 ? (
               <div className="grid sm:grid-cols-2 gap-2">
                 {currentQ.options.map((opt, i) => (
-                  <button key={i} onClick={() => recordAnswer(String(i))}
+                  // Send option TEXT so the RPC can compare text-to-text
+                  <button key={i} onClick={() => recordAnswer(opt)}
                     className="text-right px-4 py-3 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition font-bold">
                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{['أ','ب','ج','د','هـ','و'][i] ?? String(i+1)}</span>
                     <MathText text={opt} />
@@ -608,11 +640,13 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
           </div>
         ) : null}
 
-        <Reactions targetType="competition" targetId={comp.id} uid={uid} />
+        <div className="mt-4">
+          <Reactions targetType="competition" targetId={comp.id} uid={uid} />
+        </div>
       </div>
 
       <CompetitionComments competitionId={comp.id} uid={uid} />
-      <SubmissionsList comp={comp} uid={uid} isTeacher={isTeacher} />
+      <SubmissionsList comp={comp} uid={uid} isTeacher={false} />
     </div>
   );
 }
@@ -626,7 +660,6 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
   const [subLink, setSubLink] = useState("");
   const [sending, setSending] = useState(false);
   const startMs = comp.starts_at ? new Date(comp.starts_at).getTime() : Date.now();
-  // If ends_at is missing, treat the competition as having no time limit (indefinitely open)
   const endMs = comp.ends_at ? new Date(comp.ends_at).getTime() : Infinity;
   const remaining = comp.ends_at ? Math.max(0, Math.floor((endMs - now) / 1000)) : Infinity;
   const ended = comp.ends_at ? remaining === 0 : false;
@@ -645,19 +678,17 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
     })();
   }, [uid, comp.id]);
 
-  const submitMC = async (idx: number) => {
+  const submitMC = async (opt: string) => {
     if (isTeacher || submitted || ended || sending) return;
     setSending(true);
     const elapsed = Math.floor((Date.now() - startMs) / 1000);
-    // Send the option TEXT so the DB trigger can compare it against competition_secrets.correct_answer
-    const selectedText = (comp.options?.[idx] ?? "").trim() || String(idx);
+    // Send option TEXT for text-based comparison in RPC
     const { error } = await supabase.from("competition_submissions").insert({
-      competition_id: comp.id, user_id: uid, answer: selectedText,
+      competition_id: comp.id, user_id: uid, answer: opt,
       time_taken_seconds: elapsed, is_correct: false,
     });
     setSending(false);
     if (error) return toast.error("فشل الإرسال: " + error.message);
-    toast.success("تم تسجيل إجابتك ✓");
     setSubmitted(true);
   };
 
@@ -675,12 +706,33 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
     });
     setSending(false);
     if (error) return toast.error("فشل الإرسال: " + error.message);
-    toast.success("تم تسجيل مشاركتك");
     setSubmitted(true); setAnswer(""); setSubImage(null); setSubLink("");
   };
 
   const mins = isFinite(remaining) ? Math.floor(remaining / 60) : 0;
   const secs = isFinite(remaining) ? remaining % 60 : 0;
+
+  // Teacher view: skip quiz, go straight to submissions
+  if (isTeacher) {
+    return (
+      <div className="space-y-4">
+        <button onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+          <ArrowLeft className="h-4 w-4" /> العودة للقائمة
+        </button>
+        <div className="bg-card rounded-3xl border border-border p-6">
+          <h2 className="text-2xl font-black mb-2">{comp.title}</h2>
+          {comp.image_url && <img src={comp.image_url} alt="" className="w-full max-h-80 object-contain rounded-2xl mb-4 bg-secondary/30" />}
+          <p className="text-lg mb-4 leading-relaxed"><MathText text={comp.question} /></p>
+          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-2xl p-4 text-amber-700 font-bold text-sm mb-4">
+            👁️ وضع المراجعة — يمكنك مشاهدة إجابات الطلاب والتعليق، لكن لا تشارك في الإجابة
+          </div>
+          <Reactions targetType="competition" targetId={comp.id} uid={uid} />
+        </div>
+        <CompetitionComments competitionId={comp.id} uid={uid} />
+        <SubmissionsList comp={comp} uid={uid} isTeacher={true} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -689,22 +741,31 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
       </button>
       <div className="bg-card rounded-3xl border border-border p-6">
         <h2 className="text-2xl font-black mb-2">{comp.title}</h2>
-        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold mb-4 ${ended ? "bg-secondary" : "bg-amber-100 text-amber-700"}`}>
-          <Clock className="h-4 w-4" />
-          {ended ? "انتهت المسابقة" : !comp.ends_at ? "مفتوحة" : `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`}
-        </div>
+
+        {/* Timer — hidden if teacher */}
+        {!isTeacher && (
+          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold mb-4 ${ended ? "bg-secondary" : "bg-amber-100 text-amber-700"}`}>
+            <Clock className="h-4 w-4" />
+            {ended ? "انتهت المسابقة" : !comp.ends_at ? "مفتوحة" : `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`}
+          </div>
+        )}
+
         {comp.image_url && <img src={comp.image_url} alt="" className="w-full max-h-80 object-contain rounded-2xl mb-4 bg-secondary/30" />}
         <p className="text-lg mb-4 leading-relaxed"><MathText text={comp.question} /></p>
-        {isTeacher ? (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center text-amber-700 font-bold text-sm">
-            👁️ وضع المراجعة — المعلمون والمشرفون يطّلعون فقط ولا يجيبون
+
+        {submitted ? (
+          /* بطاقة "أنا أستطيع ذلك" بعد الإرسال */
+          <div className="bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 rounded-2xl p-6 text-center mb-4">
+            <div className="text-5xl mb-3">🌟</div>
+            <div className="text-emerald-700 dark:text-emerald-400 font-black text-2xl">أنا أستطيع ذلك!</div>
+            <div className="text-sm text-muted-foreground mt-2">تم تسجيل مشاركتك بنجاح ✓</div>
           </div>
-        ) : !ended && !submitted ? (
+        ) : !ended ? (
           <div className="space-y-2">
             {comp.is_multiple_choice && comp.options && comp.options.length > 0 ? (
               <div className="grid sm:grid-cols-2 gap-2">
                 {comp.options.map((opt, i) => (
-                  <button key={i} disabled={sending} onClick={() => submitMC(i)}
+                  <button key={i} disabled={sending} onClick={() => submitMC(opt)}
                     className="text-right px-4 py-3 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition font-bold disabled:opacity-50">
                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{['أ','ب','ج','د','هـ','و'][i] ?? String(i+1)}</span>
                     <MathText text={opt} />
@@ -732,12 +793,12 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
             )}
           </div>
         ) : null}
-        {submitted && !isTeacher && <div className="text-emerald-600 font-bold">✓ تم تسجيل مشاركتك</div>}
+
         <Reactions targetType="competition" targetId={comp.id} uid={uid} />
       </div>
 
       <CompetitionComments competitionId={comp.id} uid={uid} />
-      <SubmissionsList comp={comp} uid={uid} isTeacher={isTeacher} />
+      <SubmissionsList comp={comp} uid={uid} isTeacher={false} />
     </div>
   );
 }
@@ -805,7 +866,10 @@ function SubmissionsList({ comp, uid, isTeacher }: { comp: Comp; uid: string; is
                 )}
               </div>
               {s.image_url && <img src={s.image_url} alt="" className="w-full max-h-56 object-contain rounded-xl bg-background" />}
-              {!isMulti && isTeacher && s.answer && s.answer !== "—" && <div className="text-sm bg-background rounded-xl p-2"><b>الإجابة:</b> {s.answer}</div>}
+              {/* Show answer text only to teachers */}
+              {isTeacher && !isMulti && s.answer && s.answer !== "—" && (
+                <div className="text-sm bg-background rounded-xl p-2"><b>الإجابة:</b> {s.answer}</div>
+              )}
               {s.link_url && (
                 <a href={s.link_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline break-all">
                   <Link2 className="h-3 w-3" /> {s.link_url}
@@ -842,7 +906,6 @@ function CompetitionComments({ competitionId, uid }: { competitionId: string; ui
 
   useEffect(() => {
     load();
-    // Realtime for competition comments
     const ch = supabase.channel(`comp-comments-${competitionId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "competition_comments", filter: `competition_id=eq.${competitionId}` }, async (payload) => {
         const newComment = payload.new as any;
@@ -922,10 +985,11 @@ function CompetitionWinner({ competitionId }: { competitionId: string }) {
         return bc - ac || a.time_taken_seconds - b.time_taken_seconds;
       });
       const top: any = sorted[0];
-      if (!top || (top.correct_count === 0 && !top.is_correct)) return;
+      if (!top) return;
+      // Show winner even with score 0 (participation counts)
       const { data: prof } = await supabase.from("profiles").select("display_name").eq("id", top.user_id).maybeSingle();
       const score = top.question_count
-        ? `${top.correct_count}/${top.question_count}`
+        ? `${top.correct_count ?? 0}/${top.question_count}`
         : (top.is_correct ? "✓" : "");
       setWinner({ name: (prof as any)?.display_name || "—", score, time: top.time_taken_seconds });
     })();
@@ -935,7 +999,7 @@ function CompetitionWinner({ competitionId }: { competitionId: string }) {
   return (
     <div className="mt-2 flex flex-wrap gap-1">
       <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-800 font-bold">
-        <Crown className="h-3 w-3" /> الفائز: {winner.name}
+        <Crown className="h-3 w-3" /> الأول: {winner.name}
       </div>
       {winner.score && (
         <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold">

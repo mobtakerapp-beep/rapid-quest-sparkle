@@ -135,6 +135,9 @@ function AssistantPage() {
     setLoading(false);
   };
 
+  // Detect if text contains Arabic characters
+  const containsArabic = (s: string) => /[\u0600-\u06FF]/.test(s);
+
   const generateImage = async () => {
     const text = input.trim();
     if (!text || loading) return;
@@ -149,10 +152,14 @@ function AssistantPage() {
         token = refreshed.session?.access_token;
       }
       if (!token) { toast.error("سجّل الدخول لاستخدام المساعد"); setLoading(false); return; }
+      // Build a richer prompt that preserves Arabic text in the image
+      const arabicHint = containsArabic(text)
+        ? `Educational illustration for: "${text}". Include clear, beautiful Arabic calligraphy text in the image. Colorful, child-friendly, 5th grade math style.`
+        : text;
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-        body: JSON.stringify({ mode: "image", messages: [{ role: "user", content: text }] }),
+        body: JSON.stringify({ mode: "image", messages: [{ role: "user", content: arabicHint }] }),
       });
       if (r.status === 429) { const d = await r.json().catch(()=>({})); toast.error(d.error || "تجاوزنا الحد"); setLoading(false); return; }
       if (r.status === 402) { toast.error("نفد الرصيد"); return; }

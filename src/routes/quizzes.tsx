@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Target, Plus, X, Check } from "lucide-react";
+import { FullPageLoader } from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { MathToolbar } from "@/components/MathToolbar";
 import { useRef } from "react";
@@ -224,7 +225,7 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
     toast.success(`نتيجتك: ${s}/${mcCount} 🎉`);
   };
 
-  if (!loaded) return <div dir="rtl" className="min-h-screen flex items-center justify-center text-muted-foreground">جاري التحميل...</div>;
+  if (!loaded) return <FullPageLoader />;
 
   return (
     <div dir="rtl" className="min-h-screen bg-background">

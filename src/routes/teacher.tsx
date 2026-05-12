@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search } from "lucide-react";
+import { FullPageLoader } from "@/components/LoadingSpinner";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 
@@ -74,7 +75,7 @@ function TeacherDashboard() {
   };
 
 
-  if (loading) return <div dir="rtl" className="min-h-screen flex items-center justify-center text-muted-foreground">جاري التحميل...</div>;
+  if (loading) return <FullPageLoader />;
   if (!allowed) return (
     <div dir="rtl" className="min-h-screen flex flex-col items-center justify-center gap-3 text-center px-4">
       <p className="text-muted-foreground">هذه الصفحة للمعلم/المشرف فقط</p>

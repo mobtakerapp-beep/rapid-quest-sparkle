@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, Shield, Users, BookOpen, Trophy, AlertTriangle, Ban, CheckCircle2, Trash2, Star } from "lucide-react";
+import { FullPageLoader } from "@/components/LoadingSpinner";
 
 export const Route = createFileRoute("/admin")({ component: AdminPage });
 
@@ -68,7 +69,7 @@ function AdminPage() {
     toast.success("تم تنفيذ منح أوسمة الأسبوع");
   };
 
-  if (loading) return <div dir="rtl" className="min-h-screen flex items-center justify-center text-muted-foreground">جاري التحميل...</div>;
+  if (loading) return <FullPageLoader />;
   if (!allowed) return (
     <div dir="rtl" className="min-h-screen flex flex-col items-center justify-center gap-3 text-center px-4">
       <p className="text-muted-foreground">هذه الصفحة للمشرف العام فقط</p>

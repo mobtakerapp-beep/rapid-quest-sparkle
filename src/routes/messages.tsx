@@ -256,18 +256,35 @@ function MessagesPage() {
             </div>
           </div>
           <div className="overflow-y-auto flex-1">
-            {filtered.map((p) => (
-              <button key={p.id} onClick={() => setActive(p)}
-                className={`w-full text-right p-3 border-b border-border hover:bg-secondary/50 flex items-center gap-3 ${active?.id === p.id ? "bg-secondary" : ""}`}>
-                <div className="h-9 w-9 rounded-full bg-[image:var(--gradient-warm)] flex items-center justify-center text-white font-bold">
-                  {(p.display_name || "؟").charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm truncate">{p.display_name || "بدون اسم"}</div>
-                  <div className="text-[10px] text-muted-foreground">{p.role_type || ""}</div>
-                </div>
-              </button>
-            ))}
+            {filtered.map((p) => {
+              const unread = unreadCounts[p.id] || 0;
+              return (
+                <button key={p.id} onClick={() => { setActive(p); markRead(p.id); }}
+                  className={`w-full text-right p-3 border-b border-border hover:bg-secondary/50 flex items-center gap-3 ${active?.id === p.id ? "bg-secondary" : ""}`}>
+                  <div className="relative shrink-0">
+                    {p.avatar_url ? (
+                      <img src={p.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+                    ) : (
+                      <div className="h-9 w-9 rounded-full bg-[image:var(--gradient-warm)] flex items-center justify-center text-white font-bold text-sm">
+                        {(p.display_name || "؟").charAt(0)}
+                      </div>
+                    )}
+                    {unread > 0 && (
+                      <span className="absolute -top-1 -left-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center px-0.5 shadow">
+                        {unread > 9 ? "9+" : unread}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm truncate ${unread > 0 ? "font-black" : "font-semibold"}`}>{p.display_name || "بدون اسم"}</div>
+                    <div className="text-[10px] text-muted-foreground">{p.role_type || ""}</div>
+                  </div>
+                  {unread > 0 && (
+                    <span className="shrink-0 text-[10px] text-rose-600 font-bold">{unread} جديد</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </aside>
 
