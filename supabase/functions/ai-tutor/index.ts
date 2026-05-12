@@ -47,7 +47,12 @@ serve(async (req) => {
 
       const last = messages?.[messages.length - 1];
       const userPrompt = typeof last?.content === "string" ? last.content : "صورة تعليمية للرياضيات";
-      const prompt = userPrompt + WATERMARK_INSTRUCTION;
+      // If the prompt contains Arabic characters, force all text in the image to be Arabic
+      const hasArabic = /[\u0600-\u06FF]/.test(userPrompt);
+      const arabicPrefix = hasArabic
+        ? "اكتب جميع النصوص والأرقام والكلمات داخل الصورة باللغة العربية الفصحى فقط. لا تكتب أي كلمة بالإنجليزية أو الحروف اللاتينية. "
+        : "";
+      const prompt = arabicPrefix + userPrompt + WATERMARK_INSTRUCTION;
       const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },

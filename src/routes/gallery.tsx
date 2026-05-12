@@ -42,17 +42,30 @@ function GalleryPage() {
     });
   }, [navigate]);
 
-  const load = async () => {
+  const [offset, setOffset] = useState(0);
+  const PAGE = 30;
+
+  const load = async (reset = true) => {
+    const off = reset ? 0 : offset;
     const { data } = await supabase.from("messages").select("*").eq("category", "gallery")
-      .order("created_at", { ascending: false }).limit(1000);
+      .order("created_at", { ascending: false }).range(off, off + PAGE - 1);
     const list = (data || []) as Item[];
-    setItems(list);
+    if (reset) {
+      setItems(list);
+      setOffset(PAGE);
+    } else {
+      setItems((prev) => {
+        const ids = new Set(prev.map((i) => i.id));
+        return [...prev, ...list.filter((i) => !ids.has(i.id))];
+      });
+      setOffset(off + PAGE);
+    }
     const ids = Array.from(new Set(list.map((i) => i.user_id)));
     if (ids.length) {
       const { data: profs } = await supabase.from("profiles").select("id, display_name").in("id", ids);
       const map: Record<string, Profile> = {};
       profs?.forEach((p) => (map[p.id] = p));
-      setProfiles(map);
+      setProfiles((prev) => ({ ...prev, ...map }));
     }
   };
 
@@ -72,7 +85,9 @@ function GalleryPage() {
         setItems((prev) => prev.filter((i) => i.id !== (payload.old as any).id));
       })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    const poll = setInterval(() => load(true), 30000);
+    return () => { supabase.removeChannel(ch); clearInterval(poll); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,6 +122,7 @@ function GalleryPage() {
       if (error) throw error;
       toast.success("تم النشر ✨");
       setFile(null); setPreview(null); setCaption("");
+      load(true);
     } catch (e: any) {
       toast.error(e.message || "فشل النشر");
     } finally { setUploading(false); }
@@ -222,6 +238,13 @@ function GalleryPage() {
             })}
           </div>
         )}
+        {items.length >= PAGE && (
+          <div className="flex justify-center mt-6">
+            <button onClick={() => load(false)} className="px-6 py-2.5 rounded-xl border-2 border-border hover:bg-secondary font-bold text-sm">
+              تحميل المزيد
+            </button>
+          </div>
+        )}
       </main>
 
       {openItem && uid && (
@@ -290,6 +313,7 @@ function ItemModal({ item, uid, isAdmin, authorName, onClose }: { item: Item; ui
     setSending(false);
     if (error) return toast.error(`فشل الإرسال: ${error.message}`);
     setText("");
+    loadComments();
   };
 
   const delComment = async (id: string) => {

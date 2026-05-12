@@ -702,7 +702,8 @@ function SubmissionsList({ comp, uid, isTeacher }: { comp: Comp; uid: string; is
     const ch = supabase.channel(`comp-subs-${comp.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "competition_submissions", filter: `competition_id=eq.${comp.id}` },
         () => loadSubs()).subscribe();
-    return () => { supabase.removeChannel(ch); };
+    const poll = setInterval(() => loadSubs(), 20000);
+    return () => { supabase.removeChannel(ch); clearInterval(poll); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comp.id]);
 
@@ -717,7 +718,10 @@ function SubmissionsList({ comp, uid, isTeacher }: { comp: Comp; uid: string; is
 
   return (
     <div className="bg-card rounded-3xl border border-border p-6">
-      <h3 className="font-bold mb-4 flex items-center gap-2"><Crown className="h-5 w-5 text-amber-500" /> المتسابقون ({subs.length})</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold flex items-center gap-2"><Crown className="h-5 w-5 text-amber-500" /> المتسابقون ({subs.length})</h3>
+        <button onClick={loadSubs} className="text-xs px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/70 font-bold">↻ تحديث</button>
+      </div>
       {subs.length === 0 ? (
         <div className="text-center text-sm text-muted-foreground py-6">لا توجد مشاركات بعد</div>
       ) : (
@@ -738,7 +742,7 @@ function SubmissionsList({ comp, uid, isTeacher }: { comp: Comp; uid: string; is
                 )}
               </div>
               {s.image_url && <img src={s.image_url} alt="" className="w-full max-h-56 object-contain rounded-xl bg-background" />}
-              {!isMulti && s.answer && s.answer !== "—" && <div className="text-sm bg-background rounded-xl p-2"><b>الإجابة:</b> {s.answer}</div>}
+              {!isMulti && isTeacher && s.answer && s.answer !== "—" && <div className="text-sm bg-background rounded-xl p-2"><b>الإجابة:</b> {s.answer}</div>}
               {s.link_url && (
                 <a href={s.link_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline break-all">
                   <Link2 className="h-3 w-3" /> {s.link_url}
@@ -804,6 +808,7 @@ function CompetitionComments({ competitionId, uid }: { competitionId: string; ui
     const { error } = await supabase.from("competition_comments").insert({ competition_id: competitionId, user_id: uid, content: text.trim() });
     if (error) return toast.error("فشل الإرسال: " + error.message);
     setText("");
+    load();
   };
 
   const del = async (id: string) => {
