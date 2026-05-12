@@ -202,16 +202,13 @@ function CompetitionsPage() {
 
     const compId = (inserted as any).id;
 
-    // Store ALL question answers as JSON array for correct grading
-    const allAnswers = cleanQuestions.map((q) => ({
-      correct_index: q.correct_index ?? null,
-      correct_answer: q.correct_answer ?? null,
-      is_multiple_choice: q.is_multiple_choice,
-    }));
+    // Store all correct answer TEXTS as a plain JSON array indexed by question order
+    // Format: ["answer_text_for_q0", "answer_text_for_q1", ...]
+    const answerTexts = cleanQuestions.map((q) => (q.correct_answer ?? "").trim());
 
     await supabase.from("competition_secrets" as any).upsert({
       competition_id: compId,
-      correct_answer: JSON.stringify(allAnswers),
+      correct_answer: JSON.stringify(answerTexts),
       correct_index: first.correct_index ?? null,
     }, { onConflict: "competition_id" });
 
@@ -646,6 +643,7 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
       </div>
 
       <CompetitionComments competitionId={comp.id} uid={uid} />
+      {/* Show participants list to students after submission */}
       <SubmissionsList comp={comp} uid={uid} isTeacher={false} />
     </div>
   );
@@ -818,6 +816,12 @@ function SubmissionsList({ comp, uid, isTeacher }: { comp: Comp; uid: string; is
         if (isMulti) return (b.correct_count || 0) - (a.correct_count || 0) || a.time_taken_seconds - b.time_taken_seconds;
         return Number(b.is_correct) - Number(a.is_correct) || a.time_taken_seconds - b.time_taken_seconds;
       });
+    // Assign rank only to those who got at least one correct in multi-question (or is_correct in single)
+    let rankCounter = 0;
+    list.forEach((s: any) => {
+      const hasCorrect = isMulti ? (s.correct_count || 0) > 0 : !!s.is_correct;
+      s._rank = hasCorrect ? ++rankCounter : null;
+    });
     setSubs(list);
   };
 
@@ -850,17 +854,25 @@ function SubmissionsList({ comp, uid, isTeacher }: { comp: Comp; uid: string; is
         <div className="text-center text-sm text-muted-foreground py-6">لا توجد مشاركات بعد</div>
       ) : (
         <div className="grid sm:grid-cols-2 gap-3">
-          {subs.map((s, i) => (
+          {subs.map((s) => (
             <div key={s.id} className="bg-secondary/40 rounded-2xl p-3 space-y-2">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 text-xs font-black flex items-center justify-center">#{i + 1}</div>
+                {s._rank != null ? (
+                  <div className={`w-7 h-7 rounded-full text-xs font-black flex items-center justify-center ${s._rank === 1 ? "bg-amber-400 text-white" : s._rank === 2 ? "bg-gray-300 text-gray-700" : s._rank === 3 ? "bg-amber-700/70 text-white" : "bg-amber-100 text-amber-700"}`}>
+                    {s._rank === 1 ? "🥇" : s._rank === 2 ? "🥈" : s._rank === 3 ? "🥉" : `#${s._rank}`}
+                  </div>
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-secondary text-muted-foreground text-xs font-bold flex items-center justify-center">—</div>
+                )}
                 {s.avatar_url ? <img src={s.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" /> : <div className="w-8 h-8 rounded-full bg-[image:var(--gradient-hero)]" />}
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-sm truncate">{s.name}</div>
                   <div className="text-[10px] text-muted-foreground">{s.time_taken_seconds}ث</div>
                 </div>
                 {isMulti ? (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold">{s.correct_count ?? 0}/{s.question_count ?? 0}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${(s.correct_count || 0) > 0 ? "bg-emerald-100 text-emerald-700" : "bg-secondary text-muted-foreground"}`}>
+                    {s.correct_count ?? 0}/{s.question_count ?? 0}
+                  </span>
                 ) : (
                   s.is_correct && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">صحيح ✓</span>
                 )}

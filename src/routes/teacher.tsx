@@ -30,18 +30,22 @@ function TeacherDashboard() {
       ]);
       const ok = !!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role)));
       setAllowed(ok);
-      setClassCode(prof?.class_code || null);
+      const code = prof?.class_code || null;
+      setClassCode(code);
       setTeacherId(id);
       if (!ok) { setLoading(false); return; }
-      await loadStudents(id);
+      await loadStudents(id, code);
       setLoading(false);
     });
   }, [navigate]);
 
-  const loadStudents = async (tid: string) => {
-    // Only this teacher's students
-    const { data: students } = await supabase
-      .from("profiles").select("id, display_name, points").eq("teacher_id", tid);
+  const loadStudents = async (tid: string, code?: string | null) => {
+    // Fetch students linked to this teacher — by teacher_id (set via RPC) OR class_code (if stored on student profile)
+    let q = supabase.from("profiles").select("id, display_name, points").eq("teacher_id", tid);
+    if (code) {
+      q = supabase.from("profiles").select("id, display_name, points").or(`teacher_id.eq.${tid},class_code.eq.${code}`);
+    }
+    const { data: students } = await q;
     const ids = (students || []).map((s) => s.id);
     // قراءة بيانات الفصل (الصف) من الجدول الخاص profiles_private (يصل المعلم لطلابه فقط لو سمحت السياسة، وإلا يبقى فارغ)
     const { data: privs } = ids.length
@@ -275,6 +279,15 @@ function EssayGradingPanel({ teacherId }: { teacherId: string }) {
   );
 }
 
+const CERT_TEMPLATES = [
+  { label: "🏆 التميز في الرياضيات", title: "شهادة تميز في الرياضيات", body: "نشهد بأن الطالب/ة حقق/ت أداءً متميزاً في مادة الرياضيات خلال هذه الوحدة الدراسية، ونثمّن جهوده/ا المتواصلة وحبه/ا للتعلم." },
+  { label: "🌟 المشاركة الفاعلة", title: "شهادة المشاركة الفاعلة", body: "نشهد بأن الطالب/ة أبدى/ت مشاركةً فاعلة وتفاعلاً إيجابياً في الأنشطة التعليمية، مما يدل على روح التعاون والحماس نحو التعلم." },
+  { label: "📈 التحسن الملحوظ", title: "شهادة التحسن والتقدم", body: "نشهد بأن الطالب/ة أظهر/ت تحسناً ملحوظاً في مستواه/ا الدراسي، ونُشجعه/ا على مواصلة هذا التقدم المتميز." },
+  { label: "💡 الإبداع والتفكير", title: "شهادة الإبداع والتفكير الناقد", body: "نشهد بأن الطالب/ة برز/ت بأفكاره/ا الإبداعية وتميّز/ت في حل المسائل الرياضية بأساليب مبتكرة تدل على عمق التفكير." },
+  { label: "✅ الالتزام والانضباط", title: "شهادة الالتزام والمثابرة", body: "نشهد بأن الطالب/ة يتحلى/تتحلى بالالتزام والانضباط في أداء الواجبات والمهام المدرسية، ويُضرب به/ا المثل في الجدية والمثابرة." },
+  { label: "🥇 الأول على الفصل", title: "شهادة المركز الأول", body: "نشهد بأن الطالب/ة حقق/ت المركز الأول على فصله/ا في مادة الرياضيات، ونُهنئه/ا على هذا التفوق المستحق ونتمنى له/ا دوام النجاح." },
+];
+
 function CertificatePanel({ teacherId }: { teacherId: string }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<{ id: string; display_name: string | null; avatar_url: string | null }[]>([]);
@@ -346,9 +359,24 @@ function CertificatePanel({ teacherId }: { teacherId: string }) {
             <div className="text-sm">إلى: <b>{target.display_name}</b></div>
             <button onClick={() => setTarget(null)} className="text-xs text-destructive">تغيير</button>
           </div>
+
+          {/* قوالب جاهزة */}
+          <div>
+            <div className="text-xs text-muted-foreground mb-2 font-bold">اختر قالباً جاهزاً (يمكنك التعديل بعد الاختيار):</div>
+            <div className="flex flex-wrap gap-2">
+              {CERT_TEMPLATES.map((t) => (
+                <button key={t.title} type="button"
+                  onClick={() => { setTitle(t.title); setBody(t.body); }}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition ${title === t.title ? "border-[var(--brand)] bg-[var(--brand)]/10 text-[var(--brand)]" : "border-border bg-background hover:bg-secondary"}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان الشهادة (مثال: التميز في الرياضيات)"
             className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="نص الشهادة (اختياري)" rows={3}
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="نص الشهادة (اختياري)، يمكنك تعديل النص الجاهز أو كتابة نص خاص" rows={4}
             className="w-full px-4 py-2.5 rounded-xl border border-border bg-background resize-none" />
           <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-sm">
             📷 {imgFile ? imgFile.name : "إرفاق صورة شهادة (اختياري)"}
