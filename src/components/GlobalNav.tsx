@@ -31,9 +31,19 @@ export function GlobalNav() {
       ]);
       setAvatar(p?.avatar_url || null);
       setName(p?.display_name || null);
-      setRoleType(p?.role_type || null);
       setGender((p as any)?.gender || null);
-      setIsAdmin(!!roles?.some((r) => r.role === "admin"));
+      const rolesList = (roles || []).map((r: any) => String(r.role));
+      const hasAdmin = rolesList.includes("admin");
+      const hasSupervisor = rolesList.includes("supervisor");
+      const hasTeacher = rolesList.includes("teacher");
+      // Derive effective role: user_roles takes priority over profiles.role_type
+      // because claim_admin_role / claim_supervisor_role only insert into user_roles.
+      let effectiveRole = p?.role_type || null;
+      if (hasAdmin) effectiveRole = "admin";
+      else if (hasSupervisor && effectiveRole !== "supervisor") effectiveRole = "supervisor";
+      else if (hasTeacher && effectiveRole !== "teacher") effectiveRole = "teacher";
+      setRoleType(effectiveRole);
+      setIsAdmin(hasAdmin);
     };
     supabase.auth.getSession().then(({ data }) => {
       const id = data.session?.user.id || null;

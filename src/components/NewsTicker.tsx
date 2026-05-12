@@ -155,13 +155,14 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       .limit(3);
 
     (topProfiles || []).forEach((p: any, i: number) => {
-      if (!p.display_name || !p.points) return;
+      if (!p.display_name) return;
       const medals = ["🥇", "🥈", "🥉"];
       const roleLabel = getRoleLabel(p.role_type);
       const nameWithRole = roleLabel ? `${roleLabel} ${p.display_name}` : p.display_name;
+      const pts = p.points ?? 0;
       items.push({
         id: `profile-${i}`,
-        text: `${medals[i]} أعلى نقاط: ${nameWithRole} — ${p.points} نقطة`,
+        text: `${medals[i]} المتصدر: ${nameWithRole}${pts > 0 ? ` — ${pts} نقطة` : " — لم يتسجل نقاط بعد"}`,
         type: "auto",
       });
     });

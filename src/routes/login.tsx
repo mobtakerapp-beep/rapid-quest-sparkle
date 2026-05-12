@@ -32,19 +32,24 @@ function LoginPage() {
     const trimmed = code.trim();
     if (!trimmed) return;
     const attempts = [
-      { fn: "claim_admin_role", success: "تم تفعيل صلاحيات الأدمن — سيظهر حسابك كأدمن" },
-      { fn: "claim_supervisor_role", success: "تم تفعيل صلاحيات المشرف" },
-      { fn: "claim_teacher_role", success: "تم تفعيل حساب المعلم" },
+      { fn: "claim_admin_role",      roleType: "admin",      success: "تم تفعيل صلاحيات الأدمن ✅" },
+      { fn: "claim_supervisor_role", roleType: "supervisor", success: "تم تفعيل صلاحيات المشرف ✅" },
+      { fn: "claim_teacher_role",    roleType: "teacher",    success: "تم تفعيل حساب المعلم ✅" },
     ];
     for (const attempt of attempts) {
       const { data } = await supabase.rpc(attempt.fn as any, { _code: trimmed });
       if (data) {
+        // Also update profiles.role_type so the greeting shows the correct role immediately
+        const { data: sess } = await supabase.auth.getSession();
+        if (sess?.session?.user.id) {
+          await supabase.from("profiles").update({ role_type: attempt.roleType }).eq("id", sess.session.user.id);
+        }
         toast.success(attempt.success);
         setAdminCode("");
         return;
       }
     }
-    toast.error("الكود غير صحيح");
+    toast.error("الكود غير صحيح أو مستخدم من قبل");
     setAdminCode("");
   };
 
