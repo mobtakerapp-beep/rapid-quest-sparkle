@@ -96,7 +96,8 @@ function CompetitionsPage() {
   }, [navigate]);
 
   const load = async (userId?: string) => {
-    const { data } = await supabase.from("competitions").select("*").order("starts_at", { ascending: false }).limit(50);
+    const { data, error } = await supabase.from("competitions").select("*").order("created_at", { ascending: false }).limit(50);
+    if (error) { toast.error("تعذّر تحميل المسابقات: " + error.message); return; }
     setComps((data || []) as Comp[]);
     const id = userId || uid;
     if (id) {
@@ -561,10 +562,11 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
   const [subImage, setSubImage] = useState<File | null>(null);
   const [subLink, setSubLink] = useState("");
   const [sending, setSending] = useState(false);
-  const startMs = new Date(comp.starts_at).getTime();
-  const endMs = new Date(comp.ends_at).getTime();
-  const remaining = Math.max(0, Math.floor((endMs - now) / 1000));
-  const ended = remaining === 0;
+  const startMs = comp.starts_at ? new Date(comp.starts_at).getTime() : Date.now();
+  // If ends_at is missing, treat the competition as having no time limit (indefinitely open)
+  const endMs = comp.ends_at ? new Date(comp.ends_at).getTime() : Infinity;
+  const remaining = comp.ends_at ? Math.max(0, Math.floor((endMs - now) / 1000)) : Infinity;
+  const ended = comp.ends_at ? remaining === 0 : false;
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -584,8 +586,10 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
     if (isTeacher || submitted || ended || sending) return;
     setSending(true);
     const elapsed = Math.floor((Date.now() - startMs) / 1000);
+    // Send the option TEXT so the DB trigger can compare it against competition_secrets.correct_answer
+    const selectedText = (comp.options?.[idx] ?? "").trim() || String(idx);
     const { error } = await supabase.from("competition_submissions").insert({
-      competition_id: comp.id, user_id: uid, answer: String(idx),
+      competition_id: comp.id, user_id: uid, answer: selectedText,
       time_taken_seconds: elapsed, is_correct: false,
     });
     setSending(false);
@@ -612,8 +616,8 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
     setSubmitted(true); setAnswer(""); setSubImage(null); setSubLink("");
   };
 
-  const mins = Math.floor(remaining / 60);
-  const secs = remaining % 60;
+  const mins = isFinite(remaining) ? Math.floor(remaining / 60) : 0;
+  const secs = isFinite(remaining) ? remaining % 60 : 0;
 
   return (
     <div className="space-y-4">
@@ -624,7 +628,7 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
         <h2 className="text-2xl font-black mb-2">{comp.title}</h2>
         <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold mb-4 ${ended ? "bg-secondary" : "bg-amber-100 text-amber-700"}`}>
           <Clock className="h-4 w-4" />
-          {ended ? "انتهت المسابقة" : `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`}
+          {ended ? "انتهت المسابقة" : !comp.ends_at ? "مفتوحة" : `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`}
         </div>
         {comp.image_url && <img src={comp.image_url} alt="" className="w-full max-h-80 object-contain rounded-2xl mb-4 bg-secondary/30" />}
         <p className="text-lg mb-4 leading-relaxed"><MathText text={comp.question} /></p>
