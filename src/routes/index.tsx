@@ -112,13 +112,15 @@ function Index() {
         <div className="absolute bottom-0 right-1/3 h-96 w-96 rounded-full bg-[var(--brand-3)] opacity-15 blur-3xl" />
       </div>
 
-      {/* Top bar with Oman emblem + governorate (right side in RTL) */}
-      <div className="container mx-auto px-6 pt-6 flex items-center justify-start gap-4">
-        <div className="flex items-center gap-3">
-          <img src={omanEmblem} alt="شعار سلطنة عمان" className="h-12 w-12 object-contain" width={48} height={48} />
-          <div className="text-right leading-tight">
-            <div className="text-xs text-muted-foreground">سلطنة عُمان</div>
-            <div className="font-bold text-sm">محافظة الوسطى</div>
+      {/* Top bar — sticky so it stays visible while scrolling */}
+      <div className="sticky top-0 z-30 bg-background/80 backdrop-blur border-b border-border/40">
+        <div className="container mx-auto px-6 py-3 flex items-center justify-start gap-4">
+          <div className="flex items-center gap-3">
+            <img src={omanEmblem} alt="شعار سلطنة عمان" className="h-10 w-10 object-contain" width={40} height={40} />
+            <div className="text-right leading-tight">
+              <div className="text-xs text-muted-foreground">سلطنة عُمان</div>
+              <div className="font-bold text-sm">محافظة الوسطى</div>
+            </div>
           </div>
         </div>
       </div>

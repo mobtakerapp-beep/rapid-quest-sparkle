@@ -14,6 +14,7 @@ import { ProtectContent } from "@/components/ProtectContent";
 import { EventReminderWatcher } from "@/components/EventReminderWatcher";
 import { TickerWithRole } from "@/components/NewsTicker";
 import { DhikrReminder } from "@/components/DhikrReminder";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 
 function NotFoundComponent() {
   return (
@@ -95,7 +96,7 @@ function RootComponent() {
   }, [queryClient]);
 
   return (
-    <>
+    <LanguageProvider>
       <ThemeProvider />
       <ProtectContent />
       <EventReminderWatcher />
@@ -106,6 +107,6 @@ function RootComponent() {
       </div>
       <GlobalNav />
       <Toaster position="top-center" richColors dir="rtl" />
-    </>
+    </LanguageProvider>
   );
 }

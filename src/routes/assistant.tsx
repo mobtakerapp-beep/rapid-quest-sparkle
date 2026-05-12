@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
+import { useLang } from "@/contexts/LanguageContext";
 
 export const Route = createFileRoute("/assistant")({ component: AssistantPage });
 
@@ -72,10 +73,12 @@ function AssistantPage() {
     } finally { setUploadingImage(false); e.target.value = ""; }
   };
 
+  const { lang } = useLang();
+
   const send = async () => {
     const text = input.trim();
     if ((!text && !pendingImage) || loading) return;
-    const userMsg: Msg = { role: "user", content: text || (pendingImage ? "حلّل هذه المسألة." : ""), imageUrl: pendingImage?.url };
+    const userMsg: Msg = { role: "user", content: text || (pendingImage ? (lang === "ar" ? "حلّل هذه المسألة." : "Analyze this problem.") : ""), imageUrl: pendingImage?.url };
     const next = [...messages, userMsg];
     setMessages(next);
     setInput("");
@@ -88,9 +91,11 @@ function AssistantPage() {
         const { data: refreshed } = await supabase.auth.refreshSession();
         token = refreshed.session?.access_token;
       }
-      if (!token) { toast.error("سجّل الدخول لاستخدام المساعد"); setLoading(false); return; }
-      // Prepend a system instruction to force Arabic responses
-      const systemMsg = { role: "system", content: "أنت مساعد تعليمي متخصص في الرياضيات لطلاب الصف الخامس في سلطنة عُمان. تجيب دائماً باللغة العربية الفصحى البسيطة المناسبة لعمر الطالب. لا تستخدم الإنجليزية أبداً في ردودك. استخدم أمثلة من الحياة اليومية وكن مشجعاً وإيجابياً." };
+      if (!token) { toast.error(lang === "ar" ? "سجّل الدخول لاستخدام المساعد" : "Please log in to use the assistant"); setLoading(false); return; }
+      // System prompt: respond in the same language the user writes in
+      const systemMsg = lang === "ar"
+        ? { role: "system", content: "أنت مساعد تعليمي متخصص في الرياضيات لطلاب الصف الخامس في سلطنة عُمان. تجيب باللغة العربية الفصحى البسيطة المناسبة لعمر الطالب. استخدم أمثلة من الحياة اليومية وكن مشجعاً وإيجابياً." }
+        : { role: "system", content: "You are an educational math assistant for 5th grade students in Oman. Always respond in clear, simple English suitable for the student's age. Use everyday examples and be encouraging and positive." };
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
@@ -174,18 +179,25 @@ function AssistantPage() {
     setLoading(false);
   };
 
+  const isAr = lang === "ar";
+  const dir = isAr ? "rtl" : "ltr";
+
+  const suggestions = isAr
+    ? ["اشرح لي الكسور", "كيف أجمع الأعداد العشرية؟", "ما هي وحدات القياس؟"]
+    : ["Explain fractions", "How do I add decimals?", "What are units of measurement?"];
+
   return (
-    <div dir="rtl" className="min-h-screen bg-background flex flex-col">
+    <div dir={dir} className="min-h-screen bg-background flex flex-col">
       <header className="bg-card border-b border-border sticky top-0 z-10">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> الرئيسية
+            <ArrowLeft className="h-4 w-4" /> {isAr ? "الرئيسية" : "Home"}
           </Link>
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white">
               <Bot className="h-5 w-5" />
             </div>
-            <h1 className="font-bold">المساعد الذكي</h1>
+            <h1 className="font-bold">{isAr ? "المساعد الذكي" : "AI Assistant"}</h1>
           </div>
         </div>
       </header>
@@ -195,11 +207,13 @@ function AssistantPage() {
           {messages.length === 0 && (
             <div className="text-center py-12">
               <Sparkles className="h-12 w-12 mx-auto text-[var(--brand)] mb-3" />
-              <h2 className="text-xl font-bold mb-2">مرحباً! أنا مساعدك الذكي 🤖</h2>
-              <p className="text-sm text-muted-foreground mb-1">اسألني أي سؤال في الرياضيات، أو ارفع صورة لمسألة لأحلها لك</p>
-              <p className="text-xs text-muted-foreground mb-4">📷 يدعم الصور — 🔢 يدعم الكسور والجذور</p>
+              <h2 className="text-xl font-bold mb-2">{isAr ? "مرحباً! أنا مساعدك الذكي 🤖" : "Hello! I'm your AI Assistant 🤖"}</h2>
+              <p className="text-sm text-muted-foreground mb-1">
+                {isAr ? "اسألني أي سؤال في الرياضيات، أو ارفع صورة لمسألة لأحلها لك" : "Ask me any math question, or upload a photo of a problem and I'll solve it for you"}
+              </p>
+              <p className="text-xs text-muted-foreground mb-4">📷 {isAr ? "يدعم الصور — 🔢 يدعم الكسور والجذور" : "Supports images — 🔢 Supports fractions & roots"}</p>
               <div className="flex flex-wrap gap-2 justify-center">
-                {["اشرح لي الكسور", "كيف أجمع الأعداد العشرية؟", "ما هي وحدات القياس؟"].map((q) => (
+                {suggestions.map((q) => (
                   <button key={q} onClick={() => setInput(q)} className="text-xs px-3 py-1.5 rounded-full bg-secondary hover:bg-secondary/70">{q}</button>
                 ))}
               </div>
@@ -259,7 +273,7 @@ function AssistantPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") send(); }}
-              placeholder={uploadingImage ? "جاري رفع الصورة..." : "اكتب سؤالك بالعربي..."}
+              placeholder={uploadingImage ? (isAr ? "جاري رفع الصورة..." : "Uploading image...") : (isAr ? "اكتب سؤالك هنا..." : "Type your question here...")}
               disabled={loading || uploadingImage}
               className="flex-1 px-4 py-3 rounded-2xl border border-border bg-card"
             />
