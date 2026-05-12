@@ -6,6 +6,7 @@ import { ArrowLeft, User as UserIcon, GraduationCap, BookOpen, Heart, LogOut, Sh
 import { FullPageLoader } from "@/components/LoadingSpinner";
 import { playLogoutSound } from "@/lib/sounds";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
+import { getCountryFlag } from "@/lib/countryFlag";
 // MyCertificates and MyBadges now live on the /badges page
 
 export const Route = createFileRoute("/profile")({
@@ -325,9 +326,14 @@ function ProfilePage() {
 
             <div>
               <label className="text-sm font-semibold mb-2 block">الدولة</label>
-              <input value={country} onChange={(e) => setCountry(e.target.value)} maxLength={60}
-                placeholder="سلطنة عُمان"
-                className="w-full px-4 py-3 rounded-xl border border-border bg-background" />
+              <div className="relative">
+                <input value={country} onChange={(e) => setCountry(e.target.value)} maxLength={60}
+                  placeholder="سلطنة عُمان"
+                  className="w-full px-4 py-3 rounded-xl border border-border bg-background" />
+                {country && getCountryFlag(country) && (
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xl pointer-events-none">{getCountryFlag(country)}</span>
+                )}
+              </div>
             </div>
 
             {roleType === "teacher" && (

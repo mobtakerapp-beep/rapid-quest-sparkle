@@ -247,15 +247,13 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
   }, [quiz.id, uid, isTeacher]);
 
   const submit = async () => {
-    // Send selections to server; map shuffled display index back to original index for scoring.
+    // answers[i] already holds the ORIGINAL index — send directly.
     const ansMap: Record<string, number> = {};
     const essMap: Record<string, string> = {};
     qs.forEach((q: any, i: number) => {
       if ((q.type || "mc") === "essay") essMap[String(i)] = essays[i] || "";
       else if (typeof answers[i] === "number") {
-        const map = shuffleMap[i];
-        const originalIdx = map ? map[answers[i]] : answers[i];
-        ansMap[String(i)] = originalIdx;
+        ansMap[String(i)] = answers[i]; // already original index
       }
     });
     const { data, error } = await supabase.rpc("submit_quiz_attempt" as any, {
@@ -319,13 +317,21 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
             ) : (
             <div className="grid gap-2">
               {q.options.map((o, oi) => {
-                const sel = answers[i] === oi;
+                // shuffleMap[i][displayIdx] = originalIdx
+                const origAtDisplay = shuffleMap[i] ? shuffleMap[i][oi] : oi;
+                // answers[i] stores ORIGINAL index
+                const sel = answers[i] === origAtDisplay;
                 const det = previousDetails?.find((d: any) => d.i === i);
-                const correctIdx = (q as any).correct ?? det?.correct;
-                const correctAfter = done && correctIdx !== undefined && oi === correctIdx;
-                const wrongAfter = done && sel && correctIdx !== undefined && oi !== correctIdx;
+                const correctOrigIdx = (q as any).correct ?? det?.correct;
+                // Which display position holds the correct original answer?
+                const correctDisplayOi = correctOrigIdx !== undefined
+                  ? (shuffleMap[i] ? shuffleMap[i].indexOf(correctOrigIdx) : correctOrigIdx)
+                  : undefined;
+                const correctAfter = done && correctDisplayOi !== undefined && oi === correctDisplayOi;
+                const wrongAfter = done && sel && correctDisplayOi !== undefined && oi !== correctDisplayOi;
                 return (
-                  <button key={oi} disabled={done || isTeacher} onClick={() => setAnswers({ ...answers, [i]: oi })}
+                  <button key={oi} disabled={done || isTeacher}
+                    onClick={() => setAnswers({ ...answers, [i]: origAtDisplay })}
                     className={`text-right px-4 py-3 rounded-xl border-2 transition ${
                       correctAfter ? "border-emerald-500 bg-emerald-50" :
                       wrongAfter ? "border-rose-500 bg-rose-50" :

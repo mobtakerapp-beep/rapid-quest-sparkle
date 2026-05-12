@@ -7,6 +7,9 @@ import { InstallPWA } from "@/components/InstallPWA";
 import logo from "@/assets/original-logo-reference.jpg";
 import omanEmblem from "@/assets/oman-emblem.png";
 import { HonorBoard } from "@/components/HonorBoard";
+import { LiveClock } from "@/components/LiveClock";
+import { getCountryFlag } from "@/lib/countryFlag";
+import { useLang } from "@/contexts/LanguageContext";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,6 +44,7 @@ const features = [
 ];
 
 function Index() {
+  const { isAr } = useLang();
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [roleType, setRoleType] = useState<string | null>(null);
   const [country, setCountry] = useState<string | null>(null);
@@ -114,14 +118,15 @@ function Index() {
 
       {/* Top bar — sticky so it stays visible while scrolling */}
       <div className="sticky top-0 z-30 bg-background/80 backdrop-blur border-b border-border/40">
-        <div className="container mx-auto px-6 py-3 flex items-center justify-start gap-4">
+        <div className="container mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img src={omanEmblem} alt="شعار سلطنة عمان" className="h-10 w-10 object-contain" width={40} height={40} />
             <div className="text-right leading-tight">
-              <div className="text-xs text-muted-foreground">سلطنة عُمان</div>
-              <div className="font-bold text-sm">محافظة الوسطى</div>
+              <div className="text-xs text-muted-foreground">{isAr ? "سلطنة عُمان" : "Sultanate of Oman"}</div>
+              <div className="font-bold text-sm">{isAr ? "محافظة الوسطى" : "Al Wusta Governorate"}</div>
             </div>
           </div>
+          <LiveClock />
         </div>
       </div>
 
@@ -129,7 +134,7 @@ function Index() {
       <section className="container mx-auto px-6 pt-10 pb-16 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 backdrop-blur border border-border mb-6 shadow-sm">
           <Sparkles className="h-4 w-4 text-[var(--brand)]" />
-          <span className="text-sm font-medium">منصة تعليمية تفاعلية</span>
+          <span className="text-sm font-medium">{isAr ? "منصة تعليمية تفاعلية" : "Interactive Learning Platform"}</span>
         </div>
 
         <div className="mx-auto mb-4 h-40 w-40 md:h-52 md:w-52 rounded-full overflow-hidden flex items-center justify-center shadow-xl ring-4 ring-[var(--brand)]/20 bg-white">
@@ -137,22 +142,34 @@ function Index() {
         </div>
 
         <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-3 bg-[image:var(--gradient-hero)] bg-clip-text text-transparent leading-[1.2]">
-          مبادرة كلنا معاً
+          {isAr ? "مبادرة كلنا معاً" : "Kulluna Maaan Initiative"}
         </h1>
         <p className="text-2xl md:text-3xl font-extrabold mb-2" style={{ fontFamily: "'Tajawal', sans-serif", letterSpacing: "0.05em" }}>
-          <span className="bg-gradient-to-r from-amber-500 via-rose-500 to-violet-500 bg-clip-text text-transparent">للصف الخامس</span>
+          <span className="bg-gradient-to-r from-amber-500 via-rose-500 to-violet-500 bg-clip-text text-transparent">
+            {isAr ? "للصف الخامس" : "Grade 5"}
+          </span>
         </p>
-        <p className="text-lg md:text-xl font-bold text-[var(--brand)] mb-6">رياضيات</p>
+        <p className="text-lg md:text-xl font-bold text-[var(--brand)] mb-6">{isAr ? "رياضيات" : "Mathematics"}</p>
 
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-          منصة تعليمية تفاعلية تجمع بين المعلمين والطلاب وأولياء الأمور
-          <br className="hidden md:block" />
-          لتعزيز التعلم والإبداع في رحلة ممتعة وملهمة
+          {isAr ? (
+            <>
+              منصة تعليمية تفاعلية تجمع بين المعلمين والطلاب وأولياء الأمور
+              <br className="hidden md:block" />
+              لتعزيز التعلم والإبداع في رحلة ممتعة وملهمة
+            </>
+          ) : (
+            <>
+              An interactive educational platform connecting teachers, students, and parents
+              <br className="hidden md:block" />
+              to enhance learning and creativity in a fun and inspiring journey.
+            </>
+          )}
         </p>
 
         {displayName && (
           <div className="mx-auto mb-6 max-w-xl rounded-2xl border border-border bg-card px-5 py-4 shadow-[var(--shadow-card)]">
-            <div className="text-sm text-muted-foreground">مرحباً بك 👋</div>
+            <div className="text-sm text-muted-foreground">{isAr ? "مرحباً بك 👋" : "Welcome 👋"}</div>
             <div className="mt-1 text-xl font-black text-foreground flex items-center justify-center gap-2 flex-wrap">
               <span>{roleLabel ? `${roleLabel} ` : ""}{displayName}</span>
               {isAdmin && (
@@ -162,8 +179,14 @@ function Index() {
               )}
             </div>
             {(country || school) && (
-              <div className="mt-1 text-sm text-muted-foreground">
-                {country}{roleType === "teacher" && school ? ` • ${school}` : ""}
+              <div className="mt-1 text-sm text-muted-foreground flex items-center justify-center gap-1 flex-wrap">
+                {country && (
+                  <span className="inline-flex items-center gap-1">
+                    {getCountryFlag(country) && <span className="text-base leading-none">{getCountryFlag(country)}</span>}
+                    <span>{country}</span>
+                  </span>
+                )}
+                {roleType === "teacher" && school ? ` • ${school}` : ""}
               </div>
             )}
           </div>
@@ -172,10 +195,10 @@ function Index() {
         <div className="flex items-center justify-center gap-3 flex-wrap">
           <Link to="/login" className="group inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-[image:var(--gradient-hero)] text-white font-bold text-lg shadow-[var(--shadow-soft)] hover:scale-105 transition-transform">
             <MessageCircle className="h-5 w-5" />
-            انضم إلى المجتمع
+            {isAr ? "انضم إلى المجتمع" : "Join the Community"}
           </Link>
           <button onClick={() => setShowAbout(true)} className="inline-flex items-center gap-2 px-6 py-4 rounded-2xl bg-white/80 backdrop-blur border border-border font-bold hover:scale-105 transition-transform">
-            <Info className="h-5 w-5 text-[var(--brand)]" /> نبذة عن المبادرة
+            <Info className="h-5 w-5 text-[var(--brand)]" /> {isAr ? "نبذة عن المبادرة" : "About"}
           </button>
           <InstallPWA />
         </div>
@@ -202,7 +225,9 @@ function Index() {
           </div>
         )}
 
-        <div className="mt-6 text-sm text-muted-foreground">مجاني بالكامل • سهل الاستخدام • آمن للأطفال</div>
+        <div className="mt-6 text-sm text-muted-foreground">
+          {isAr ? "مجاني بالكامل • سهل الاستخدام • آمن للأطفال" : "100% Free • Easy to Use • Safe for Kids"}
+        </div>
       </section>
 
       {/* Honor Board */}
@@ -211,8 +236,8 @@ function Index() {
       {/* Features */}
       <section className="container mx-auto px-6 pb-20">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-black mb-3">ماذا نقدم لك؟</h2>
-          <p className="text-muted-foreground">كل ما تحتاجه لرحلة تعليمية ممتعة في مكان واحد</p>
+          <h2 className="text-3xl md:text-4xl font-black mb-3">{isAr ? "ماذا نقدم لك؟" : "What We Offer"}</h2>
+          <p className="text-muted-foreground">{isAr ? "كل ما تحتاجه لرحلة تعليمية ممتعة في مكان واحد" : "Everything you need for an enjoyable learning journey in one place"}</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -234,11 +259,11 @@ function Index() {
         <div className="relative overflow-hidden rounded-[2rem] bg-[image:var(--gradient-hero)] p-10 md:p-16 text-center text-white shadow-[var(--shadow-soft)]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.3),transparent_50%)]" />
           <div className="relative">
-            <h3 className="text-3xl md:text-4xl font-black mb-4">جاهز لبدء رحلتك التعليمية؟</h3>
-            <p className="text-white/90 mb-8 max-w-xl mx-auto">انضم لمئات الطلاب الذين يتعلمون ويبدعون يومياً معنا</p>
+            <h3 className="text-3xl md:text-4xl font-black mb-4">{isAr ? "جاهز لبدء رحلتك التعليمية؟" : "Ready to Start Your Learning Journey?"}</h3>
+            <p className="text-white/90 mb-8 max-w-xl mx-auto">{isAr ? "انضم لمئات الطلاب الذين يتعلمون ويبدعون يومياً معنا" : "Join hundreds of students who learn and create with us daily"}</p>
             <Link to="/login" className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-[var(--brand)] font-bold hover:scale-105 transition-transform">
               <MessageCircle className="h-5 w-5" />
-              ابدأ الآن مجاناً
+              {isAr ? "ابدأ الآن مجاناً" : "Start for Free"}
             </Link>
           </div>
         </div>
