@@ -286,6 +286,13 @@ function CompetitionsPage() {
               const onDelete = async (e: React.MouseEvent) => {
                 e.stopPropagation();
                 if (!confirm("حذف المسابقة نهائياً؟")) return;
+                if (c.image_url) {
+                  try {
+                    const urlObj = new URL(c.image_url);
+                    const parts = urlObj.pathname.split("/competition-media/");
+                    if (parts[1]) await supabase.storage.from("competition-media").remove([parts[1]]);
+                  } catch {}
+                }
                 const { error } = await supabase.from("competitions").delete().eq("id", c.id);
                 if (error) return toast.error("لا تملك صلاحية الحذف");
                 toast.success("تم الحذف");
@@ -441,6 +448,7 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
   };
 
   const recordAnswer = (val: string) => {
+    if (isTeacher) return;
     if (!questions) return;
     const next = { ...answers, [String(idx)]: val };
     setAnswers(next);
@@ -493,12 +501,16 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
               <div className="bg-[image:var(--gradient-hero)] h-full transition-all" style={{ width: `${(remaining / currentQ.duration_seconds) * 100}%` }} />
             </div>
             <p className="text-xl font-bold leading-relaxed"><MathText text={currentQ.question} /></p>
-            {currentQ.is_multiple_choice && currentQ.options && currentQ.options.length > 0 ? (
+            {isTeacher ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center text-amber-700 font-bold text-sm">
+                👁️ وضع المراجعة — المعلمون والمشرفون يطّلعون فقط ولا يجيبون
+              </div>
+            ) : currentQ.is_multiple_choice && currentQ.options && currentQ.options.length > 0 ? (
               <div className="grid sm:grid-cols-2 gap-2">
                 {currentQ.options.map((opt, i) => (
                   <button key={i} onClick={() => recordAnswer(String(i))}
                     className="text-right px-4 py-3 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition font-bold">
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{String.fromCharCode(0x0623 + i)}</span>
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{['أ','ب','ج','د','هـ','و'][i] ?? String(i+1)}</span>
                     <MathText text={opt} />
                   </button>
                 ))}
@@ -554,7 +566,7 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
   }, [uid, comp.id]);
 
   const submitMC = async (idx: number) => {
-    if (submitted || ended || sending) return;
+    if (isTeacher || submitted || ended || sending) return;
     setSending(true);
     const elapsed = Math.floor((Date.now() - startMs) / 1000);
     const { error } = await supabase.from("competition_submissions").insert({
@@ -601,14 +613,18 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
         </div>
         {comp.image_url && <img src={comp.image_url} alt="" className="w-full max-h-80 object-contain rounded-2xl mb-4 bg-secondary/30" />}
         <p className="text-lg mb-4 leading-relaxed"><MathText text={comp.question} /></p>
-        {!ended && !submitted && (
+        {isTeacher ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center text-amber-700 font-bold text-sm">
+            👁️ وضع المراجعة — المعلمون والمشرفون يطّلعون فقط ولا يجيبون
+          </div>
+        ) : !ended && !submitted ? (
           <div className="space-y-2">
             {comp.is_multiple_choice && comp.options && comp.options.length > 0 ? (
               <div className="grid sm:grid-cols-2 gap-2">
                 {comp.options.map((opt, i) => (
                   <button key={i} disabled={sending} onClick={() => submitMC(i)}
                     className="text-right px-4 py-3 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition font-bold disabled:opacity-50">
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{String.fromCharCode(0x0623 + i)}</span>
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{['أ','ب','ج','د','هـ','و'][i] ?? String(i+1)}</span>
                     <MathText text={opt} />
                   </button>
                 ))}
@@ -633,8 +649,8 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
               </>
             )}
           </div>
-        )}
-        {submitted && <div className="text-emerald-600 font-bold">✓ تم تسجيل مشاركتك</div>}
+        ) : null}
+        {submitted && !isTeacher && <div className="text-emerald-600 font-bold">✓ تم تسجيل مشاركتك</div>}
         <Reactions targetType="competition" targetId={comp.id} uid={uid} />
       </div>
 

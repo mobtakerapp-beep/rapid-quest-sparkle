@@ -23,7 +23,7 @@ function getRoleLabel(roleType?: string): string {
   switch (roleType) {
     case "teacher":    return "المعلم";
     case "student":    return "الطالب";
-    case "admin":      return "المشرف";
+    case "admin":      return "المشرف العام";
     case "supervisor": return "المشرف";
     case "parent":     return "ولي الأمر";
     default:           return "";
@@ -71,6 +71,43 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       items.push({
         id: `comp-${comp.id}`,
         text: `🏆 الفائز في "${comp.title}": ${roleLabel} ${name}${score ? ` — النتيجة: ${score}` : ""} — الوقت: ${time}`,
+        type: "auto",
+      });
+    }
+
+    // فائزو مسابقات المعرض
+    const { data: gContests } = await supabase
+      .from("gallery_contests")
+      .select("id, title, ends_at")
+      .lt("ends_at", new Date().toISOString())
+      .order("ends_at", { ascending: false })
+      .limit(5);
+
+    for (const gc of (gContests || [])) {
+      const { data: entries } = await supabase
+        .from("gallery_contest_entries")
+        .select("id, user_id")
+        .eq("contest_id", gc.id);
+      if (!entries?.length) continue;
+      const { data: votes } = await supabase
+        .from("gallery_contest_votes")
+        .select("entry_id")
+        .in("entry_id", entries.map((e: any) => e.id));
+      if (!votes?.length) continue;
+      const voteCount: Record<string, number> = {};
+      (votes || []).forEach((v: any) => { voteCount[v.entry_id] = (voteCount[v.entry_id] || 0) + 1; });
+      let bestEntry = entries[0]; let bestVotes = voteCount[entries[0].id] || 0;
+      for (const e of entries) {
+        const v = voteCount[e.id] || 0;
+        if (v > bestVotes) { bestEntry = e; bestVotes = v; }
+      }
+      if (!bestVotes) continue;
+      const { data: prof } = await supabase.from("profiles").select("display_name, role_type").eq("id", bestEntry.user_id).maybeSingle();
+      const name = (prof as any)?.display_name || "—";
+      const roleLabel = getRoleLabel((prof as any)?.role_type);
+      items.push({
+        id: `gallery-${gc.id}`,
+        text: `🎨 الفائز في معرض "${gc.title}": ${roleLabel} ${name} — ${bestVotes} ❤`,
         type: "auto",
       });
     }
