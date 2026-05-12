@@ -32,6 +32,10 @@ function downloadImage(url: string) {
 
 function AssistantPage() {
   const navigate = useNavigate();
+  // ← must be before any conditional returns
+  const { lang } = useLang();
+  const isAr = lang === "ar";
+
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -57,7 +61,7 @@ function AssistantPage() {
   const onPickImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !uid) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error("الصورة كبيرة (5 ميجا حد أقصى)"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error(isAr ? "الصورة كبيرة (5 ميجا حد أقصى)" : "Image too large (5 MB max)"); return; }
     setUploadingImage(true);
     try {
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
@@ -69,16 +73,14 @@ function AssistantPage() {
       reader.onload = () => setPendingImage({ url, previewData: reader.result as string });
       reader.readAsDataURL(file);
     } catch (err: any) {
-      toast.error("فشل رفع الصورة: " + (err.message || ""));
+      toast.error((isAr ? "فشل رفع الصورة: " : "Upload failed: ") + (err.message || ""));
     } finally { setUploadingImage(false); e.target.value = ""; }
   };
-
-  const { lang } = useLang();
 
   const send = async () => {
     const text = input.trim();
     if ((!text && !pendingImage) || loading) return;
-    const userMsg: Msg = { role: "user", content: text || (pendingImage ? (lang === "ar" ? "حلّل هذه المسألة." : "Analyze this problem.") : ""), imageUrl: pendingImage?.url };
+    const userMsg: Msg = { role: "user", content: text || (pendingImage ? (isAr ? "حلّل هذه المسألة." : "Analyze this problem.") : ""), imageUrl: pendingImage?.url };
     const next = [...messages, userMsg];
     setMessages(next);
     setInput("");
@@ -91,11 +93,14 @@ function AssistantPage() {
         const { data: refreshed } = await supabase.auth.refreshSession();
         token = refreshed.session?.access_token;
       }
-      if (!token) { toast.error(lang === "ar" ? "سجّل الدخول لاستخدام المساعد" : "Please log in to use the assistant"); setLoading(false); return; }
-      // System prompt: respond in the same language the user writes in
-      const systemMsg = lang === "ar"
-        ? { role: "system", content: "أنت مساعد تعليمي متخصص في الرياضيات لطلاب الصف الخامس في سلطنة عُمان. تجيب باللغة العربية الفصحى البسيطة المناسبة لعمر الطالب. استخدم أمثلة من الحياة اليومية وكن مشجعاً وإيجابياً." }
-        : { role: "system", content: "You are an educational math assistant for 5th grade students in Oman. Always respond in clear, simple English suitable for the student's age. Use everyday examples and be encouraging and positive." };
+      if (!token) { toast.error(isAr ? "سجّل الدخول لاستخدام المساعد" : "Please log in to use the assistant"); setLoading(false); return; }
+      // System prompt: always reply in the SAME language the user writes in (auto-detect)
+      const systemMsg = {
+        role: "system",
+        content: isAr
+          ? "أنت مساعد تعليمي متخصص في الرياضيات لطلاب الصف الخامس في سلطنة عُمان. اكتشف لغة رسالة المستخدم وأجب دائماً بنفس اللغة: إذا كتب عربياً فأجب بالعربية الفصحى البسيطة، وإذا كتب إنجليزياً فأجب بالإنجليزية البسيطة. استخدم أمثلة من الحياة اليومية وكن مشجعاً وإيجابياً."
+          : "You are an educational math assistant for 5th grade students in Oman. Detect the language the user writes in and ALWAYS reply in that same language: if they write in Arabic respond in simple Arabic, if they write in English respond in simple English. Use everyday examples and be encouraging and positive.",
+      };
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
@@ -179,7 +184,6 @@ function AssistantPage() {
     setLoading(false);
   };
 
-  const isAr = lang === "ar";
   const dir = isAr ? "rtl" : "ltr";
 
   const suggestions = isAr
