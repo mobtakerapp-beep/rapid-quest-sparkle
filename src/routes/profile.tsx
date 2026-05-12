@@ -118,17 +118,19 @@ function ProfilePage() {
     if (!code) return;
     setClaiming(true);
     const attempts = [
-      { fn: "claim_admin_role", success: "تم تفعيل صلاحيات الأدمن 🛡️", apply: () => { setIsAdmin(true); setRoleType("supervisor"); } },
-      { fn: "claim_supervisor_role", success: "تم تفعيل صلاحيات المشرف 🛡️", apply: () => setRoleType("supervisor") },
-      { fn: "claim_teacher_role", success: "تم تفعيل حساب المعلم 📘", apply: () => setRoleType("teacher") },
+      { fn: "claim_admin_role", success: "تم تفعيل صلاحيات المشرف العام 🛡️", newRole: "supervisor" as const, apply: () => { setIsAdmin(true); setRoleType("supervisor"); } },
+      { fn: "claim_supervisor_role", success: "تم تفعيل صلاحيات المشرف 🛡️", newRole: "supervisor" as const, apply: () => setRoleType("supervisor") },
+      { fn: "claim_teacher_role", success: "تم تفعيل حساب المعلم 📘", newRole: "teacher" as const, apply: () => setRoleType("teacher") },
     ];
     for (const attempt of attempts) {
       const { data } = await supabase.rpc(attempt.fn as any, { _code: code });
       if (data) {
         attempt.apply();
+        if (uid) await supabase.from("profiles").update({ role_type: attempt.newRole }).eq("id", uid);
         toast.success(attempt.success);
         setAdminCode("");
         setClaiming(false);
+        setTimeout(() => window.location.reload(), 1200);
         return;
       }
     }

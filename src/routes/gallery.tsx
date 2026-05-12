@@ -2,10 +2,11 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Image as ImageIcon, Upload, Trash2, Sparkles, Video, Send, Smile, X } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, Upload, Trash2, Sparkles, Video, Send, Smile, X, Type } from "lucide-react";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { ReportButton } from "@/components/ReportButton";
 import { Reactions } from "@/components/Reactions";
+import { ImageTextEditor } from "@/components/ImageTextEditor";
 
 export const Route = createFileRoute("/gallery")({ component: GalleryPage });
 
@@ -28,6 +29,7 @@ function GalleryPage() {
   const [uploading, setUploading] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [openItem, setOpenItem] = useState<Item | null>(null);
+  const [showImageEditor, setShowImageEditor] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -164,6 +166,10 @@ function GalleryPage() {
               <Upload className="h-4 w-4" /> اختر صورة أو فيديو
               <input type="file" accept="image/*,video/*" onChange={onPick} className="hidden" />
             </label>
+            <button type="button" onClick={() => setShowImageEditor(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-100 text-violet-700 hover:bg-violet-200 text-sm font-bold transition" title="كتابة على صورة">
+              <Type className="h-4 w-4" /> اكتب على صورة
+            </button>
             <button onClick={upload} disabled={(!file && !caption.trim()) || uploading}
               className="px-5 py-2 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
               {uploading ? "جاري الرفع..." : "نشر"}
@@ -227,6 +233,7 @@ function GalleryPage() {
           onClose={() => setOpenItem(null)}
         />
       )}
+      {showImageEditor && <ImageTextEditor onClose={() => setShowImageEditor(false)} />}
     </div>
   );
 }

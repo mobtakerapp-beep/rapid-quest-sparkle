@@ -69,6 +69,7 @@ function CompetitionsPage() {
   const navigate = useNavigate();
   const [uid, setUid] = useState<string | null>(null);
   const [canCreate, setCanCreate] = useState(false);
+  const [isParent, setIsParent] = useState(false);
   const [comps, setComps] = useState<Comp[]>([]);
   const [active, setActive] = useState<Comp | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -84,7 +85,11 @@ function CompetitionsPage() {
       if (!data.session) { navigate({ to: "/login" }); return; }
       const id = data.session.user.id;
       setUid(id);
-      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", id);
+      const [{ data: roles }, { data: prof }] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", id),
+        supabase.from("profiles").select("role_type").eq("id", id).maybeSingle(),
+      ]);
+      if ((prof as any)?.role_type === "parent") { setIsParent(true); return; }
       setCanCreate(!!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role))));
       load(id);
     });
@@ -223,6 +228,15 @@ function CompetitionsPage() {
     load();
   };
 
+  if (isParent) return (
+    <div dir="rtl" className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 text-center px-4">
+      <div className="text-5xl">🔒</div>
+      <h2 className="text-xl font-black">هذه الصفحة للطلاب فقط</h2>
+      <p className="text-muted-foreground text-sm">كولي أمر يمكنك متابعة المجتمع والمعرض والشات</p>
+      <Link to="/" className="px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">العودة للرئيسية</Link>
+    </div>
+  );
+
   return (
     <div dir="rtl" className="min-h-screen bg-background">
       <header className="bg-card border-b border-border sticky top-0 z-10">
@@ -281,7 +295,8 @@ function CompetitionsPage() {
             ) : comps.map((c) => {
               const timePassed = new Date(c.ends_at) < new Date();
               const userDone = userSubmittedIds.has(c.id);
-              const showEnded = userDone || timePassed;
+              const showEnded = userDone;
+              const showWinner = userDone || timePassed;
               const qCount = Array.isArray(c.questions) ? c.questions.length : 1;
               const onDelete = async (e: React.MouseEvent) => {
                 e.stopPropagation();
@@ -309,11 +324,11 @@ function CompetitionsPage() {
                           <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{c.question}</p>
                         </div>
                         <span className={`text-xs px-2 py-1 rounded-full shrink-0 font-semibold ${showEnded ? "bg-secondary text-muted-foreground" : "bg-emerald-100 text-emerald-700"}`}>
-                          {userDone || timePassed ? "انتهت" : "● نشطة"}
+                          {userDone ? "انتهت" : "● نشطة"}
                         </span>
                       </div>
                       <div className="text-[11px] text-muted-foreground mt-2">{qCount} {qCount === 1 ? "سؤال" : "أسئلة"}</div>
-                      {showEnded && <CompetitionWinner competitionId={c.id} />}
+                      {showWinner && <CompetitionWinner competitionId={c.id} />}
                     </div>
                   </button>
                   {canCreate && (

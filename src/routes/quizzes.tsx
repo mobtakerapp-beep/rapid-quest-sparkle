@@ -16,6 +16,7 @@ function QuizzesPage() {
   const navigate = useNavigate();
   const [uid, setUid] = useState<string | null>(null);
   const [isTeacher, setIsTeacher] = useState(false);
+  const [isParent, setIsParent] = useState(false);
   const [list, setList] = useState<Quiz[]>([]);
   const [active, setActive] = useState<Quiz | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -31,7 +32,11 @@ function QuizzesPage() {
       if (!data.session) { navigate({ to: "/login" }); return; }
       const id = data.session.user.id;
       setUid(id);
-      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", id);
+      const [{ data: roles }, { data: prof }] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", id),
+        supabase.from("profiles").select("role_type").eq("id", id).maybeSingle(),
+      ]);
+      if ((prof as any)?.role_type === "parent") { setIsParent(true); return; }
       setIsTeacher(!!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role))));
       load();
     });
@@ -72,6 +77,15 @@ function QuizzesPage() {
   const filtered = filter === "الكل" ? list : list.filter((q) => q.subject === filter);
 
   if (active && uid) return <QuizPlay quiz={active} uid={uid} isTeacher={isTeacher} onBack={() => { setActive(null); load(); }} />;
+
+  if (isParent) return (
+    <div dir="rtl" className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 text-center px-4">
+      <div className="text-5xl">🔒</div>
+      <h2 className="text-xl font-black">هذه الصفحة للطلاب فقط</h2>
+      <p className="text-muted-foreground text-sm">كولي أمر يمكنك متابعة المجتمع والمعرض والشات</p>
+      <Link to="/" className="px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">العودة للرئيسية</Link>
+    </div>
+  );
 
   return (
     <div dir="rtl" className="min-h-screen bg-background">
