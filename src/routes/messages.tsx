@@ -31,7 +31,24 @@ function MessagesPage() {
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | false>(false);
   const [msgReactions, setMsgReactions] = useState<Record<string, Record<string, number>>>({});
   const [myReactions, setMyReactions] = useState<Record<string, string>>({});
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const endRef = useRef<HTMLDivElement>(null);
+
+  const loadUnread = async (myId: string) => {
+    const { data } = await supabase.from("direct_messages").select("sender_id")
+      .eq("receiver_id", myId).is("read_at", null);
+    const counts: Record<string, number> = {};
+    (data || []).forEach((m: any) => { counts[m.sender_id] = (counts[m.sender_id] || 0) + 1; });
+    setUnreadCounts(counts);
+  };
+
+  const markRead = async (senderId: string) => {
+    if (!uid) return;
+    await supabase.from("direct_messages")
+      .update({ read_at: new Date().toISOString() } as any)
+      .eq("receiver_id", uid).eq("sender_id", senderId).is("read_at", null);
+    setUnreadCounts((prev) => { const n = { ...prev }; delete n[senderId]; return n; });
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -45,9 +62,10 @@ function MessagesPage() {
       const blockedIds = new Set<string>(((blocks as any[]) || []).map((b: any) => b.blocked_id));
       setBlocked(blockedIds);
       setPeople((profs || []) as Profile[]);
+      loadUnread(myId);
       if (search.with) {
         const found = (profs || []).find((p) => p.id === search.with);
-        if (found) setActive(found as Profile);
+        if (found) { setActive(found as Profile); markRead(found.id); }
       }
     });
   }, [navigate, search.with]);

@@ -162,14 +162,20 @@ function CompetitionsPage() {
 
     const totalDuration = questions.reduce((s, q) => s + (q.duration_seconds || 0), 0);
     const cleanQuestions: MQ[] = questions.map((q) => {
-      const cleanOptions = q.is_multiple_choice ? (q.options || []).map((o) => o.trim()).filter(Boolean) : undefined;
+      const rawOptions = (q.options || []).map((o) => o.trim());
+      const cleanOptions = q.is_multiple_choice ? rawOptions.filter(Boolean) : undefined;
+      // Remap correct_index after filtering so empty-option gaps don't shift the index
+      const originalCorrectText = rawOptions[q.correct_index ?? 0] ?? "";
+      const remappedIdx = cleanOptions
+        ? Math.max(0, cleanOptions.indexOf(originalCorrectText))
+        : 0;
       return {
         question: q.question.trim(),
         is_multiple_choice: q.is_multiple_choice,
         options: cleanOptions,
-        correct_index: q.is_multiple_choice ? q.correct_index : undefined,
+        correct_index: q.is_multiple_choice ? remappedIdx : undefined,
         correct_answer: q.is_multiple_choice
-          ? (cleanOptions?.[q.correct_index ?? 0] || "")
+          ? (cleanOptions?.[remappedIdx] || "")
           : (q.correct_answer || "").trim(),
         duration_seconds: q.duration_seconds,
       };
@@ -411,6 +417,8 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
   const [alreadyDone, setAlreadyDone] = useState(false);
   const [startTime] = useState(Date.now());
   const [isTeacher, setIsTeacher] = useState(false);
+  const [fullQuestions, setFullQuestions] = useState<MQ[] | null>(null);
+  const [submittedAnswers, setSubmittedAnswers] = useState<Record<string, string> | null>(null);
   const submitting = useRef(false);
 
   useEffect(() => {
@@ -449,6 +457,10 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
     if (error) { toast.error(error.message); return; }
     const r: any = Array.isArray(data) ? data[0] : data;
     setSubmittedResult({ correct: r?.correct_count ?? 0, total: r?.question_count ?? 0 });
+    setSubmittedAnswers(finalAnswers);
+    // Fetch full questions (with correct_index) for result review
+    const { data: compRow } = await supabase.from("competitions").select("questions").eq("id", comp.id).single();
+    if (compRow?.questions) setFullQuestions(compRow.questions as MQ[]);
     toast.success(`انتهت المسابقة! ${r?.correct_count ?? 0}/${r?.question_count ?? 0}`);
   };
 
@@ -494,13 +506,64 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
         {comp.image_url && <img src={comp.image_url} alt="" className="w-full max-h-72 object-contain rounded-2xl mb-4 bg-secondary/30" />}
 
         {alreadyDone || submittedResult ? (
-          <div className="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-6 text-center">
-            <div className="text-emerald-700 font-black text-xl mb-1">✓ انتهت مشاركتك</div>
-            {submittedResult && (
-              <div className="text-lg font-bold">نتيجتك: {submittedResult.correct} / {submittedResult.total}</div>
-            )}
-            {alreadyDone && !submittedResult && (
-              <div className="text-sm text-muted-foreground">لقد شاركت في هذه المسابقة سابقاً</div>
+          <div className="space-y-4">
+            <div className="bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 rounded-2xl p-6 text-center">
+              <div className="text-4xl mb-2">🌟</div>
+              <div className="text-emerald-700 dark:text-emerald-400 font-black text-2xl mb-1">أنا أستطيع ذلك!</div>
+              {submittedResult && (
+                <>
+                  <div className="text-lg font-bold mt-2">نتيجتك: {submittedResult.correct} / {submittedResult.total}</div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {submittedResult.correct === submittedResult.total
+                      ? "🎉 إجابات صحيحة بالكامل — رائع جداً!"
+                      : submittedResult.correct > submittedResult.total / 2
+                      ? "👏 أداء جيد — استمر في المحاولة!"
+                      : "💪 لا تستسلم — المحاولة والتعلم هما المفتاح!"}
+                  </div>
+                </>
+              )}
+              {alreadyDone && !submittedResult && (
+                <div className="text-sm text-muted-foreground mt-2">لقد شاركت في هذه المسابقة سابقاً</div>
+              )}
+            </div>
+            {/* Per-question breakdown shown after fresh submission */}
+            {fullQuestions && submittedAnswers && (
+              <div className="space-y-3">
+                <h3 className="font-black text-lg">مراجعة الإجابات</h3>
+                {fullQuestions.map((fq, qi) => {
+                  const userAns = submittedAnswers[String(qi)] ?? "";
+                  const correctIdx = fq.correct_index ?? -1;
+                  const isCorrect = fq.is_multiple_choice
+                    ? userAns === String(correctIdx)
+                    : userAns.toLowerCase().trim() === (fq.correct_answer || "").toLowerCase().trim();
+                  const userLabel = fq.is_multiple_choice
+                    ? (fq.options?.[parseInt(userAns)] ?? (userAns === "" ? "—" : userAns))
+                    : (userAns || "—");
+                  const correctLabel = fq.is_multiple_choice
+                    ? (fq.options?.[correctIdx] ?? fq.correct_answer ?? "")
+                    : (fq.correct_answer ?? "");
+                  return (
+                    <div key={qi} className={`rounded-2xl border-2 p-4 ${isCorrect ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30" : "border-rose-300 bg-rose-50 dark:bg-rose-950/30"}`}>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <p className="font-bold text-sm leading-relaxed flex-1"><MathText text={fq.question} /></p>
+                        <span className={`text-xl shrink-0 ${isCorrect ? "text-emerald-600" : "text-rose-500"}`}>{isCorrect ? "✓" : "✗"}</span>
+                      </div>
+                      {!isCorrect && (
+                        <div className="space-y-1 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-rose-500 font-bold">إجابتك:</span>
+                            <span className="text-rose-700 dark:text-rose-400"><MathText text={userLabel} /></span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-600 font-bold">الإجابة الصحيحة:</span>
+                            <span className="text-emerald-700 dark:text-emerald-400 font-black"><MathText text={correctLabel} /></span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         ) : !questions ? (
