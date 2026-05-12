@@ -498,6 +498,21 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
     goNext(next);
   };
 
+  // Compute derived values needed by the auto-advance hook (safe to compute before returns)
+  const currentQ = questions?.[idx];
+  const remaining = currentQ ? Math.max(0, Math.ceil((questionStartedAt + currentQ.duration_seconds * 1000 - now) / 1000)) : 0;
+
+  // Auto-advance when timer hits 0 — must be declared BEFORE any conditional return
+  useEffect(() => {
+    if (isTeacher || !currentQ || alreadyDone || submittedResult) return;
+    if (remaining <= 0) {
+      const next = { ...answers, [String(idx)]: answers[String(idx)] ?? "" };
+      setAnswers(next);
+      goNext(next);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remaining, isTeacher]);
+
   // Loading state until we know if teacher or not
   if (isTeacher === null) {
     return (
@@ -530,21 +545,6 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
       </div>
     );
   }
-
-  const currentQ = questions?.[idx];
-  const remaining = currentQ ? Math.max(0, Math.ceil((questionStartedAt + currentQ.duration_seconds * 1000 - now) / 1000)) : 0;
-
-  // Auto-advance when timer hits 0
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    if (!currentQ || alreadyDone || submittedResult) return;
-    if (remaining <= 0) {
-      const next = { ...answers, [String(idx)]: answers[String(idx)] ?? "" };
-      setAnswers(next);
-      goNext(next);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining]);
 
   return (
     <div className="space-y-4">
