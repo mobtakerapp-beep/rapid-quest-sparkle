@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Mail, Lock, Shield, ArrowRight, KeyRound, X } from "lucide-react";
+import { Mail, Lock, Shield, ArrowRight, KeyRound, X, CheckCircle } from "lucide-react";
 import logo from "@/assets/original-logo-reference.jpg";
 import { playLoginSound } from "@/lib/sounds";
 
@@ -244,12 +244,30 @@ function LoginPage() {
               <summary className="text-xs text-muted-foreground cursor-pointer flex items-center gap-2">
                 <KeyRound className="h-3.5 w-3.5" /> كود صلاحيات (اختياري)
               </summary>
-              <input
-                value={adminCode}
-                onChange={(e) => setAdminCode(e.target.value)}
-                placeholder="كود الأدمن / المشرف / المعلم"
-                className="mt-2 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
-              />
+              <div className="mt-2 space-y-1.5">
+                <input
+                  value={adminCode}
+                  onChange={(e) => setAdminCode(e.target.value.toUpperCase())}
+                  placeholder="WUSTA-T-2026"
+                  dir="ltr"
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-mono tracking-wider"
+                />
+                {adminCode.trim() && (() => {
+                  const c = adminCode.trim().toUpperCase();
+                  let label = "";
+                  let color = "";
+                  if (c.includes("-A-")) { label = "🔑 أدمن (مشرف عام)"; color = "text-amber-700 bg-amber-50 border-amber-200"; }
+                  else if (c.includes("-S-")) { label = "🔑 مشرف"; color = "text-violet-700 bg-violet-50 border-violet-200"; }
+                  else if (c.includes("-T-")) { label = "🔑 معلم"; color = "text-emerald-700 bg-emerald-50 border-emerald-200"; }
+                  if (!label) return null;
+                  return (
+                    <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-lg border ${color}`}>
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      {label} — سيتم تفعيل اللقب عند تسجيل الدخول
+                    </div>
+                  );
+                })()}
+              </div>
             </details>
 
             <button

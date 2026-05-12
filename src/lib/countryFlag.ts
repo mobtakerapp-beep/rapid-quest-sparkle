@@ -47,7 +47,6 @@ const FLAG_MAP: Record<string, string> = {
   "Djibouti": "🇩🇯",
   "موريتانيا": "🇲🇷",
   "Mauritania": "🇲🇷",
-  "مصر": "🇪🇬",
 };
 
 export function getCountryFlag(country: string): string {

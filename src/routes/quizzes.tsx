@@ -201,27 +201,9 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
   const [score, setScore] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [previousDetails, setPreviousDetails] = useState<any[] | null>(null);
-  const rawQs = Array.isArray(quiz.questions) ? quiz.questions : [];
-  // Shuffle MC options using a stable ref so qs and map are ALWAYS in sync.
-  // Using a ref (not useState) avoids any Strict-Mode double-invoke mismatch.
-  const shuffleRef = useRef<{ qs: Q[]; map: Record<number, number[]> } | null>(null);
-  if (!shuffleRef.current) {
-    const map: Record<number, number[]> = {};
-    const shuffledQs = rawQs.map((q: any, qi: number) => {
-      if ((q.type || "mc") !== "mc" || !q.options?.length) return q;
-      // Fisher-Yates for true uniform randomness
-      const indices: number[] = q.options.map((_: any, i: number) => i);
-      for (let i = indices.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [indices[i], indices[j]] = [indices[j], indices[i]];
-      }
-      map[qi] = indices; // map[qi][displayIdx] = originalIdx
-      return { ...q, options: indices.map((i: number) => q.options[i]) };
-    });
-    shuffleRef.current = { qs: shuffledQs, map };
-  }
-  const qs = shuffleRef.current.qs;
-  const shuffleMap = shuffleRef.current.map;
+  // Use questions as-is without shuffling — security is enforced server-side
+  // (the `correct` field is stripped for students by get_quiz_for_attempt).
+  const qs = Array.isArray(quiz.questions) ? quiz.questions : [];
   const mcCount = qs.filter((q) => (q.type || "mc") === "mc").length;
 
   // Load previous attempt — students can take only ONCE; teachers preview without submitting
@@ -247,13 +229,12 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
   }, [quiz.id, uid, isTeacher]);
 
   const submit = async () => {
-    // answers[i] already holds the ORIGINAL index — send directly.
     const ansMap: Record<string, number> = {};
     const essMap: Record<string, string> = {};
     qs.forEach((q: any, i: number) => {
       if ((q.type || "mc") === "essay") essMap[String(i)] = essays[i] || "";
       else if (typeof answers[i] === "number") {
-        ansMap[String(i)] = answers[i]; // already original index
+        ansMap[String(i)] = answers[i];
       }
     });
     const { data, error } = await supabase.rpc("submit_quiz_attempt" as any, {
@@ -317,24 +298,17 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
             ) : (
             <div className="grid gap-2">
               {q.options.map((o, oi) => {
-                // shuffleMap[i][displayIdx] = originalIdx
-                const origAtDisplay = shuffleMap[i] ? shuffleMap[i][oi] : oi;
-                // answers[i] stores ORIGINAL index
-                const sel = answers[i] === origAtDisplay;
+                const sel = answers[i] === oi;
                 const det = previousDetails?.find((d: any) => d.i === i);
-                const correctOrigIdx = (q as any).correct ?? det?.correct;
-                // Which display position holds the correct original answer?
-                const correctDisplayOi = correctOrigIdx !== undefined
-                  ? (shuffleMap[i] ? shuffleMap[i].indexOf(correctOrigIdx) : correctOrigIdx)
-                  : undefined;
-                const correctAfter = done && correctDisplayOi !== undefined && oi === correctDisplayOi;
-                const wrongAfter = done && sel && correctDisplayOi !== undefined && oi !== correctDisplayOi;
+                const correctIdx = (q as any).correct ?? det?.correct;
+                const correctAfter = done && correctIdx !== undefined && oi === correctIdx;
+                const wrongAfter = done && sel && correctIdx !== undefined && oi !== correctIdx;
                 return (
                   <button key={oi} disabled={done || isTeacher}
-                    onClick={() => setAnswers({ ...answers, [i]: origAtDisplay })}
+                    onClick={() => setAnswers({ ...answers, [i]: oi })}
                     className={`text-right px-4 py-3 rounded-xl border-2 transition ${
-                      correctAfter ? "border-emerald-500 bg-emerald-50" :
-                      wrongAfter ? "border-rose-500 bg-rose-50" :
+                      correctAfter ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40" :
+                      wrongAfter ? "border-rose-500 bg-rose-50 dark:bg-rose-950/40" :
                       sel ? "border-[var(--brand)] bg-[var(--brand)]/10" : "border-border"
                     }`}><MathText text={o} /> {correctAfter && <Check className="inline h-4 w-4 text-emerald-600" />}</button>
                 );
