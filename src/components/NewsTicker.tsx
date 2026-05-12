@@ -30,84 +30,120 @@ function getRoleLabel(roleType?: string): string {
   }
 }
 
+async function getTopSubmission(compId: string): Promise<{ name: string; roleLabel: string; score: string; time: string; isCorrect: boolean } | null> {
+  const { data: subs } = await supabase
+    .from("competition_submissions")
+    .select("user_id, is_correct, correct_count, question_count, time_taken_seconds")
+    .eq("competition_id", compId);
+  if (!subs?.length) return null;
+  const sorted = [...subs].sort((a: any, b: any) => {
+    const ac = a.correct_count ?? (a.is_correct ? 1 : 0);
+    const bc = b.correct_count ?? (b.is_correct ? 1 : 0);
+    return bc - ac || a.time_taken_seconds - b.time_taken_seconds;
+  });
+  const top: any = sorted[0];
+  if (!top) return null;
+  const hasCorrect = top.question_count ? (top.correct_count ?? 0) > 0 : !!top.is_correct;
+  const { data: prof } = await supabase.from("profiles").select("display_name, role_type").eq("id", top.user_id).maybeSingle();
+  const name = (prof as any)?.display_name || "—";
+  const roleLabel = getRoleLabel((prof as any)?.role_type);
+  const score = top.question_count ? `${top.correct_count ?? 0}/${top.question_count}` : (top.is_correct ? "إجابة صحيحة" : "");
+  const time = top.time_taken_seconds >= 60
+    ? `${Math.floor(top.time_taken_seconds / 60)}د ${top.time_taken_seconds % 60}ث`
+    : `${top.time_taken_seconds}ث`;
+  return { name, roleLabel, score, time, isCorrect: hasCorrect };
+}
+
+async function getGalleryLeader(contestId: string): Promise<{ name: string; roleLabel: string; votes: number } | null> {
+  const { data: entries } = await supabase.from("gallery_contest_entries").select("id, user_id").eq("contest_id", contestId);
+  if (!entries?.length) return null;
+  const { data: votes } = await supabase.from("gallery_contest_votes").select("entry_id").in("entry_id", entries.map((e: any) => e.id));
+  if (!votes?.length) return null;
+  const voteCount: Record<string, number> = {};
+  (votes || []).forEach((v: any) => { voteCount[v.entry_id] = (voteCount[v.entry_id] || 0) + 1; });
+  let bestEntry = entries[0]; let bestVotes = voteCount[entries[0].id] || 0;
+  for (const e of entries) {
+    const v = voteCount[e.id] || 0;
+    if (v > bestVotes) { bestEntry = e; bestVotes = v; }
+  }
+  if (!bestVotes) return null;
+  const { data: prof } = await supabase.from("profiles").select("display_name, role_type").eq("id", bestEntry.user_id).maybeSingle();
+  return { name: (prof as any)?.display_name || "—", roleLabel: getRoleLabel((prof as any)?.role_type), votes: bestVotes };
+}
+
 async function fetchAutoItems(): Promise<TickerItem[]> {
   const items: TickerItem[] = [];
   try {
-    const { data: comps } = await supabase
+    const now = new Date().toISOString();
+
+    // ── مسابقات منتهية: الفائز النهائي ──
+    const { data: endedComps } = await supabase
       .from("competitions")
       .select("id, title, ends_at")
-      .lt("ends_at", new Date().toISOString())
+      .lt("ends_at", now)
       .order("ends_at", { ascending: false })
       .limit(5);
 
-    for (const comp of (comps || [])) {
-      const { data: subs } = await supabase
-        .from("competition_submissions")
-        .select("user_id, is_correct, correct_count, question_count, time_taken_seconds")
-        .eq("competition_id", comp.id)
-        .order("correct_count", { ascending: false })
-        .limit(5);
-      if (!subs?.length) continue;
-      const sorted = [...subs].sort((a: any, b: any) => {
-        const ac = a.correct_count ?? (a.is_correct ? 1 : 0);
-        const bc = b.correct_count ?? (b.is_correct ? 1 : 0);
-        return bc - ac || a.time_taken_seconds - b.time_taken_seconds;
-      });
-      const top: any = sorted[0];
-      if (!top || (top.correct_count === 0 && !top.is_correct)) continue;
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("display_name, role_type")
-        .eq("id", top.user_id)
-        .maybeSingle();
-      const name = (prof as any)?.display_name || "—";
-      const roleLabel = getRoleLabel((prof as any)?.role_type);
-      const score = top.question_count
-        ? `${top.correct_count}/${top.question_count}`
-        : (top.is_correct ? "إجابة صحيحة" : "");
-      const time = top.time_taken_seconds >= 60
-        ? `${Math.floor(top.time_taken_seconds / 60)}د ${top.time_taken_seconds % 60}ث`
-        : `${top.time_taken_seconds}ث`;
+    for (const comp of (endedComps || [])) {
+      const top = await getTopSubmission(comp.id);
+      if (!top || !top.isCorrect) continue;
       items.push({
         id: `comp-${comp.id}`,
-        text: `🏆 الفائز في "${comp.title}": ${roleLabel} ${name}${score ? ` — النتيجة: ${score}` : ""} — الوقت: ${time}`,
+        text: `🏆 الفائز في "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — النتيجة: ${top.score}` : ""} — الوقت: ${top.time}`,
         type: "auto",
       });
     }
 
-    // فائزو مسابقات المعرض
-    const { data: gContests } = await supabase
+    // ── مسابقات نشطة: المتصدر الحالي ──
+    const { data: activeComps } = await supabase
+      .from("competitions")
+      .select("id, title, ends_at")
+      .gt("ends_at", now)
+      .order("ends_at", { ascending: true })
+      .limit(3);
+
+    for (const comp of (activeComps || [])) {
+      const top = await getTopSubmission(comp.id);
+      if (!top) continue;
+      items.push({
+        id: `comp-active-${comp.id}`,
+        text: `⚡ المتصدر حالياً في "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — ${top.score}` : ""} — المسابقة لا تزال نشطة!`,
+        type: "auto",
+      });
+    }
+
+    // ── معارض منتهية: الفائز النهائي ──
+    const { data: endedGallery } = await supabase
       .from("gallery_contests")
       .select("id, title, ends_at")
-      .lt("ends_at", new Date().toISOString())
+      .lt("ends_at", now)
       .order("ends_at", { ascending: false })
       .limit(5);
 
-    for (const gc of (gContests || [])) {
-      const { data: entries } = await supabase
-        .from("gallery_contest_entries")
-        .select("id, user_id")
-        .eq("contest_id", gc.id);
-      if (!entries?.length) continue;
-      const { data: votes } = await supabase
-        .from("gallery_contest_votes")
-        .select("entry_id")
-        .in("entry_id", entries.map((e: any) => e.id));
-      if (!votes?.length) continue;
-      const voteCount: Record<string, number> = {};
-      (votes || []).forEach((v: any) => { voteCount[v.entry_id] = (voteCount[v.entry_id] || 0) + 1; });
-      let bestEntry = entries[0]; let bestVotes = voteCount[entries[0].id] || 0;
-      for (const e of entries) {
-        const v = voteCount[e.id] || 0;
-        if (v > bestVotes) { bestEntry = e; bestVotes = v; }
-      }
-      if (!bestVotes) continue;
-      const { data: prof } = await supabase.from("profiles").select("display_name, role_type").eq("id", bestEntry.user_id).maybeSingle();
-      const name = (prof as any)?.display_name || "—";
-      const roleLabel = getRoleLabel((prof as any)?.role_type);
+    for (const gc of (endedGallery || [])) {
+      const leader = await getGalleryLeader(gc.id);
+      if (!leader) continue;
       items.push({
         id: `gallery-${gc.id}`,
-        text: `🎨 الفائز في معرض "${gc.title}": ${roleLabel} ${name} — ${bestVotes} ❤`,
+        text: `🎨 الفائز في معرض "${gc.title}": ${leader.roleLabel} ${leader.name} — ${leader.votes} ❤`,
+        type: "auto",
+      });
+    }
+
+    // ── معارض نشطة: أكثر عمل حصل على لايكات الآن ──
+    const { data: activeGallery } = await supabase
+      .from("gallery_contests")
+      .select("id, title, ends_at")
+      .gt("ends_at", now)
+      .order("ends_at", { ascending: true })
+      .limit(3);
+
+    for (const gc of (activeGallery || [])) {
+      const leader = await getGalleryLeader(gc.id);
+      if (!leader) continue;
+      items.push({
+        id: `gallery-active-${gc.id}`,
+        text: `🌟 المتصدر في معرض "${gc.title}": ${leader.roleLabel} ${leader.name} — ${leader.votes} ❤ (المسابقة جارية!)`,
         type: "auto",
       });
     }

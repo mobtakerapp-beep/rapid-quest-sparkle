@@ -89,10 +89,12 @@ function AssistantPage() {
         token = refreshed.session?.access_token;
       }
       if (!token) { toast.error("سجّل الدخول لاستخدام المساعد"); setLoading(false); return; }
+      // Prepend a system instruction to force Arabic responses
+      const systemMsg = { role: "system", content: "أنت مساعد تعليمي متخصص في الرياضيات لطلاب الصف الخامس في سلطنة عُمان. تجيب دائماً باللغة العربية الفصحى البسيطة المناسبة لعمر الطالب. لا تستخدم الإنجليزية أبداً في ردودك. استخدم أمثلة من الحياة اليومية وكن مشجعاً وإيجابياً." };
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: [systemMsg, ...next] }),
       });
       if (r.status === 401) { toast.error("سجّل الدخول لاستخدام المساعد"); setLoading(false); return; }
       if (r.status === 429) { toast.error("تجاوزنا حد الاستخدام، حاول بعد قليل"); setLoading(false); return; }
