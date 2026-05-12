@@ -202,13 +202,16 @@ function CompetitionsPage() {
 
     const compId = (inserted as any).id;
 
-    // Store all correct answer TEXTS as a plain JSON array indexed by question order
-    // Format: ["answer_text_for_q0", "answer_text_for_q1", ...]
-    const answerTexts = cleanQuestions.map((q) => (q.correct_answer ?? "").trim());
+    // For MC questions store the correct INDEX (integer 0-3) so the RPC can compare selected index.
+    // For text questions store the correct answer string.
+    // Format matches what submit_competition_attempt expects (same pattern as quizzes).
+    const correctKeys = cleanQuestions.map((q) =>
+      q.is_multiple_choice ? (q.correct_index ?? 0) : (q.correct_answer ?? "").trim()
+    );
 
     await supabase.from("competition_secrets" as any).upsert({
       competition_id: compId,
-      correct_answer: JSON.stringify(answerTexts),
+      correct_answer: JSON.stringify(correctKeys),
       correct_index: first.correct_index ?? null,
     }, { onConflict: "competition_id" });
 
@@ -461,14 +464,18 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
     const total = r?.question_count ?? (questionsRef.current?.length ?? 0);
     setSubmittedResult({ correct, total });
 
-    // Build review data from local question state (no correct answer info - scrubbed from DB)
+    // Build review data — for MC map stored index back to option text for display
     const qs = questionsRef.current;
     if (qs) {
-      setReviewData(qs.map((q, qi) => ({
-        question: q.question,
-        userAnswer: finalAnswers[String(qi)] ?? "—",
-        options: q.options,
-      })));
+      setReviewData(qs.map((q, qi) => {
+        const raw = finalAnswers[String(qi)];
+        let display = raw ?? "—";
+        if (q.is_multiple_choice && q.options && raw !== undefined) {
+          const idx = parseInt(raw, 10);
+          if (!isNaN(idx) && q.options[idx] !== undefined) display = q.options[idx];
+        }
+        return { question: q.question, userAnswer: display, options: q.options };
+      }));
     }
     toast.success(`انتهت المسابقة! أصبت ${correct} من ${total} 🎉`);
   };
@@ -615,8 +622,8 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
             {currentQ.is_multiple_choice && currentQ.options && currentQ.options.length > 0 ? (
               <div className="grid sm:grid-cols-2 gap-2">
                 {currentQ.options.map((opt, i) => (
-                  // Send option TEXT so the RPC can compare text-to-text
-                  <button key={i} onClick={() => recordAnswer(opt)}
+                  // Send the option INDEX (as string) — RPC compares selected index against stored correct_index
+                  <button key={i} onClick={() => recordAnswer(String(i))}
                     className="text-right px-4 py-3 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition font-bold">
                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{['أ','ب','ج','د','هـ','و'][i] ?? String(i+1)}</span>
                     <MathText text={opt} />

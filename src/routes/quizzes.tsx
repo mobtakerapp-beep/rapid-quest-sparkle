@@ -25,6 +25,7 @@ function QuizzesPage() {
   const [subject, setSubject] = useState("عام");
   const [filter, setFilter] = useState("الكل");
   const [questions, setQuestions] = useState<Q[]>([{ question: "", options: ["", "", "", ""], correct: 0, type: "mc" }]);
+  const [attemptedIds, setAttemptedIds] = useState<Set<string>>(new Set());
 
   const subjects = ["الكل", "رياضيات", "علوم", "لغة عربية", "إنجليزي", "دراسات", "إسلامية", "عام"];
 
@@ -39,19 +40,26 @@ function QuizzesPage() {
       ]);
       if ((prof as any)?.role_type === "parent") { setIsParent(true); return; }
       setIsTeacher(!!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role))));
-      load();
+      load(id);
     });
   }, [navigate]);
 
-  const load = async () => {
+  const load = async (userId?: string) => {
+    const currentUid = userId ?? uid;
     // Use RPC so students get list without correct answers; teachers/admins still see everything via RLS
-    const { data } = await supabase.rpc("list_quizzes" as any);
+    const [{ data }, { data: attempts }] = await Promise.all([
+      supabase.rpc("list_quizzes" as any),
+      currentUid
+        ? supabase.from("quiz_attempts").select("quiz_id").eq("user_id", currentUid)
+        : Promise.resolve({ data: [] }),
+    ]);
     // Map shape: list_quizzes returns question_count, no `questions` array
     const mapped = (data || []).map((r: any) => ({
       id: r.id, title: r.title, subject: r.subject, created_by: r.created_by,
       questions: new Array(r.question_count || 0).fill(null), // placeholder for count display
     }));
     setList(mapped as any);
+    setAttemptedIds(new Set(((attempts as any[]) || []).map((a: any) => a.quiz_id)));
   };
 
   const openQuiz = async (quizId: string) => {
@@ -72,7 +80,7 @@ function QuizzesPage() {
     const { error } = await supabase.from("quizzes").insert({ title: title.trim(), subject, questions: questions as any, created_by: uid });
     if (error) return toast.error(error.message);
     toast.success("تم إضافة الاختبار للبنك 🎯");
-    setTitle(""); setSubject("عام"); setQuestions([{ question: "", options: ["", "", "", ""], correct: 0, type: "mc" }]); setShowForm(false); load();
+    setTitle(""); setSubject("عام"); setQuestions([{ question: "", options: ["", "", "", ""], correct: 0, type: "mc" }]); setShowForm(false); load(uid ?? undefined);
   };
 
   const filtered = filter === "الكل" ? list : list.filter((q) => q.subject === filter);
@@ -148,7 +156,14 @@ function QuizzesPage() {
                 <button onClick={() => openQuiz(q.id)} className="w-full text-right bg-card rounded-2xl border border-border p-4 hover:shadow-lg transition">
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-bold">{q.title}</div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] font-bold">{q.subject || "عام"}</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {!isTeacher && (
+                        attemptedIds.has(q.id)
+                          ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 font-bold flex items-center gap-0.5"><Check className="h-2.5 w-2.5" /> شاركت</span>
+                          : <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 font-bold">● نشطة</span>
+                      )}
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] font-bold">{q.subject || "عام"}</span>
+                    </div>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">{Array.isArray(q.questions) ? q.questions.length : 0} أسئلة</div>
                 </button>
