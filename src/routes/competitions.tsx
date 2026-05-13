@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Trophy, Plus, Clock, Send, X, Crown, MessageCircle, Image as ImageIcon, Link2, Trash2 } from "lucide-react";
+import { ArrowLeft, Trophy, Plus, Clock, Send, X, Crown, MessageCircle, Image as ImageIcon, Link2, Trash2, ShieldAlert, CheckSquare, Square } from "lucide-react";
 import { toast } from "sonner";
 import { Reactions } from "@/components/Reactions";
 import { MathToolbar } from "@/components/MathToolbar";
@@ -74,6 +74,9 @@ function CompetitionsPage() {
   const [active, setActive] = useState<Comp | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [userSubmittedIds, setUserSubmittedIds] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const [title, setTitle] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -104,6 +107,30 @@ function CompetitionsPage() {
       const { data: subs } = await supabase.from("competition_submissions").select("competition_id").eq("user_id", id);
       setUserSubmittedIds(new Set((subs || []).map((s: any) => s.competition_id)));
     }
+  };
+
+  const toggleSelect = (id: string) => setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const selectAll = () => setSelected(new Set(comps.map((c) => c.id)));
+  const clearSelect = () => { setSelected(new Set()); setSelectMode(false); };
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`حذف ${selected.size} مسابقة نهائياً؟`)) return;
+    setBulkDeleting(true);
+    const ids = Array.from(selected);
+    for (const comp of comps.filter((c) => ids.includes(c.id) && c.image_url)) {
+      try {
+        const urlObj = new URL(comp.image_url!);
+        const parts = urlObj.pathname.split("/competition-media/");
+        if (parts[1]) await supabase.storage.from("competition-media").remove([parts[1]]);
+      } catch {}
+    }
+    const { error } = await supabase.from("competitions").delete().in("id", ids);
+    setBulkDeleting(false);
+    if (error) return toast.error("فشل الحذف: " + error.message);
+    toast.success(`تم حذف ${ids.length} مسابقة ✨`);
+    setComps((p) => p.filter((c) => !ids.includes(c.id)));
+    setSelected(new Set()); setSelectMode(false);
   };
 
   useEffect(() => {
@@ -243,17 +270,36 @@ function CompetitionsPage() {
     <div dir="rtl" className="min-h-screen bg-background">
       <header className="bg-card border-b border-border sticky top-0 z-10">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> الرئيسية
-          </Link>
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white">
               <Trophy className="h-5 w-5" />
             </div>
             <h1 className="font-bold">المسابقات السريعة</h1>
+            {canCreate && (
+              <button onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition ${selectMode ? "bg-rose-100 text-rose-700" : "bg-secondary hover:bg-secondary/70"}`}>
+                <ShieldAlert className="h-4 w-4" />
+                {selectMode ? "إلغاء" : "تحديد"}
+              </button>
+            )}
           </div>
+          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" /> الرئيسية
+          </Link>
         </div>
       </header>
+
+      {selectMode && canCreate && (
+        <div className="sticky top-[57px] z-20 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center gap-3" dir="rtl">
+          <span className="text-sm font-bold text-rose-700">{selected.size} محدد</span>
+          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({comps.length})</button>
+          <button onClick={clearSelect} className="text-xs px-3 py-1 rounded-lg bg-secondary font-bold hover:bg-secondary/70">إلغاء</button>
+          <button onClick={bulkDelete} disabled={selected.size === 0 || bulkDeleting}
+            className="mr-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600 text-white text-sm font-bold disabled:opacity-50">
+            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${selected.size})`}
+          </button>
+        </div>
+      )}
 
       <main className="container mx-auto px-4 py-6 max-w-4xl">
         {canCreate && (
@@ -315,8 +361,13 @@ function CompetitionsPage() {
                 setComps((p) => p.filter((x) => x.id !== c.id));
               };
               return (
-                <div key={c.id} className="relative">
-                  <button onClick={() => setActive(c)} className="w-full text-right bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg transition">
+                <div key={c.id} className={`relative ${selectMode && selected.has(c.id) ? "ring-2 ring-rose-500 rounded-2xl" : ""}`}>
+                  {selectMode && canCreate && (
+                    <div className="absolute top-2 right-2 z-10 pointer-events-none">
+                      {selected.has(c.id) ? <CheckSquare className="h-7 w-7 text-rose-500 drop-shadow" /> : <Square className="h-7 w-7 text-white drop-shadow" />}
+                    </div>
+                  )}
+                  <button onClick={() => { if (selectMode && canCreate) { toggleSelect(c.id); return; } setActive(c); }} className="w-full text-right bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg transition">
                     {c.image_url && <img src={c.image_url} alt="" className="w-full h-40 object-cover" />}
                     <div className="p-4">
                       <div className="flex items-center justify-between gap-3">
@@ -332,7 +383,7 @@ function CompetitionsPage() {
                       {showWinner && <CompetitionWinner competitionId={c.id} />}
                     </div>
                   </button>
-                  {canCreate && (
+                  {!selectMode && canCreate && (
                     <button onClick={onDelete} className="absolute top-2 left-2 p-1.5 rounded-lg bg-destructive/90 text-white hover:bg-destructive shadow" title="حذف">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

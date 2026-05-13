@@ -10,7 +10,7 @@ export const Route = createFileRoute("/gallery-contest/$id")({ component: Contes
 const EMOJIS = ["😀","😂","🥰","😍","🤩","😎","🤔","👍","👏","❤️","🔥","🎉","🌟","💯","🏆","🎨","✨","🙌","💪","👌"];
 
 type Contest = { id: string; title: string; description: string | null; category: string; cover_url: string | null; ends_at: string | null; created_by: string };
-type Entry = { id: string; contest_id: string; user_id: string; media_url: string; caption: string | null; created_at: string };
+type Entry = { id: string; contest_id: string; user_id: string; media_url: string; caption: string | null; created_at: string; approved?: boolean };
 type Profile = { id: string; display_name: string | null; avatar_url: string | null };
 
 const CATS: Record<string,string> = { drawing: "أحسن رسمة 🎨", video: "أحسن فيديو 🎬", photo: "أحسن صورة 📸", other: "إبداع 🌟" };
@@ -38,15 +38,19 @@ function ContestPage() {
       setUid(data.session.user.id);
       const { data: c } = await supabase.from("gallery_contests").select("*").eq("id", id).maybeSingle();
       const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.session.user.id);
-      setIsMod(!!roles?.some((r) => ["admin","supervisor"].includes(String(r.role))));
+      const modFlag = !!roles?.some((r) => ["admin","supervisor"].includes(String(r.role)));
+      setIsMod(modFlag);
       if (!c) { toast.error("المسابقة غير موجودة"); navigate({ to: "/gallery-contests" }); return; }
       setContest(c as Contest);
-      load(data.session.user.id);
+      load(data.session.user.id, modFlag);
     });
   }, [id, navigate]);
 
-  const load = async (myId: string) => {
-    const { data: e } = await supabase.from("gallery_contest_entries").select("*").eq("contest_id", id).order("created_at");
+  const load = async (myId: string, showAll?: boolean) => {
+    const isModNow = showAll ?? isMod;
+    let q = supabase.from("gallery_contest_entries").select("*").eq("contest_id", id).order("created_at");
+    if (!isModNow) q = (q as any).eq("approved", true);
+    const { data: e } = await q;
     const list = (e || []) as Entry[];
     setEntries(list);
     const ids = Array.from(new Set(list.map(x => x.user_id)));
@@ -82,14 +86,22 @@ function ContestPage() {
         if (upErr) throw upErr;
         url = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
       }
-      const { error } = await supabase.from("gallery_contest_entries").insert({
+      const { error } = await (supabase.from("gallery_contest_entries") as any).insert({
         contest_id: id, user_id: uid, media_url: url, caption: caption.trim() || null,
+        approved: isMod,
       });
       if (error) throw error;
-      toast.success("تم تقديم مشاركتك");
+      toast.success(isMod ? "تم تقديم مشاركتك ✨" : "تم تقديم مشاركتك وستظهر بعد الاعتماد ⏳");
       setFile(null); setCaption("");
       load(uid);
     } catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
+  };
+
+  const approveEntry = async (entryId: string) => {
+    const { error } = await (supabase.from("gallery_contest_entries") as any).update({ approved: true }).eq("id", entryId);
+    if (error) return toast.error("فشل الاعتماد");
+    setEntries((p) => p.map((e) => e.id === entryId ? { ...e, approved: true } : e));
+    toast.success("تم اعتماد المشاركة ✅");
   };
 
   const toggleVote = async (entryId: string) => {
@@ -187,8 +199,14 @@ function ContestPage() {
               const voted = myVotes.has(e.id);
               const mine = e.user_id === uid;
               return (
-                <div key={e.id} className="relative bg-card border border-border rounded-2xl overflow-hidden shadow-[var(--shadow-card)]">
-                  {idx < 3 && (
+                <div key={e.id} className={`relative bg-card border rounded-2xl overflow-hidden shadow-[var(--shadow-card)] ${isMod && e.approved === false ? "border-amber-400" : "border-border"}`}>
+                  {/* Pending badge for mods */}
+                  {isMod && e.approved === false && (
+                    <div className="absolute top-0 inset-x-0 bg-amber-500/90 text-white text-center text-[11px] font-bold py-1 z-20">
+                      ⏳ قيد المراجعة — <button onClick={() => approveEntry(e.id)} className="underline">اعتماد الآن</button>
+                    </div>
+                  )}
+                  {idx < 3 && e.approved !== false && (
                     <div className="absolute top-2 right-2 bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full z-10 shadow-lg">
                       #{idx + 1}
                     </div>
@@ -255,7 +273,7 @@ function ContestPage() {
             const { error: upErr } = await supabase.storage.from("chat-images").upload(path, blob, { contentType: "image/jpeg" });
             if (upErr) throw upErr;
             const url = supabase.storage.from("chat-images").getPublicUrl(path).data.publicUrl;
-            const { error } = await supabase.from("gallery_contest_entries").insert({ contest_id: id, user_id: uid, media_url: url, caption: null });
+            const { error } = await (supabase.from("gallery_contest_entries") as any).insert({ contest_id: id, user_id: uid, media_url: url, caption: null, approved: isMod });
             if (error) throw error;
             import("sonner").then(({ toast }) => toast.success("تم إرسال مشاركتك ✨"));
             load(uid);

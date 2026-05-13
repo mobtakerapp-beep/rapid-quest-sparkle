@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Trophy, Plus, Trash2, Calendar as CalIcon, Crown } from "lucide-react";
+import { ArrowLeft, Trophy, Plus, Trash2, Calendar as CalIcon, Crown, ShieldAlert, CheckSquare, Square } from "lucide-react";
 import { isVerifiedTeacher } from "@/lib/roles";
 import { DateTimePicker } from "@/components/DateTimePicker";
 
@@ -19,6 +19,9 @@ function ContestsPage() {
   const [contests, setContests] = useState<Contest[]>([]);
   const [winners, setWinners] = useState<Record<string, { name: string; votes: number } | null>>({});
   const [showNew, setShowNew] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -83,21 +86,57 @@ function ContestsPage() {
     setContests(p => p.filter(c => c.id !== id));
   };
 
+  const toggleSelect = (id: string) => setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const selectAll = () => setSelected(new Set(contests.map((c) => c.id)));
+  const clearSelect = () => { setSelected(new Set()); setSelectMode(false); };
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`حذف ${selected.size} مسابقة معرض نهائياً؟`)) return;
+    setBulkDeleting(true);
+    const ids = Array.from(selected);
+    const { error } = await supabase.from("gallery_contests").delete().in("id", ids);
+    setBulkDeleting(false);
+    if (error) return toast.error("فشل الحذف: " + error.message);
+    toast.success(`تم حذف ${ids.length} مسابقة ✨`);
+    setContests((p) => p.filter((c) => !ids.includes(c.id)));
+    setSelected(new Set()); setSelectMode(false);
+  };
+
   return (
     <div dir="rtl" className="min-h-screen bg-background">
       <header className="bg-card border-b border-border sticky top-0 z-10 backdrop-blur bg-card/90">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> الرئيسية
-          </Link>
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white">
               <Trophy className="h-5 w-5" />
             </div>
             <h1 className="font-bold">مسابقات معرض الإبداعات</h1>
+            {isTeacher && (
+              <button onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition ${selectMode ? "bg-rose-100 text-rose-700" : "bg-secondary hover:bg-secondary/70"}`}>
+                <ShieldAlert className="h-4 w-4" />
+                {selectMode ? "إلغاء" : "تحديد"}
+              </button>
+            )}
           </div>
+          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" /> الرئيسية
+          </Link>
         </div>
       </header>
+
+      {selectMode && isTeacher && (
+        <div className="sticky top-[57px] z-20 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center gap-3" dir="rtl">
+          <span className="text-sm font-bold text-rose-700">{selected.size} محدد</span>
+          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({contests.length})</button>
+          <button onClick={clearSelect} className="text-xs px-3 py-1 rounded-lg bg-secondary font-bold hover:bg-secondary/70">إلغاء</button>
+          <button onClick={bulkDelete} disabled={selected.size === 0 || bulkDeleting}
+            className="mr-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600 text-white text-sm font-bold disabled:opacity-50">
+            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${selected.size})`}
+          </button>
+        </div>
+      )}
 
       <main className="container mx-auto px-4 py-6 max-w-5xl">
         {isTeacher && (
@@ -116,7 +155,16 @@ function ContestsPage() {
                 const ended = c.ends_at && new Date(c.ends_at) < new Date();
                 const w = winners[c.id];
                 return (
-              <Link key={c.id} to="/gallery-contest/$id" params={{ id: c.id }}
+              <div key={c.id} className={`relative ${selectMode && selected.has(c.id) ? "ring-2 ring-rose-500 rounded-2xl" : ""}`}>
+                {selectMode && isTeacher && (
+                  <div className="absolute top-2 right-2 z-20 pointer-events-none">
+                    {selected.has(c.id) ? <CheckSquare className="h-7 w-7 text-rose-500 drop-shadow" /> : <Square className="h-7 w-7 text-white drop-shadow opacity-80" />}
+                  </div>
+                )}
+                {selectMode && isTeacher && (
+                  <div className="absolute inset-0 z-10 cursor-pointer" onClick={() => toggleSelect(c.id)} />
+                )}
+              <Link to="/gallery-contest/$id" params={{ id: c.id }}
                 className="bg-card border border-border rounded-2xl overflow-hidden shadow-[var(--shadow-card)] hover:shadow-lg transition block">
                 <div className="h-32 bg-[image:var(--gradient-warm)] flex items-center justify-center text-white text-3xl font-bold">
                   {CATS[c.category] || "إبداع"}
@@ -124,7 +172,7 @@ function ContestsPage() {
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-bold text-lg">{c.title}</h3>
-                    {(c.created_by === uid || isTeacher) && (
+                    {!selectMode && (c.created_by === uid || isTeacher) && (
                       <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); delContest(c.id); }}
                         className="text-destructive p-1 rounded hover:bg-destructive/10">
                         <Trash2 className="h-4 w-4" />
@@ -152,6 +200,7 @@ function ContestsPage() {
                   )}
                 </div>
               </Link>
+              </div>
                 );
               })()
             ))}

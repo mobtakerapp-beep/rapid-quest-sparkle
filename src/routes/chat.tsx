@@ -37,6 +37,19 @@ const roleBadge = (rt?: string | null) => {
   return null;
 };
 
+// ---- إعدادات وقت الشات (توقيت عُمان UTC+4) ----
+const CHAT_OPEN_OMAN  = 7;  // 7:00 صباحاً
+const CHAT_CLOSE_OMAN = 20; // 8:00 مساءً
+
+function getOmanHour() {
+  return (new Date().getUTCHours() + 4) % 24;
+}
+function isChatOpenNow() {
+  const h = getOmanHour();
+  return h >= CHAT_OPEN_OMAN && h < CHAT_CLOSE_OMAN;
+}
+// ------------------------------------------------
+
 function ChatPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
@@ -49,7 +62,13 @@ function ChatPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [chatOpen, setChatOpen] = useState(isChatOpenNow);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const t = setInterval(() => setChatOpen(isChatOpenNow()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   // Auth + load
   useEffect(() => {
@@ -291,6 +310,14 @@ function ChatPage() {
       </div>
 
       {/* Composer */}
+      {!chatOpen && !isMod && (
+        <div className="bg-amber-50 border-t border-amber-200 px-4 py-4 sticky bottom-0 text-center" dir="rtl">
+          <div className="text-2xl mb-1">🔒</div>
+          <p className="font-bold text-amber-800 text-sm">الشات مغلق حالياً</p>
+          <p className="text-amber-600 text-xs mt-1">يفتح يومياً من الساعة {CHAT_OPEN_OMAN}:00 صباحاً حتى {CHAT_CLOSE_OMAN}:00 مساءً (توقيت عُمان)</p>
+        </div>
+      )}
+      {(chatOpen || isMod) && (
       <form onSubmit={sendMessage} className="bg-card border-t border-border p-3 sticky bottom-0">
         <div className="max-w-3xl mx-auto relative">
           {showEmoji && (
@@ -344,6 +371,7 @@ function ChatPage() {
           </div>
         </div>
       </form>
+      )}
     </div>
   );
 }

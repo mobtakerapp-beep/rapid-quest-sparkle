@@ -115,18 +115,18 @@ function AssignmentsPage() {
     <div dir="rtl" className="min-h-screen bg-background">
       <header className="bg-card border-b border-border sticky top-0 z-10">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> الرئيسية</Link>
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white"><ClipboardList className="h-5 w-5" /></div>
             <h1 className="font-bold">الواجبات</h1>
+            {isAdmin && (
+              <button onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition ${selectMode ? "bg-rose-100 text-rose-700" : "bg-secondary hover:bg-secondary/70"}`}>
+                <ShieldAlert className="h-4 w-4" />
+                {selectMode ? "إلغاء" : "تحديد"}
+              </button>
+            )}
           </div>
-          {isAdmin && (
-            <button onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition ${selectMode ? "bg-rose-100 text-rose-700" : "bg-secondary hover:bg-secondary/70"}`}>
-              <ShieldAlert className="h-4 w-4" />
-              {selectMode ? "إلغاء" : "تحديد للحذف"}
-            </button>
-          )}
+          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> الرئيسية</Link>
         </div>
       </header>
       {selectMode && isAdmin && (

@@ -10,7 +10,7 @@ import { ImageTextEditor } from "@/components/ImageTextEditor";
 
 export const Route = createFileRoute("/gallery")({ component: GalleryPage });
 
-type Item = { id: string; user_id: string; content: string | null; image_url: string | null; created_at: string };
+type Item = { id: string; user_id: string; content: string | null; image_url: string | null; created_at: string; approved?: boolean };
 type Profile = { id: string; display_name: string | null };
 type Comment = { id: string; item_id: string; user_id: string; content: string; created_at: string };
 
@@ -42,18 +42,22 @@ function GalleryPage() {
       setUid(data.session.user.id);
       const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.session.user.id);
       setIsAdmin(!!roles?.some((r) => r.role === "admin"));
-      setIsMod(!!roles?.some((r) => ["admin", "supervisor"].includes(String(r.role))));
-      load();
+      const modFlag = !!roles?.some((r) => ["admin", "supervisor"].includes(String(r.role)));
+      setIsMod(modFlag);
+      load(true, modFlag);
     });
   }, [navigate]);
 
   const [offset, setOffset] = useState(0);
   const PAGE = 30;
 
-  const load = async (reset = true) => {
+  const load = async (reset = true, showAll?: boolean) => {
     const off = reset ? 0 : offset;
-    const { data } = await supabase.from("messages").select("*").eq("category", "gallery")
+    const isModNow = showAll ?? isMod;
+    let query = supabase.from("messages").select("*").eq("category", "gallery")
       .order("created_at", { ascending: false }).range(off, off + PAGE - 1);
+    if (!isModNow) query = (query as any).eq("approved", true);
+    const { data } = await query;
     const list = (data || []) as Item[];
     if (reset) { setItems(list); setOffset(PAGE); }
     else {
@@ -119,8 +123,9 @@ function GalleryPage() {
         if (upErr) throw upErr;
         publicUrl = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
       }
-      const { error } = await supabase.from("messages").insert({
+      const { error } = await (supabase.from("messages") as any).insert({
         user_id: uid, content: caption.trim() || null, image_url: publicUrl, category: "gallery",
+        approved: isMod,
       });
       if (error) throw error;
       toast.success("تم النشر ✨");
@@ -180,26 +185,33 @@ function GalleryPage() {
   const selectAll = () => setSelected(new Set(items.map((i) => i.id)));
   const clearSelect = () => { setSelected(new Set()); setSelectMode(false); };
 
+  const approveItem = async (id: string) => {
+    const { error } = await (supabase.from("messages") as any).update({ approved: true }).eq("id", id);
+    if (error) return toast.error("فشل الاعتماد");
+    setItems((p) => p.map((i) => i.id === id ? { ...i, approved: true } : i));
+    toast.success("تم اعتماد المشاركة ✅");
+  };
+
   return (
     <div dir="rtl" className="min-h-screen bg-background">
       <header className="bg-card border-b border-border sticky top-0 z-10 backdrop-blur bg-card/90">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> الرئيسية
-          </Link>
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white">
               <ImageIcon className="h-5 w-5" />
             </div>
             <h1 className="font-bold">معرض الإبداعات</h1>
+            {isMod && (
+              <button onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition ${selectMode ? "bg-rose-100 text-rose-700" : "bg-secondary hover:bg-secondary/70"}`}>
+                <ShieldAlert className="h-4 w-4" />
+                {selectMode ? "إلغاء" : "تحديد"}
+              </button>
+            )}
           </div>
-          {isMod && (
-            <button onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition ${selectMode ? "bg-rose-100 text-rose-700" : "bg-secondary hover:bg-secondary/70"}`}>
-              <ShieldAlert className="h-4 w-4" />
-              {selectMode ? "إلغاء" : "تحديد للحذف"}
-            </button>
-          )}
+          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" /> الرئيسية
+          </Link>
         </div>
       </header>
 
@@ -299,15 +311,29 @@ function GalleryPage() {
                         : <Square className="h-6 w-6 text-white drop-shadow opacity-80" />}
                     </div>
                   )}
+                  {/* Pending badge for mods */}
+                  {isMod && it.approved === false && (
+                    <div className="absolute top-0 inset-x-0 bg-amber-500/90 text-white text-center text-[11px] font-bold py-1 z-10">
+                      ⏳ قيد المراجعة
+                    </div>
+                  )}
                   {!selectMode && (
-                    <div className="absolute top-2 left-2 flex gap-1">
-                      <ReportButton targetKind="gallery" targetId={it.id} content={it.content} className="bg-white/90 px-1.5 py-1 rounded-lg" label="" />
-                      {(isMine || isMod) && (
-                        <button onClick={(e) => { e.stopPropagation(); del(it.id); }}
-                          className="bg-destructive/90 text-white p-1.5 rounded-lg">
-                          <Trash2 className="h-3.5 w-3.5" />
+                    <div className="absolute top-2 left-2 flex flex-col gap-1">
+                      {isMod && it.approved === false && (
+                        <button onClick={(e) => { e.stopPropagation(); approveItem(it.id); }}
+                          className="bg-emerald-500 text-white px-2 py-1 rounded-lg text-[10px] font-bold leading-tight">
+                          اعتماد
                         </button>
                       )}
+                      <div className="flex gap-1">
+                        <ReportButton targetKind="gallery" targetId={it.id} content={it.content} className="bg-white/90 px-1.5 py-1 rounded-lg" label="" />
+                        {(isMine || isMod) && (
+                          <button onClick={(e) => { e.stopPropagation(); del(it.id); }}
+                            className="bg-destructive/90 text-white p-1.5 rounded-lg">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
