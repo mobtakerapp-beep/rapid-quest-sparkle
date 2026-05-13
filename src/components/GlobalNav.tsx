@@ -69,8 +69,9 @@ export function GlobalNav() {
   return (
     <div className="fixed top-[62px] left-3 z-[190] flex items-center gap-1 bg-card/95 backdrop-blur border border-border rounded-2xl px-2 py-1 shadow-xl" dir="rtl">
       {!isHome && (
-        <Link to="/" className="p-2 rounded-xl hover:bg-secondary text-[var(--brand)]" aria-label="الرئيسية" title="الرئيسية">
-          <Home className="h-5 w-5" />
+        <Link to="/" className="flex items-center gap-1 px-3 py-2 rounded-xl hover:bg-secondary text-[var(--brand)] font-bold text-sm" aria-label="الرئيسية">
+          <Home className="h-4 w-4" />
+          <span>الرئيسية</span>
         </Link>
       )}
       <button onClick={toggleDark} className="p-2 rounded-xl hover:bg-secondary" aria-label="الوضع الليلي">
