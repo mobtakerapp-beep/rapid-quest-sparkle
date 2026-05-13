@@ -69,7 +69,7 @@ export function GlobalNav() {
   const roleLabel = roleLabelFor(roleType, gender).replace("أيها ", "").replace("أيتها ", "");
 
   return (
-    <div className="fixed top-[46px] left-3 z-[190] flex items-center gap-1 bg-card/95 backdrop-blur border border-border rounded-2xl px-2 py-1 shadow-xl" dir="rtl">
+    <div className="fixed top-[64px] left-3 z-[190] flex items-center gap-1 bg-card/95 backdrop-blur border border-border rounded-2xl px-2 py-1 shadow-xl" dir="rtl">
       {/* Language toggle */}
       <button
         onClick={toggleLang}

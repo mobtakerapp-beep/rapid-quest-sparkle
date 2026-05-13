@@ -102,9 +102,12 @@ function RootComponent() {
       <ProtectContent />
       <EventReminderWatcher />
       <DhikrReminder />
-      <TickerWithRole />
-      <div className="flex justify-center py-1 bg-background/80 border-b border-border/30 text-xs text-muted-foreground">
-        <LiveClock />
+      {/* Fixed top bar: news ticker + clock — always visible, never scrolls */}
+      <div className="fixed top-0 left-0 right-0 z-[155]">
+        <TickerWithRole />
+        <div className="flex justify-center py-1 bg-background/95 backdrop-blur border-b border-border/40 text-xs text-muted-foreground">
+          <LiveClock />
+        </div>
       </div>
       <div className="app-content-with-nav">
         <Outlet />
