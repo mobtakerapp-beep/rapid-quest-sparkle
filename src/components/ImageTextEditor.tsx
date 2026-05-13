@@ -1,15 +1,56 @@
 import { useRef, useState, useEffect } from "react";
-import { X, Download, Type, Image as ImageIcon } from "lucide-react";
+import { X, Download, Type, Image as ImageIcon, RefreshCw } from "lucide-react";
 
 type Props = { onClose: () => void };
 
-const FONT_SIZES = [24, 32, 40, 48, 60, 72, 90];
-const COLORS = ["#ffffff", "#000000", "#fbbf24", "#f87171", "#34d399", "#60a5fa", "#a78bfa", "#f472b6"];
+const FONT_SIZES = [20, 28, 36, 48, 60, 72, 90, 110];
+
+const COLORS = [
+  "#ffffff", "#000000", "#fbbf24", "#f87171", "#34d399",
+  "#60a5fa", "#a78bfa", "#f472b6", "#fb923c", "#4ade80",
+];
+
 const POSITIONS = [
   { label: "أعلى", value: "top" },
   { label: "وسط", value: "center" },
   { label: "أسفل", value: "bottom" },
 ];
+
+const BG_OPTIONS = [
+  { label: "بدون خلفية", value: "none" },
+  { label: "شفاف داكن", value: "dark" },
+  { label: "شفاف فاتح", value: "light" },
+  { label: "ملوّن", value: "colored" },
+];
+
+// Arabic + English professional fonts
+const FONTS: { label: string; family: string; googleName?: string; lang: "ar" | "en" | "both" }[] = [
+  { label: "طجوال (عصري)", family: "Tajawal", googleName: "Tajawal:wght@400;700;900", lang: "ar" },
+  { label: "القاهرة (أنيق)", family: "Cairo", googleName: "Cairo:wght@400;700;900", lang: "ar" },
+  { label: "أميري (كلاسيك)", family: "Amiri", googleName: "Amiri:wght@400;700", lang: "ar" },
+  { label: "شهرزاد", family: "Scheherazade New", googleName: "Scheherazade+New:wght@400;700", lang: "ar" },
+  { label: "ليمونادا", family: "Lemonada", googleName: "Lemonada:wght@400;700", lang: "ar" },
+  { label: "تشانجا", family: "Changa", googleName: "Changa:wght@400;700", lang: "ar" },
+  { label: "ريدكس برو", family: "Readex Pro", googleName: "Readex+Pro:wght@400;700", lang: "ar" },
+  { label: "عربي يدوي", family: "Aref Ruqaa", googleName: "Aref+Ruqaa:wght@400;700", lang: "ar" },
+  { label: "خط كوفي", family: "Reem Kufi", googleName: "Reem+Kufi:wght@400;700", lang: "ar" },
+  { label: "Pacifico (مرح)", family: "Pacifico", googleName: "Pacifico", lang: "en" },
+  { label: "Lobster (أنيق)", family: "Lobster", googleName: "Lobster", lang: "en" },
+  { label: "Dancing Script", family: "Dancing Script", googleName: "Dancing+Script:wght@400;700", lang: "en" },
+  { label: "Bebas Neue (عريض)", family: "Bebas Neue", googleName: "Bebas+Neue", lang: "en" },
+  { label: "Playfair Display", family: "Playfair Display", googleName: "Playfair+Display:wght@400;700", lang: "en" },
+  { label: "Cinzel (روماني)", family: "Cinzel", googleName: "Cinzel:wght@400;700", lang: "en" },
+];
+
+function loadGoogleFont(googleName: string) {
+  const id = `gf-${googleName.replace(/[^a-zA-Z]/g, "")}`;
+  if (document.getElementById(id)) return;
+  const link = document.createElement("link");
+  link.id = id;
+  link.rel = "stylesheet";
+  link.href = `https://fonts.googleapis.com/css2?family=${googleName}&display=swap`;
+  document.head.appendChild(link);
+}
 
 export function ImageTextEditor({ onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -17,8 +58,18 @@ export function ImageTextEditor({ onClose }: Props) {
   const [text, setText] = useState("");
   const [fontSize, setFontSize] = useState(48);
   const [color, setColor] = useState("#ffffff");
+  const [bgStyle, setBgStyle] = useState<"none" | "dark" | "light" | "colored">("dark");
+  const [bgColor, setBgColor] = useState("#000000");
+  const [bgOpacity, setBgOpacity] = useState(0.45);
   const [position, setPosition] = useState<"top" | "center" | "bottom">("bottom");
   const [bold, setBold] = useState(true);
+  const [selectedFont, setSelectedFont] = useState("Tajawal");
+  const [fontTab, setFontTab] = useState<"ar" | "en">("ar");
+
+  // Load all fonts on mount
+  useEffect(() => {
+    FONTS.forEach((f) => { if (f.googleName) loadGoogleFont(f.googleName); });
+  }, []);
 
   const draw = () => {
     const canvas = canvasRef.current;
@@ -35,12 +86,13 @@ export function ImageTextEditor({ onClose }: Props) {
       const H = canvas.height;
       const scale = W / 600;
       const fs = Math.round(fontSize * scale);
-      ctx.font = `${bold ? "bold" : "normal"} ${fs}px Tajawal, Cairo, Arial`;
+      const fontFamily = `"${selectedFont}", Tajawal, Cairo, Arial`;
+      ctx.font = `${bold ? "900" : "400"} ${fs}px ${fontFamily}`;
       ctx.direction = "rtl";
       ctx.textAlign = "center";
-      const lineH = fs * 1.4;
+      const lineH = fs * 1.45;
       const words = text.split(" ");
-      const maxWidth = W * 0.9;
+      const maxWidth = W * 0.88;
       const lines: string[] = [];
       let cur = "";
       for (const w of words) {
@@ -49,16 +101,49 @@ export function ImageTextEditor({ onClose }: Props) {
         else cur = test;
       }
       if (cur) lines.push(cur);
-      const totalH = lines.length * lineH;
+      const totalH = lines.length * lineH + 20 * scale;
       let yStart: number;
       if (position === "top") yStart = fs + 20 * scale;
       else if (position === "center") yStart = (H - totalH) / 2 + fs;
       else yStart = H - totalH - 20 * scale + fs;
-      ctx.shadowColor = "rgba(0,0,0,0.7)";
-      ctx.shadowBlur = 10 * scale;
-      ctx.shadowOffsetX = 2 * scale;
-      ctx.shadowOffsetY = 2 * scale;
+
+      // Draw background box
+      if (bgStyle !== "none") {
+        const padding = 24 * scale;
+        const maxLineW = Math.max(...lines.map((l) => ctx.measureText(l).width));
+        const boxW = Math.min(maxLineW + padding * 2, W * 0.95);
+        const boxH = totalH + padding * 0.5;
+        const boxX = (W - boxW) / 2;
+        const boxY = yStart - fs - padding * 0.5;
+        let hex = bgStyle === "colored" ? bgColor : bgStyle === "dark" ? "#000000" : "#ffffff";
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b2 = parseInt(hex.slice(5, 7), 16);
+        ctx.fillStyle = `rgba(${r},${g},${b2},${bgOpacity})`;
+        const radius = 16 * scale;
+        ctx.beginPath();
+        ctx.moveTo(boxX + radius, boxY);
+        ctx.lineTo(boxX + boxW - radius, boxY);
+        ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + radius);
+        ctx.lineTo(boxX + boxW, boxY + boxH - radius);
+        ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - radius, boxY + boxH);
+        ctx.lineTo(boxX + radius, boxY + boxH);
+        ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - radius);
+        ctx.lineTo(boxX, boxY + radius);
+        ctx.quadraticCurveTo(boxX, boxY, boxX + radius, boxY);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Draw text with subtle shadow
+      ctx.shadowColor = bgStyle === "none" ? "rgba(0,0,0,0.8)" : "transparent";
+      ctx.shadowBlur = bgStyle === "none" ? 8 * scale : 0;
+      ctx.shadowOffsetX = bgStyle === "none" ? 2 * scale : 0;
+      ctx.shadowOffsetY = bgStyle === "none" ? 2 * scale : 0;
       ctx.fillStyle = color;
+      ctx.font = `${bold ? "900" : "400"} ${fs}px ${fontFamily}`;
+      ctx.textAlign = "center";
+      ctx.direction = "rtl";
       lines.forEach((line, i) => {
         ctx.fillText(line, W / 2, yStart + i * lineH);
       });
@@ -66,7 +151,7 @@ export function ImageTextEditor({ onClose }: Props) {
     img.src = imgSrc;
   };
 
-  useEffect(() => { draw(); }, [imgSrc, text, fontSize, color, position, bold]);
+  useEffect(() => { draw(); }, [imgSrc, text, fontSize, color, position, bold, selectedFont, bgStyle, bgColor, bgOpacity]);
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -85,6 +170,8 @@ export function ImageTextEditor({ onClose }: Props) {
     a.click();
   };
 
+  const filteredFonts = FONTS.filter((f) => f.lang === fontTab || f.lang === "both");
+
   return (
     <div className="fixed inset-0 z-[300] bg-black/70 flex items-center justify-center p-3" onClick={onClose}>
       <div dir="rtl" className="bg-card rounded-3xl max-w-2xl w-full max-h-[95vh] overflow-y-auto p-5 space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -99,7 +186,7 @@ export function ImageTextEditor({ onClose }: Props) {
         {!imgSrc ? (
           <label className="flex flex-col items-center justify-center gap-3 p-10 border-2 border-dashed border-border rounded-2xl cursor-pointer hover:bg-secondary/30 transition">
             <ImageIcon className="h-10 w-10 text-muted-foreground" />
-            <span className="font-bold text-sm">اختر صورة</span>
+            <span className="font-bold text-sm">اختر صورة من جهازك</span>
             <input type="file" accept="image/*" className="hidden" onChange={onFile} />
           </label>
         ) : (
@@ -107,12 +194,32 @@ export function ImageTextEditor({ onClose }: Props) {
             <canvas ref={canvasRef} className="w-full rounded-2xl border border-border bg-secondary/20" />
 
             <div className="grid gap-3">
-              <label className="block text-sm font-bold">النص العربي</label>
-              <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2}
-                placeholder="اكتب نصك هنا بالعربية..."
-                className="w-full px-4 py-2 rounded-xl border border-border bg-background resize-none text-right font-bold text-lg" />
+              <div>
+                <label className="block text-sm font-bold mb-1">النص</label>
+                <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2}
+                  placeholder="اكتب نصك هنا..."
+                  className="w-full px-4 py-2 rounded-xl border border-border bg-background resize-none text-right font-bold text-lg" />
+              </div>
 
-              <div className="flex flex-wrap gap-3 items-center">
+              {/* Font selector */}
+              <div>
+                <label className="block text-sm font-bold mb-2">الخط</label>
+                <div className="flex gap-1 mb-2">
+                  <button onClick={() => setFontTab("ar")} className={`px-4 py-1.5 rounded-xl text-xs font-bold transition ${fontTab === "ar" ? "bg-[image:var(--gradient-hero)] text-white" : "bg-secondary"}`}>عربي</button>
+                  <button onClick={() => setFontTab("en")} className={`px-4 py-1.5 rounded-xl text-xs font-bold transition ${fontTab === "en" ? "bg-[image:var(--gradient-hero)] text-white" : "bg-secondary"}`}>English</button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {filteredFonts.map((f) => (
+                    <button key={f.family} onClick={() => setSelectedFont(f.family)}
+                      style={{ fontFamily: `"${f.family}", Tajawal, sans-serif` }}
+                      className={`px-3 py-2 rounded-xl border-2 text-sm text-center transition ${selectedFont === f.family ? "border-[var(--brand)] bg-[var(--brand)]/10 font-bold" : "border-border hover:border-[var(--brand)]/40"}`}>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
                 <div>
                   <label className="text-xs font-bold mb-1 block">الحجم</label>
                   <select value={fontSize} onChange={(e) => setFontSize(+e.target.value)}
@@ -133,6 +240,7 @@ export function ImageTextEditor({ onClose }: Props) {
                 </div>
               </div>
 
+              {/* Text color */}
               <div>
                 <label className="text-xs font-bold mb-1 block">لون النص</label>
                 <div className="flex flex-wrap gap-2">
@@ -145,6 +253,34 @@ export function ImageTextEditor({ onClose }: Props) {
                     className="w-8 h-8 rounded-full border border-border cursor-pointer" title="لون مخصص" />
                 </div>
               </div>
+
+              {/* Background */}
+              <div>
+                <label className="text-xs font-bold mb-1 block">خلفية النص</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {BG_OPTIONS.map((b) => (
+                    <button key={b.value} onClick={() => setBgStyle(b.value as any)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border-2 ${bgStyle === b.value ? "border-[var(--brand)] bg-[var(--brand)]/10" : "border-border hover:bg-secondary"}`}>
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+                {bgStyle !== "none" && (
+                  <div className="flex items-center gap-3">
+                    {bgStyle === "colored" && (
+                      <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)}
+                        className="w-8 h-8 rounded-full border border-border cursor-pointer" title="لون الخلفية" />
+                    )}
+                    <div className="flex items-center gap-2 flex-1">
+                      <span className="text-xs font-bold whitespace-nowrap">الشفافية</span>
+                      <input type="range" min={0.1} max={0.9} step={0.05} value={bgOpacity}
+                        onChange={(e) => setBgOpacity(+e.target.value)}
+                        className="flex-1" />
+                      <span className="text-xs text-muted-foreground w-8">{Math.round(bgOpacity * 100)}%</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex gap-2 pt-2">
@@ -152,8 +288,8 @@ export function ImageTextEditor({ onClose }: Props) {
                 className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">
                 <Download className="h-4 w-4" /> تحميل الصورة
               </button>
-              <label className="px-4 py-2.5 rounded-xl bg-secondary font-bold text-sm cursor-pointer hover:bg-secondary/70 transition">
-                صورة أخرى
+              <label className="px-4 py-2.5 rounded-xl bg-secondary font-bold text-sm cursor-pointer hover:bg-secondary/70 transition inline-flex items-center gap-1">
+                <RefreshCw className="h-4 w-4" /> صورة أخرى
                 <input type="file" accept="image/*" className="hidden" onChange={onFile} />
               </label>
             </div>

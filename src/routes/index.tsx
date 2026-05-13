@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Image, BookOpen, Trophy, Users, MessageCircle, Sparkles, Zap, GraduationCap, Bot, Calendar as CalIcon, ClipboardList, Award, Target, Shield, Info, X } from "lucide-react";
+import { Image, BookOpen, Trophy, Users, MessageCircle, Sparkles, Zap, GraduationCap, Bot, Calendar as CalIcon, ClipboardList, Award, Target, Shield, Info, X, Mail, Phone, MapPin, Heart, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
 import { InstallPWA } from "@/components/InstallPWA";
@@ -25,20 +25,19 @@ export const Route = createFileRoute("/")({
 });
 
 const features = [
-  { icon: Bot, title: "المساعد الذكي المتقدم", desc: "اسأل أي سؤال في الرياضيات — يدعم الصور والكسور والجذور", color: "from-violet-500 to-pink-500", to: "/assistant" as const },
-  { icon: Users, title: "مجتمع تعليمي", desc: "شات مباشر بين المعلمين والطلاب وأولياء الأمور", color: "from-emerald-500 to-teal-500", to: "/chat" as const },
-  { icon: Image, title: "معرض الإبداعات", desc: "شارك صورك وفيديوهاتك وإبداعاتك مع زملائك", color: "from-pink-500 to-rose-500", to: "/gallery" as const },
-  { icon: Zap, title: "المسابقات السريعة", desc: "تنافس على السرعة والإجابة الصحيحة", color: "from-yellow-500 to-orange-500", to: "/competitions" as const },
-  { icon: Trophy, title: "مسابقات معرض الإبداعات", desc: "أحسن رسمة وفيديو وصورة", color: "from-amber-500 to-orange-600", to: "/gallery-contests" as const },
-  { icon: BookOpen, title: "بنك الأنشطة", desc: "أنشطة وأوراق عمل متنوعة للصف الخامس", color: "from-blue-500 to-cyan-500", to: "/activities" as const },
-  { icon: ClipboardList, title: "الواجبات", desc: "حل واجباتك واحصل على تقييم المعلم", color: "from-blue-500 to-indigo-500", to: "/assignments" as const },
-  { icon: Target, title: "اختبارات تفاعلية", desc: "اختبر معلوماتك واكسب نقاطاً", color: "from-rose-500 to-pink-500", to: "/quizzes" as const },
-  { icon: CalIcon, title: "التقويم", desc: "مواعيد المسابقات والفعاليات", color: "from-cyan-500 to-blue-500", to: "/calendar" as const },
-  { icon: Trophy, title: "لوحة المتصدرين", desc: "أعلى معلم وأعلى طالب مشارك", color: "from-amber-500 to-orange-500", to: "/leaderboard" as const },
-  { icon: Award, title: "شاراتي", desc: "شاراتك وشهادة التقدير", color: "from-amber-500 to-yellow-500", to: "/badges" as const },
-  // الرسائل الخاصة متاحة من أيقونة الشريط العلوي
-  { icon: GraduationCap, title: "لوحة المعلم", desc: "متابعة إحصائيات الطلاب", color: "from-emerald-600 to-teal-600", to: "/teacher" as const },
-  { icon: Shield, title: "لوحة الإدارة", desc: "نظرة شاملة على المنصة (للمشرف)", color: "from-amber-700 to-red-600", to: "/admin" as const },
+  { icon: Bot, title: "المساعد الذكي المتقدم", desc: "اسأل أي سؤال في الرياضيات — يدعم الصور والكسور والجذور", color: "from-violet-500 to-pink-500", to: "/assistant" as const, badgeKey: null },
+  { icon: Users, title: "مجتمع تعليمي", desc: "شات مباشر بين المعلمين والطلاب وأولياء الأمور", color: "from-emerald-500 to-teal-500", to: "/chat" as const, badgeKey: null },
+  { icon: Image, title: "معرض الإبداعات", desc: "شارك صورك وفيديوهاتك وإبداعاتك مع زملائك", color: "from-pink-500 to-rose-500", to: "/gallery" as const, badgeKey: null },
+  { icon: Zap, title: "المسابقات السريعة", desc: "تنافس على السرعة والإجابة الصحيحة", color: "from-yellow-500 to-orange-500", to: "/competitions" as const, badgeKey: null },
+  { icon: Trophy, title: "مسابقات معرض الإبداعات", desc: "أحسن رسمة وفيديو وصورة", color: "from-amber-500 to-orange-600", to: "/gallery-contests" as const, badgeKey: null },
+  { icon: BookOpen, title: "بنك الأنشطة", desc: "أنشطة وأوراق عمل متنوعة للصف الخامس", color: "from-blue-500 to-cyan-500", to: "/activities" as const, badgeKey: null },
+  { icon: ClipboardList, title: "الواجبات", desc: "حل واجباتك واحصل على تقييم المعلم", color: "from-blue-500 to-indigo-500", to: "/assignments" as const, badgeKey: "assignments" },
+  { icon: Target, title: "اختبارات تفاعلية", desc: "اختبر معلوماتك واكسب نقاطاً", color: "from-rose-500 to-pink-500", to: "/quizzes" as const, badgeKey: null },
+  { icon: CalIcon, title: "التقويم", desc: "مواعيد المسابقات والفعاليات", color: "from-cyan-500 to-blue-500", to: "/calendar" as const, badgeKey: null },
+  { icon: Trophy, title: "لوحة المتصدرين", desc: "أعلى معلم وأعلى طالب مشارك", color: "from-amber-500 to-orange-500", to: "/leaderboard" as const, badgeKey: null },
+  { icon: Award, title: "شاراتي", desc: "شاراتك وشهادة التقدير", color: "from-amber-500 to-yellow-500", to: "/badges" as const, badgeKey: null },
+  { icon: GraduationCap, title: "لوحة المعلم", desc: "متابعة إحصائيات الطلاب", color: "from-emerald-600 to-teal-600", to: "/teacher" as const, badgeKey: null },
+  { icon: Shield, title: "لوحة الإدارة", desc: "نظرة شاملة على المنصة (للمشرف)", color: "from-amber-700 to-red-600", to: "/admin" as const, badgeKey: null },
 ];
 
 function Index() {
@@ -47,64 +46,97 @@ function Index() {
   const [roleType, setRoleType] = useState<string | null>(null);
   const [country, setCountry] = useState<string | null>(null);
   const [school, setSchool] = useState<string | null>(null);
+  const [grade, setGrade] = useState<string | null>(null);
   const [gender, setGender] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [badges, setBadges] = useState<Record<string, number>>({});
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Hydrate instantly from localStorage cache
     try {
-      const cached = localStorage.getItem("home-greeting-v1");
+      const cached = localStorage.getItem("home-greeting-v2");
       if (cached) {
         const c = JSON.parse(cached);
         setDisplayName(c.display_name || null);
         setRoleType(c.role_type || null);
         setCountry(c.country || null);
         setSchool(c.school || null);
+        setGrade(c.grade || null);
         setGender(c.gender || null);
         setIsAdmin(!!c.isAdmin);
       }
     } catch {}
 
-    let userId: string | null = null;
+    let uid: string | null = null;
+
     const fetchProfile = async (id: string) => {
-      const [{ data: profile }, { data: roles }] = await Promise.all([
+      const [{ data: profile }, { data: roles }, { data: priv }] = await Promise.all([
         supabase.from("profiles").select("display_name, role_type, country, school, gender").eq("id", id).maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", id),
+        supabase.from("profiles_private" as any).select("grade").eq("user_id", id).maybeSingle(),
       ]);
       const admin = !!roles?.some((r) => r.role === "admin");
+      const g = (priv as any)?.grade || null;
       setDisplayName(profile?.display_name || null);
       setRoleType((profile as any)?.role_type || null);
       setCountry((profile as any)?.country || null);
       setSchool((profile as any)?.school || null);
+      setGrade(g);
       setGender((profile as any)?.gender || null);
       setIsAdmin(admin);
       try {
-        localStorage.setItem("home-greeting-v1", JSON.stringify({
+        localStorage.setItem("home-greeting-v2", JSON.stringify({
           display_name: profile?.display_name || null,
           role_type: (profile as any)?.role_type || null,
           country: (profile as any)?.country || null,
           school: (profile as any)?.school || null,
+          grade: g,
           gender: (profile as any)?.gender || null,
           isAdmin: admin,
         }));
       } catch {}
+
+      // Fetch section badges (unread notifications + unread DMs)
+      const [{ count: notifCount }, { data: dms }] = await Promise.all([
+        supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", id).eq("is_read", false),
+        supabase.from("direct_messages" as any).select("id").eq("to_user_id", id).is("read_at", null),
+      ]);
+      const b: Record<string, number> = {};
+      if (notifCount && notifCount > 0) b["notifications"] = notifCount;
+      if ((dms || []).length > 0) b["messages"] = (dms || []).length;
+      setBadges(b);
     };
+
     supabase.auth.getSession().then(({ data }) => {
       const id = data.session?.user.id;
-      if (!id) { localStorage.removeItem("home-greeting-v1"); return; }
-      userId = id;
+      if (!id) { localStorage.removeItem("home-greeting-v2"); return; }
+      uid = id;
+      setUserId(id);
       fetchProfile(id);
     });
-    // Realtime: refresh greeting if profile changes
+
     const ch = supabase.channel("home-profile-rt")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload: any) => {
-        if (userId && payload.new?.id === userId) fetchProfile(userId);
-      }).subscribe();
+        if (uid && payload.new?.id === uid) fetchProfile(uid);
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications" }, (payload: any) => {
+        if (uid && (payload.new as any)?.user_id === uid) {
+          setBadges((b) => ({ ...b, notifications: (b.notifications || 0) + 1 }));
+        }
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages" }, (payload: any) => {
+        if (uid && (payload.new as any)?.to_user_id === uid) {
+          setBadges((b) => ({ ...b, messages: (b.messages || 0) + 1 }));
+        }
+      })
+      .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
 
   const roleLabel = roleLabelFor(roleType, gender);
+  const isTeacher = roleType === "teacher" || roleType === "supervisor" || roleType === "admin";
+  const isStudent = roleType === "student";
 
   return (
     <div dir="rtl" className="min-h-screen bg-background overflow-hidden">
@@ -151,6 +183,7 @@ function Index() {
           )}
         </p>
 
+        {/* Welcome card */}
         {displayName && (
           <div className="mx-auto mb-6 max-w-xl rounded-2xl border border-border bg-card px-5 py-4 shadow-[var(--shadow-card)]">
             <div className="text-sm text-muted-foreground">{isAr ? "مرحباً بك 👋" : "Welcome 👋"}</div>
@@ -162,17 +195,30 @@ function Index() {
                 </span>
               )}
             </div>
-            {(country || school) && (
-              <div className="mt-1 text-sm text-muted-foreground flex items-center justify-center gap-1 flex-wrap">
-                {country && (
-                  <span className="inline-flex items-center gap-1">
-                    {getCountryFlag(country) && <span className="text-base leading-none">{getCountryFlag(country)}</span>}
-                    <span>{country}</span>
-                  </span>
-                )}
-                {roleType === "teacher" && school ? ` • ${school}` : ""}
-              </div>
-            )}
+            {/* School + grade for all roles */}
+            <div className="mt-2 text-sm text-muted-foreground flex items-center justify-center gap-2 flex-wrap">
+              {country && (
+                <span className="inline-flex items-center gap-1">
+                  {getCountryFlag(country) && <span className="text-base leading-none">{getCountryFlag(country)}</span>}
+                  <span>{country}</span>
+                </span>
+              )}
+              {school && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium text-xs border border-blue-100">
+                  🏫 {school}
+                </span>
+              )}
+              {isStudent && grade && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs border border-emerald-100">
+                  📚 الصف {grade}
+                </span>
+              )}
+              {isTeacher && grade && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-violet-50 text-violet-700 font-bold text-xs border border-violet-100">
+                  🎓 {grade}
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -217,7 +263,7 @@ function Index() {
       {/* Honor Board */}
       <HonorBoard />
 
-      {/* Features */}
+      {/* Features with badges */}
       <section className="container mx-auto px-6 pb-20">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-black mb-3">{isAr ? "ماذا نقدم لك؟" : "What We Offer"}</h2>
@@ -225,16 +271,24 @@ function Index() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {features.map((f) => (
-            <Link key={f.title} to={f.to}
-              className="group relative bg-card rounded-3xl p-7 border border-border shadow-[var(--shadow-card)] hover:-translate-y-2 hover:shadow-[var(--shadow-soft)] transition-all duration-300 text-right">
-              <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform`}>
-                <f.icon className="h-7 w-7 text-white" />
-              </div>
-              <h3 className="font-bold text-xl mb-2">{f.title}</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
-            </Link>
-          ))}
+          {features.map((f) => {
+            const badgeCount = f.badgeKey ? (badges[f.badgeKey] || 0) : 0;
+            return (
+              <Link key={f.title} to={f.to}
+                className="group relative bg-card rounded-3xl p-7 border border-border shadow-[var(--shadow-card)] hover:-translate-y-2 hover:shadow-[var(--shadow-soft)] transition-all duration-300 text-right">
+                {badgeCount > 0 && (
+                  <span className="absolute top-3 left-3 min-w-[22px] h-[22px] rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center px-1 shadow-lg animate-pulse">
+                    {badgeCount > 99 ? "99+" : badgeCount}
+                  </span>
+                )}
+                <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform`}>
+                  <f.icon className="h-7 w-7 text-white" />
+                </div>
+                <h3 className="font-bold text-xl mb-2">{f.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+              </Link>
+            );
+          })}
         </div>
       </section>
 
@@ -253,20 +307,90 @@ function Index() {
         </div>
       </section>
 
-      {/* Credits Footer */}
-      <footer className="container mx-auto px-6 py-8 border-t border-border">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center md:text-right text-sm">
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">إعداد المبادرة</div>
-            <div className="font-bold">الأستاذ محمد النعمان</div>
-          </div>
-          <div className="md:text-left">
-            <div className="text-xs text-muted-foreground mb-1">تصميم الموقع</div>
-            <div className="font-bold">الأستاذة مروة أبوبكر</div>
+      {/* Professional Footer */}
+      <footer className="bg-card border-t border-border" dir="rtl">
+        <div className="container mx-auto px-6 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            {/* Brand column */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <img src={logo} alt="شعار" className="h-12 w-12 rounded-xl object-cover shadow" />
+                <div>
+                  <div className="font-black text-lg leading-tight">مبادرة كلنا معاً</div>
+                  <div className="text-xs text-muted-foreground">محافظة الوسطى — سلطنة عُمان</div>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                منصة تعليمية تفاعلية تجمع المعلم والطالب وولي الأمر في بيئة آمنة وممتعة لتعزيز تعلّم الرياضيات.
+              </p>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Heart className="h-3.5 w-3.5 text-rose-400 fill-rose-400" />
+                <span>مصنوع بحب لأبنائنا الطلاب</span>
+              </div>
+            </div>
+
+            {/* Quick links */}
+            <div>
+              <div className="font-black mb-4 text-sm">روابط سريعة</div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "الرئيسية", to: "/" },
+                  { label: "المساعد الذكي", to: "/assistant" },
+                  { label: "المجتمع", to: "/chat" },
+                  { label: "المعرض", to: "/gallery" },
+                  { label: "المسابقات", to: "/competitions" },
+                  { label: "الواجبات", to: "/assignments" },
+                  { label: "الاختبارات", to: "/quizzes" },
+                  { label: "شاراتي", to: "/badges" },
+                ].map((l) => (
+                  <Link key={l.to} to={l.to as any} className="text-sm text-muted-foreground hover:text-foreground hover:font-medium transition flex items-center gap-1">
+                    <Star className="h-2.5 w-2.5 text-amber-400" /> {l.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Info column */}
+            <div className="space-y-4">
+              <div className="font-black mb-4 text-sm">عن المبادرة</div>
+              <div className="space-y-3">
+                <div className="flex items-start gap-2 text-sm">
+                  <GraduationCap className="h-4 w-4 text-[var(--brand)] mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-bold">منفّذ المبادرة</div>
+                    <div className="text-muted-foreground">الأستاذ محمد النعمان</div>
+                    <div className="text-xs text-muted-foreground">مشرف مادة الرياضيات</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 text-sm">
+                  <Sparkles className="h-4 w-4 text-violet-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-bold">تصميم الموقع</div>
+                    <div className="text-muted-foreground">الأستاذة مروة أبوبكر</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 text-sm">
+                  <MapPin className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-bold">محافظة الوسطى</div>
+                    <div className="text-muted-foreground">سلطنة عُمان</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="text-center text-xs text-muted-foreground mt-6">
-          © مبادرة كلنا معاً • محافظة الوسطى • سلطنة عُمان
+
+        {/* Bottom bar */}
+        <div className="border-t border-border">
+          <div className="container mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>© {new Date().getFullYear()} مبادرة كلنا معاً — جميع الحقوق محفوظة</span>
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> آمن للأطفال</span>
+              <span className="flex items-center gap-1">🇴🇲 سلطنة عُمان</span>
+              <span>مجاني 100%</span>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

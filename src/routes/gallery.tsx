@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Image as ImageIcon, Upload, Trash2, Sparkles, Video, Send, Smile, X, Type } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, Upload, Trash2, Sparkles, Video, Send, Smile, X, Type, CheckSquare, Square, ShieldAlert } from "lucide-react";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { ReportButton } from "@/components/ReportButton";
 import { Reactions } from "@/components/Reactions";
@@ -31,13 +31,18 @@ function GalleryPage() {
   const [openItem, setOpenItem] = useState<Item | null>(null);
   const [showImageEditor, setShowImageEditor] = useState(false);
 
+  // Bulk select/delete
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) { navigate({ to: "/login" }); return; }
       setUid(data.session.user.id);
       const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.session.user.id);
       setIsAdmin(!!roles?.some((r) => r.role === "admin"));
-      setIsMod(!!roles?.some((r) => ["admin","supervisor"].includes(String(r.role))));
+      setIsMod(!!roles?.some((r) => ["admin", "supervisor"].includes(String(r.role))));
       load();
     });
   }, [navigate]);
@@ -50,10 +55,8 @@ function GalleryPage() {
     const { data } = await supabase.from("messages").select("*").eq("category", "gallery")
       .order("created_at", { ascending: false }).range(off, off + PAGE - 1);
     const list = (data || []) as Item[];
-    if (reset) {
-      setItems(list);
-      setOffset(PAGE);
-    } else {
+    if (reset) { setItems(list); setOffset(PAGE); }
+    else {
       setItems((prev) => {
         const ids = new Set(prev.map((i) => i.id));
         return [...prev, ...list.filter((i) => !ids.has(i.id))];
@@ -135,6 +138,31 @@ function GalleryPage() {
     if (openItem?.id === id) setOpenItem(null);
   };
 
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`حذف ${selected.size} عنصر نهائياً؟`)) return;
+    setBulkDeleting(true);
+    const ids = Array.from(selected);
+    const { error } = await supabase.from("messages").delete().in("id", ids);
+    setBulkDeleting(false);
+    if (error) return toast.error("فشل الحذف: " + error.message);
+    toast.success(`تم حذف ${ids.length} عنصر`);
+    setItems((p) => p.filter((i) => !ids.includes(i.id)));
+    setSelected(new Set());
+    setSelectMode(false);
+  };
+
+  const selectAll = () => setSelected(new Set(items.map((i) => i.id)));
+  const clearSelect = () => { setSelected(new Set()); setSelectMode(false); };
+
   return (
     <div dir="rtl" className="min-h-screen bg-background">
       <header className="bg-card border-b border-border sticky top-0 z-10 backdrop-blur bg-card/90">
@@ -148,8 +176,28 @@ function GalleryPage() {
             </div>
             <h1 className="font-bold">معرض الإبداعات</h1>
           </div>
+          {isMod && (
+            <button onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition ${selectMode ? "bg-rose-100 text-rose-700" : "bg-secondary hover:bg-secondary/70"}`}>
+              <ShieldAlert className="h-4 w-4" />
+              {selectMode ? "إلغاء" : "تحديد للحذف"}
+            </button>
+          )}
         </div>
       </header>
+
+      {/* Bulk delete bar */}
+      {selectMode && isMod && (
+        <div className="sticky top-[57px] z-20 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center gap-3" dir="rtl">
+          <span className="text-sm font-bold text-rose-700">{selected.size} محدد</span>
+          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({items.length})</button>
+          <button onClick={clearSelect} className="text-xs px-3 py-1 rounded-lg bg-secondary font-bold hover:bg-secondary/70">إلغاء التحديد</button>
+          <button onClick={bulkDelete} disabled={selected.size === 0 || bulkDeleting}
+            className="mr-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600 text-white text-sm font-bold disabled:opacity-50">
+            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${selected.size})`}
+          </button>
+        </div>
+      )}
 
       <main className="container mx-auto px-4 py-6 max-w-5xl">
         <div className="bg-card rounded-3xl border border-border p-5 mb-6 shadow-[var(--shadow-card)] relative">
@@ -167,7 +215,7 @@ function GalleryPage() {
               placeholder="اكتب وصفاً قصيراً... 😊" rows={2}
               className="w-full px-4 py-2 rounded-xl border border-border bg-background resize-none pl-10" />
             <button type="button" onClick={() => setShowEmoji((v) => !v)}
-              className="absolute bottom-2 left-2 p-1.5 rounded-lg hover:bg-secondary" title="إيموجي">
+              className="absolute bottom-2 left-2 p-1.5 rounded-lg hover:bg-secondary">
               <Smile className="h-4 w-4 text-muted-foreground" />
             </button>
             {showEmoji && (
@@ -183,7 +231,7 @@ function GalleryPage() {
               <input type="file" accept="image/*,video/*" onChange={onPick} className="hidden" />
             </label>
             <button type="button" onClick={() => setShowImageEditor(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-100 text-violet-700 hover:bg-violet-200 text-sm font-bold transition" title="كتابة على صورة">
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-100 text-violet-700 hover:bg-violet-200 text-sm font-bold transition">
               <Type className="h-4 w-4" /> اكتب على صورة
             </button>
             <button onClick={upload} disabled={(!file && !caption.trim()) || uploading}
@@ -201,9 +249,11 @@ function GalleryPage() {
               const isMine = it.user_id === uid;
               const name = profiles[it.user_id]?.display_name || "مستخدم";
               const vid = it.image_url ? isVideo(it.image_url) : false;
+              const isSelected = selected.has(it.id);
               return (
-                <div key={it.id} className="group relative rounded-2xl overflow-hidden border border-border bg-card cursor-pointer"
-                  onClick={() => setOpenItem(it)}>
+                <div key={it.id}
+                  className={`group relative rounded-2xl overflow-hidden border bg-card cursor-pointer transition ${isSelected ? "border-rose-500 ring-2 ring-rose-400" : "border-border"}`}
+                  onClick={() => selectMode ? toggleSelect(it.id) : setOpenItem(it)}>
                   {it.image_url ? (
                     vid ? (
                       <div className="relative">
@@ -224,15 +274,25 @@ function GalleryPage() {
                     <div className="font-bold">{name}</div>
                     {it.image_url && it.content && <div className="opacity-90 line-clamp-2">{it.content}</div>}
                   </div>
-                  <div className="absolute top-2 left-2 flex gap-1">
-                    <ReportButton targetKind="gallery" targetId={it.id} content={it.content} className="bg-white/90 px-1.5 py-1 rounded-lg" label="" />
-                    {(isMine || isMod) && (
-                      <button onClick={(e) => { e.stopPropagation(); del(it.id); }}
-                        className="bg-destructive/90 text-white p-1.5 rounded-lg">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
+                  {/* Selection indicator */}
+                  {selectMode && (
+                    <div className="absolute top-2 right-2">
+                      {isSelected
+                        ? <CheckSquare className="h-6 w-6 text-rose-500 drop-shadow" />
+                        : <Square className="h-6 w-6 text-white drop-shadow opacity-80" />}
+                    </div>
+                  )}
+                  {!selectMode && (
+                    <div className="absolute top-2 left-2 flex gap-1">
+                      <ReportButton targetKind="gallery" targetId={it.id} content={it.content} className="bg-white/90 px-1.5 py-1 rounded-lg" label="" />
+                      {(isMine || isMod) && (
+                        <button onClick={(e) => { e.stopPropagation(); del(it.id); }}
+                          className="bg-destructive/90 text-white p-1.5 rounded-lg">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -284,7 +344,6 @@ function ItemModal({ item, uid, isAdmin, authorName, onClose }: { item: Item; ui
 
   useEffect(() => {
     loadComments();
-
     const ch = supabase.channel(`gallery-comments-${item.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "gallery_comments", filter: `item_id=eq.${item.id}` }, (payload) => {
         const newComment = payload.new as Comment;
@@ -300,16 +359,15 @@ function ItemModal({ item, uid, isAdmin, authorName, onClose }: { item: Item; ui
         setComments((prev) => prev.filter((c) => c.id !== (payload.old as any).id));
       })
       .subscribe();
-
     return () => { supabase.removeChannel(ch); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id]);
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim()) return;
     setSending(true);
-    const { error } = await supabase.from("gallery_comments")
-      .insert({ item_id: item.id, user_id: uid, content: text.trim() });
+    const { error } = await supabase.from("gallery_comments").insert({ item_id: item.id, user_id: uid, content: text.trim() });
     setSending(false);
     if (error) return toast.error(`فشل الإرسال: ${error.message}`);
     setText("");
@@ -340,11 +398,9 @@ function ItemModal({ item, uid, isAdmin, authorName, onClose }: { item: Item; ui
             </div>
             <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary"><X className="h-4 w-4" /></button>
           </div>
-
           <div className="px-4 pt-3 pb-1 border-b border-border">
             <Reactions targetType="gallery" targetId={item.id} uid={uid} />
           </div>
-
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {comments.length === 0 && <div className="text-center text-muted-foreground text-sm py-8">لا توجد تعليقات بعد</div>}
             {comments.map((c) => {

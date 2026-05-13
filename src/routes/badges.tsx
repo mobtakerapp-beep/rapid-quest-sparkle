@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Award, Download, User as UserIcon, Target } from "lucide-react";
+import { ArrowLeft, Award, Download, User as UserIcon, Target, Palette, Type as TypeIcon, X } from "lucide-react";
 import jsPDF from "jspdf";
 import { MyBadges } from "@/components/MyBadges";
 import { MyCertificates } from "@/components/MyCertificates";
@@ -10,6 +10,60 @@ export const Route = createFileRoute("/badges")({ component: BadgesPage });
 
 type B = { id: string; name: string; description: string | null; icon: string; color: string; audience: string };
 type Attempt = { id: string; quiz_id: string; score: number; total: number; created_at: string; quiz_title?: string };
+
+// ─── Certificate themes ───────────────────────────────────────────────────────
+const CERT_THEMES = [
+  {
+    id: "violet",
+    label: "بنفسجي فاخر",
+    bg1: "#fdf4ff", bg2: "#eef2ff",
+    border1: "#8b5cf6", border2: "#ec4899",
+    title: "#7c3aed", body: "#374151", name: "#111827",
+    accent: "#a78bfa",
+  },
+  {
+    id: "gold",
+    label: "ذهبي كلاسيك",
+    bg1: "#fffbeb", bg2: "#fef3c7",
+    border1: "#d97706", border2: "#f59e0b",
+    title: "#92400e", body: "#78350f", name: "#451a03",
+    accent: "#fbbf24",
+  },
+  {
+    id: "emerald",
+    label: "أخضر زمردي",
+    bg1: "#ecfdf5", bg2: "#d1fae5",
+    border1: "#059669", border2: "#10b981",
+    title: "#065f46", body: "#047857", name: "#064e3b",
+    accent: "#34d399",
+  },
+  {
+    id: "rose",
+    label: "وردي راقي",
+    bg1: "#fff1f2", bg2: "#ffe4e6",
+    border1: "#e11d48", border2: "#fb7185",
+    title: "#9f1239", body: "#be123c", name: "#881337",
+    accent: "#f43f5e",
+  },
+  {
+    id: "ocean",
+    label: "أزرق المحيط",
+    bg1: "#eff6ff", bg2: "#dbeafe",
+    border1: "#1d4ed8", border2: "#3b82f6",
+    title: "#1e3a8a", body: "#1e40af", name: "#1e3a8a",
+    accent: "#60a5fa",
+  },
+];
+
+const CERT_FONTS = [
+  { label: "طجوال (عصري)", family: "Tajawal" },
+  { label: "القاهرة (أنيق)", family: "Cairo" },
+  { label: "أميري (كلاسيكي)", family: "Amiri" },
+  { label: "ريدكس برو", family: "Readex Pro" },
+  { label: "ليمونادا", family: "Lemonada" },
+  { label: "خط كوفي", family: "Reem Kufi" },
+];
+// ─────────────────────────────────────────────────────────────────────────────
 
 function BadgesPage() {
   const navigate = useNavigate();
@@ -21,6 +75,12 @@ function BadgesPage() {
   const [points, setPoints] = useState(0);
   const [audience, setAudience] = useState<"student" | "teacher">("student");
   const [attempts, setAttempts] = useState<Attempt[]>([]);
+
+  // Certificate theme picker state
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState(CERT_THEMES[0]);
+  const [selectedFont, setSelectedFont] = useState(CERT_FONTS[0]);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -41,7 +101,6 @@ function BadgesPage() {
       const c: Record<string, number> = {};
       (ub || []).forEach((x: any) => { c[x.badge_id] = (c[x.badge_id] || 0) + 1; });
       setCounts(c);
-      // Hydrate quiz titles
       const qids = [...new Set((at || []).map((a: any) => a.quiz_id))];
       const { data: quizzes } = qids.length ? await supabase.from("quizzes").select("id, title").in("id", qids) : { data: [] };
       const qmap: Record<string, string> = {};
@@ -51,73 +110,94 @@ function BadgesPage() {
   }, [navigate]);
 
   const certificate = async () => {
-    // Render with browser canvas (native Arabic shaping), then embed in PDF.
-    const W = 2480, H = 1754; // A4 landscape @ 300dpi
-    const c = document.createElement("canvas");
-    c.width = W; c.height = H;
-    const ctx = c.getContext("2d")!;
-    ctx.direction = "rtl";
-    ctx.textAlign = "center";
+    setGenerating(true);
+    try {
+      const W = 2480, H = 1754;
+      const c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      const ctx = c.getContext("2d")!;
+      ctx.direction = "rtl";
+      ctx.textAlign = "center";
 
-    // Background gradient
-    const g = ctx.createLinearGradient(0, 0, W, H);
-    g.addColorStop(0, "#fdf4ff"); g.addColorStop(1, "#eef2ff");
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      const theme = selectedTheme;
+      const fontFamily = `"${selectedFont.family}", Tajawal, Cairo, Arial`;
 
-    // Decorative borders
-    ctx.strokeStyle = "#8b5cf6"; ctx.lineWidth = 24;
-    ctx.strokeRect(60, 60, W - 120, H - 120);
-    ctx.strokeStyle = "#ec4899"; ctx.lineWidth = 6;
-    ctx.strokeRect(120, 120, W - 240, H - 240);
+      // Background gradient
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, theme.bg1); g.addColorStop(1, theme.bg2);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
-    // Corner ornaments
-    ctx.fillStyle = "#fbbf24"; ctx.font = "bold 90px serif";
-    ctx.fillText("✦", 200, 220); ctx.fillText("✦", W - 200, 220);
-    ctx.fillText("✦", 200, H - 160); ctx.fillText("✦", W - 200, H - 160);
+      // Decorative pattern dots
+      ctx.fillStyle = theme.accent + "30";
+      for (let x = 80; x < W; x += 80) {
+        for (let y = 80; y < H; y += 80) {
+          ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+        }
+      }
 
-    const arabicFont = "'Tajawal','Cairo','Amiri','Segoe UI','Arial'";
+      // Outer border
+      ctx.strokeStyle = theme.border1; ctx.lineWidth = 28;
+      ctx.strokeRect(60, 60, W - 120, H - 120);
+      // Inner border
+      ctx.strokeStyle = theme.border2; ctx.lineWidth = 6;
+      ctx.strokeRect(120, 120, W - 240, H - 240);
 
-    // Header
-    ctx.fillStyle = "#7c3aed"; ctx.font = `bold 90px ${arabicFont}`;
-    ctx.fillText("شهادة تقدير", W / 2, 320);
+      // Corner ornaments
+      ctx.fillStyle = theme.accent; ctx.font = "bold 90px serif";
+      ctx.fillText("✦", 200, 220); ctx.fillText("✦", W - 200, 220);
+      ctx.fillText("✦", 200, H - 160); ctx.fillText("✦", W - 200, H - 160);
 
-    ctx.fillStyle = "#6b7280"; ctx.font = `40px ${arabicFont}`;
-    ctx.fillText("مبادرة « كلنا معاً » – محافظة الوسطى", W / 2, 400);
+      // Header
+      ctx.fillStyle = theme.title; ctx.font = `bold 90px ${fontFamily}`;
+      ctx.fillText("شهادة تقدير", W / 2, 320);
+      ctx.fillStyle = theme.body + "bb"; ctx.font = `40px ${fontFamily}`;
+      ctx.fillText("مبادرة « كلنا معاً » – محافظة الوسطى", W / 2, 400);
 
-    // Body
-    ctx.fillStyle = "#374151"; ctx.font = `46px ${arabicFont}`;
-    ctx.fillText("تُمنح هذه الشهادة إلى", W / 2, 600);
+      // Divider
+      ctx.strokeStyle = theme.accent; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(W / 2 - 600, 440); ctx.lineTo(W / 2 + 600, 440); ctx.stroke();
 
-    ctx.fillStyle = "#111827"; ctx.font = `bold 110px ${arabicFont}`;
-    ctx.fillText(name || "—", W / 2, 770);
+      // Body
+      ctx.fillStyle = theme.body; ctx.font = `46px ${fontFamily}`;
+      ctx.fillText("تُمنح هذه الشهادة إلى", W / 2, 600);
 
-    // Underline name
-    ctx.strokeStyle = "#a78bfa"; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.moveTo(W / 2 - 700, 805); ctx.lineTo(W / 2 + 700, 805); ctx.stroke();
+      ctx.fillStyle = theme.name; ctx.font = `bold 120px ${fontFamily}`;
+      ctx.fillText(name || "—", W / 2, 780);
 
-    ctx.fillStyle = "#374151"; ctx.font = `42px ${arabicFont}`;
-    ctx.fillText("تقديراً لتميّزه ومشاركته الفاعلة في أنشطة المبادرة", W / 2, 920);
-    ctx.fillText(`وحصوله على ${points} نقطة و ${Object.keys(counts).length} شارة من شارات الإنجاز`, W / 2, 990);
+      // Underline name
+      ctx.strokeStyle = theme.accent; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(W / 2 - 750, 820); ctx.lineTo(W / 2 + 750, 820); ctx.stroke();
 
-    // Date
-    ctx.fillStyle = "#6b7280"; ctx.font = `36px ${arabicFont}`;
-    const date = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
-    ctx.fillText(`التاريخ: ${date}`, W / 2, 1180);
+      ctx.fillStyle = theme.body; ctx.font = `42px ${fontFamily}`;
+      ctx.fillText("تقديراً لتميّزه ومشاركته الفاعلة في أنشطة المبادرة", W / 2, 940);
+      ctx.fillText(`وحصوله على ${points} نقطة و ${Object.keys(counts).length} شارة من شارات الإنجاز`, W / 2, 1010);
 
-    // Signature line + title (centered)
-    ctx.strokeStyle = "#9ca3af"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(W / 2 - 450, 1430); ctx.lineTo(W / 2 + 450, 1430); ctx.stroke();
-    ctx.fillStyle = "#7c3aed"; ctx.font = `bold 44px ${arabicFont}`;
-    ctx.fillText("المديرة العامة للتعليم بمحافظة الوسطى", W / 2, 1500);
+      // Stars decoration
+      ctx.fillStyle = theme.accent; ctx.font = "60px serif";
+      ctx.fillText("⭐⭐⭐", W / 2, 1120);
 
-    // Footer brand
-    ctx.fillStyle = "#6b7280"; ctx.font = `30px ${arabicFont}`;
-    ctx.fillText("منصة كلنا معاً للمتابعة الإلكترونية", W / 2, 1640);
+      // Date
+      ctx.fillStyle = theme.body + "99"; ctx.font = `36px ${fontFamily}`;
+      const date = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+      ctx.fillText(`التاريخ: ${date}`, W / 2, 1220);
 
-    const img = c.toDataURL("image/jpeg", 0.95);
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-    doc.addImage(img, "JPEG", 0, 0, 297, 210);
-    doc.save(`شهادة-تقدير-${name || "بدون-اسم"}.pdf`);
+      // Signature area
+      ctx.strokeStyle = theme.body + "60"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(W / 2 - 500, 1440); ctx.lineTo(W / 2 + 500, 1440); ctx.stroke();
+      ctx.fillStyle = theme.title; ctx.font = `bold 44px ${fontFamily}`;
+      ctx.fillText("المديرة العامة للتعليم بمحافظة الوسطى", W / 2, 1510);
+
+      ctx.fillStyle = theme.body + "80"; ctx.font = `30px ${fontFamily}`;
+      ctx.fillText("منصة كلنا معاً للمتابعة الإلكترونية", W / 2, 1640);
+
+      const img = c.toDataURL("image/jpeg", 0.95);
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      doc.addImage(img, "JPEG", 0, 0, 297, 210);
+      doc.save(`شهادة-تقدير-${name || "بدون-اسم"}.pdf`);
+    } finally {
+      setGenerating(false);
+      setShowThemePicker(false);
+    }
   };
 
   const colors: Record<string, string> = {
@@ -137,8 +217,9 @@ function BadgesPage() {
           </div>
         </div>
       </header>
+
       <main className="container mx-auto px-4 py-6 max-w-3xl">
-        {/* Profile header with avatar */}
+        {/* Profile header */}
         <div className="bg-card rounded-3xl border border-border p-6 mb-6 text-center">
           <div className="mx-auto h-24 w-24 rounded-3xl overflow-hidden bg-[image:var(--gradient-hero)] text-white flex items-center justify-center mb-3 shadow-[var(--shadow-soft)]">
             {avatar ? <img src={avatar} alt="avatar" className="h-full w-full object-cover" /> : <UserIcon className="h-10 w-10" />}
@@ -147,12 +228,14 @@ function BadgesPage() {
           <div className="text-5xl font-black bg-[image:var(--gradient-hero)] bg-clip-text text-transparent mb-1">{points}</div>
           <div className="text-sm text-muted-foreground mb-4">نقطة</div>
           <div className="text-sm mb-4">حصلت على <strong>{Object.keys(counts).length}</strong> من أصل <strong>{all.filter(b => b.audience === audience).length}</strong> شارة</div>
-          <button onClick={certificate} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">
-            <Download className="h-4 w-4" /> تحميل شهادة تقدير عامة
+
+          <button onClick={() => setShowThemePicker(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">
+            <Palette className="h-4 w-4" /> تخصيص وتحميل شهادة تقدير
           </button>
         </div>
 
-        {/* Quiz scores — أولاً */}
+        {/* Quiz scores */}
         {attempts.length > 0 && (
           <div className="bg-card rounded-3xl border border-border p-6 shadow-[var(--shadow-card)] mt-6">
             <h3 className="font-bold mb-4 flex items-center gap-2"><Target className="h-5 w-5 text-rose-500" /> درجات اختباراتي ({attempts.length})</h3>
@@ -174,13 +257,9 @@ function BadgesPage() {
           </div>
         )}
 
-        {/* Earned certificates — ثانياً */}
         {uid && <MyCertificates uid={uid} />}
-
-        {/* Earned badges — أخيراً */}
         {uid && <MyBadges uid={uid} />}
 
-        {/* Catalog of all available badges */}
         <div className="text-center text-sm font-bold mb-3 mt-6 text-muted-foreground">
           {audience === "teacher" ? "🎓 كل شارات المعلمين" : "🌟 كل شارات الطلاب"}
         </div>
@@ -202,6 +281,66 @@ function BadgesPage() {
           })}
         </div>
       </main>
+
+      {/* Certificate theme picker modal */}
+      {showThemePicker && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" dir="rtl" onClick={() => setShowThemePicker(false)}>
+          <div className="bg-card rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-black text-lg">
+                <Palette className="h-5 w-5 text-[var(--brand)]" /> تخصيص الشهادة
+              </div>
+              <button onClick={() => setShowThemePicker(false)} className="p-2 rounded-xl hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+
+            {/* Theme picker */}
+            <div>
+              <label className="block text-sm font-bold mb-2">الثيم / اللون</label>
+              <div className="grid grid-cols-5 gap-2">
+                {CERT_THEMES.map((t) => (
+                  <button key={t.id} onClick={() => setSelectedTheme(t)}
+                    className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition ${selectedTheme.id === t.id ? "border-[var(--brand)] shadow-md" : "border-border hover:border-[var(--brand)]/40"}`}>
+                    <div className="w-9 h-9 rounded-xl border border-white/20 shadow"
+                      style={{ background: `linear-gradient(135deg, ${t.bg1}, ${t.border1})` }} />
+                    <span className="text-[10px] font-bold text-center leading-tight">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Font picker */}
+            <div>
+              <label className="block text-sm font-bold mb-2 flex items-center gap-1"><TypeIcon className="h-4 w-4" /> الخط</label>
+              <div className="grid grid-cols-2 gap-2">
+                {CERT_FONTS.map((f) => (
+                  <button key={f.family} onClick={() => setSelectedFont(f)}
+                    style={{ fontFamily: `"${f.family}", Tajawal, sans-serif` }}
+                    className={`px-3 py-2.5 rounded-xl border-2 text-sm text-center transition ${selectedFont.family === f.family ? "border-[var(--brand)] bg-[var(--brand)]/10 font-bold" : "border-border hover:border-[var(--brand)]/40"}`}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className="rounded-2xl border-4 p-4 text-center relative overflow-hidden"
+              style={{
+                background: `linear-gradient(135deg, ${selectedTheme.bg1}, ${selectedTheme.bg2})`,
+                borderColor: selectedTheme.border1,
+                fontFamily: `"${selectedFont.family}", Tajawal, sans-serif`,
+              }}>
+              <div className="text-xs font-black mb-1" style={{ color: selectedTheme.title }}>شهادة تقدير</div>
+              <div className="text-lg font-black" style={{ color: selectedTheme.name }}>{name || "اسم الطالب"}</div>
+              <div className="text-[10px] mt-1" style={{ color: selectedTheme.body }}>مبادرة كلنا معاً</div>
+            </div>
+
+            <button onClick={certificate} disabled={generating}
+              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
+              <Download className="h-4 w-4" /> {generating ? "جاري التحضير..." : "تحميل الشهادة PDF"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
