@@ -63,6 +63,7 @@ export function ImageTextEditor({ onClose, initialImageUrl, onSend }: Props) {
   const [selectedFont, setSelectedFont] = useState("Tajawal");
   const [fontTab, setFontTab] = useState<"ar" | "en">("ar");
   const [sending, setSending] = useState(false);
+  const [redrawTick, setRedrawTick] = useState(0);
   const isDragging = useRef(false);
 
   useEffect(() => {
@@ -160,14 +161,16 @@ export function ImageTextEditor({ onClose, initialImageUrl, onSend }: Props) {
     img.src = imgSrc;
   };
 
-  useEffect(() => { draw(); }, [imgSrc, text, fontSize, color, textPos, bold, selectedFont, bgStyle, bgColor, bgOpacity]);
+  useEffect(() => { draw(); }, [imgSrc, text, fontSize, color, textPos, bold, selectedFont, bgStyle, bgColor, bgOpacity, redrawTick]);
 
   const handleFontSelect = (family: string, googleName?: string) => {
     setSelectedFont(family);
     if (googleName) {
       loadGoogleFont(googleName);
-      // Re-draw after font is likely loaded so the canvas updates immediately
-      setTimeout(() => setSelectedFont(family), 400);
+      // force redraws at 200ms, 600ms, 1200ms to catch when Google Font actually loads
+      [200, 600, 1200].forEach((ms) =>
+        setTimeout(() => setRedrawTick((t) => t + 1), ms)
+      );
     }
   };
 
