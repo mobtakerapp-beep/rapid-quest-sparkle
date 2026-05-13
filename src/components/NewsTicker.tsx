@@ -31,11 +31,10 @@ function getRoleLabel(roleType?: string): string {
 }
 
 async function getTopSubmission(compId: string): Promise<{ name: string; roleLabel: string; score: string; time: string; isCorrect: boolean } | null> {
-  const { data: subs } = await supabase
-    .from("competition_submissions")
-    .select("user_id, is_correct, correct_count, question_count, time_taken_seconds")
-    .eq("competition_id", compId);
-  if (!subs?.length) return null;
+  // Use edge function (service role) so all viewers see the true top scorer, not just their own row
+  const { data: fnData } = await supabase.functions.invoke("comp-subs", { body: { competition_id: compId } });
+  const subs: any[] = fnData?.data || [];
+  if (!subs.length) return null;
   const sorted = [...subs].sort((a: any, b: any) => {
     const ac = a.correct_count ?? (a.is_correct ? 1 : 0);
     const bc = b.correct_count ?? (b.is_correct ? 1 : 0);
@@ -45,7 +44,7 @@ async function getTopSubmission(compId: string): Promise<{ name: string; roleLab
   if (!top) return null;
   const hasCorrect = top.question_count ? (top.correct_count ?? 0) > 0 : !!top.is_correct;
   const { data: prof } = await supabase.from("profiles").select("display_name, role_type").eq("id", top.user_id).maybeSingle();
-  const name = (prof as any)?.display_name || "—";
+  const name = top.name || (prof as any)?.display_name || "—";
   const roleLabel = getRoleLabel((prof as any)?.role_type);
   const score = top.question_count ? `${top.correct_count ?? 0}/${top.question_count}` : (top.is_correct ? "إجابة صحيحة" : "");
   const time = top.time_taken_seconds >= 60
@@ -189,7 +188,7 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
 
   useEffect(() => {
     refresh();
-    const interval = setInterval(refresh, 30 * 60 * 1000);
+    const interval = setInterval(refresh, 60 * 1000);
 
     channelRef.current = supabase
       .channel(TICKER_CHANNEL)
@@ -214,9 +213,17 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       })
       .subscribe();
 
+    // Auto-refresh ticker the moment any new competition submission lands
+    const subsCh = supabase
+      .channel("ticker-subs-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "competition_submissions" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "gallery_contest_votes" }, () => refresh())
+      .subscribe();
+
     return () => {
       clearInterval(interval);
       if (channelRef.current) supabase.removeChannel(channelRef.current);
+      supabase.removeChannel(subsCh);
     };
   }, []);
 
