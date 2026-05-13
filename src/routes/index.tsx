@@ -5,9 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
 import { InstallPWA } from "@/components/InstallPWA";
 import logo from "@/assets/original-logo-reference.jpg";
-import omanEmblem from "@/assets/oman-emblem.png";
 import { HonorBoard } from "@/components/HonorBoard";
-import { LiveClock } from "@/components/LiveClock";
 import { getCountryFlag } from "@/lib/countryFlag";
 import { useLang } from "@/contexts/LanguageContext";
 
@@ -116,21 +114,8 @@ function Index() {
         <div className="absolute bottom-0 right-1/3 h-96 w-96 rounded-full bg-[var(--brand-3)] opacity-15 blur-3xl" />
       </div>
 
-      {/* Top bar — static, appears only at top of page */}
-      <div className="bg-background/90 backdrop-blur border-b border-border/40">
-        <div className="container mx-auto px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <img src={omanEmblem} alt="شعار سلطنة عمان" className="h-10 w-10 object-contain" width={40} height={40} />
-            <div className="text-right leading-tight">
-              <div className="text-xs text-muted-foreground">{isAr ? "سلطنة عُمان" : "Sultanate of Oman"}</div>
-              <div className="font-bold text-sm">{isAr ? "محافظة الوسطى" : "Al Wusta Governorate"}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Hero */}
-      <section className="container mx-auto px-6 pt-10 pb-16 text-center">
+      <section className="container mx-auto px-6 pt-6 pb-16 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 backdrop-blur border border-border mb-6 shadow-sm">
           <Sparkles className="h-4 w-4 text-[var(--brand)]" />
           <span className="text-sm font-medium">{isAr ? "منصة تعليمية تفاعلية" : "Interactive Learning Platform"}</span>

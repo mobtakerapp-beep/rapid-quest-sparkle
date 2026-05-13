@@ -203,30 +203,10 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
   const [previousDetails, setPreviousDetails] = useState<any[] | null>(null);
   const rawQs = Array.isArray(quiz.questions) ? quiz.questions : [];
 
-  // Stable shuffle — computed ONCE per mount via useRef.
-  // shuffleMap[qi][displayPos] = originalIdx in DB.
-  // answers[i] always stores the ORIGINAL index so DB can compare against correct=0.
-  const shuffleRef = useRef<{ qs: Q[]; map: number[][] } | null>(null);
-  if (!shuffleRef.current) {
-    const maps: number[][] = [];
-    const shuffledQs = (rawQs as Q[]).map((q, qi) => {
-      if ((q.type || "mc") !== "mc" || !Array.isArray(q.options) || q.options.length < 2) {
-        maps.push((q.options || []).map((_, k) => k));
-        return q;
-      }
-      // Fisher-Yates
-      const idx = q.options.map((_, k) => k);
-      for (let k = idx.length - 1; k > 0; k--) {
-        const j = Math.floor(Math.random() * (k + 1));
-        [idx[k], idx[j]] = [idx[j], idx[k]];
-      }
-      maps.push(idx); // maps[qi][displayPos] = originalIdx
-      return { ...q, options: idx.map((k) => q.options[k]) } as Q;
-    });
-    shuffleRef.current = { qs: shuffledQs, map: maps };
-  }
-  const qs = shuffleRef.current.qs;
-  const shuffleMap = shuffleRef.current.map;
+  // No shuffle: display options exactly as saved in DB.
+  // correct=0 in DB means the first option is the correct answer.
+  // Student sends answers[i] = oi (the pressed display index = original DB index).
+  const qs: Q[] = rawQs as Q[];
   const mcCount = qs.filter((q) => (q.type || "mc") === "mc").length;
 
   // Load previous attempt — students can take only ONCE; teachers preview without submitting
@@ -330,17 +310,17 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
             ) : (
             <div className="grid gap-2">
               {q.options.map((o, oi) => {
-                // originalIdx: the DB index this displayed option maps to
-                const originalIdx = shuffleMap[i]?.[oi] ?? oi;
-                const sel = answers[i] === originalIdx;
+                const sel = answers[i] === oi;
                 const det = previousDetails?.find((d: any) => d.i === i);
-                // correctOriginalIdx: always 0 in DB (correct=0), confirmed by server details
-                const correctOriginalIdx = det?.correct ?? 0;
-                const correctAfter = done && originalIdx === correctOriginalIdx;
-                const wrongAfter = done && sel && !correctAfter;
+                // Use server-confirmed correct index; fallback to 0 only when truly missing
+                const correctIdx = (det?.correct != null && det.correct >= 0) ? det.correct : 0;
+                // Correct option: the one the server says is right (shown after submission)
+                const correctAfter = done && oi === correctIdx;
+                // Wrong option: what the student selected but was wrong
+                const wrongAfter = done && sel && det != null && det.points === 0;
                 return (
                   <button key={oi} disabled={done || isTeacher}
-                    onClick={() => setAnswers({ ...answers, [i]: originalIdx })}
+                    onClick={() => setAnswers({ ...answers, [i]: oi })}
                     className={`text-right px-4 py-3 rounded-xl border-2 transition ${
                       correctAfter ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40" :
                       wrongAfter ? "border-rose-500 bg-rose-50 dark:bg-rose-950/40" :
