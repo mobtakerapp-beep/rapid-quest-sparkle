@@ -202,10 +202,31 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
   const [loaded, setLoaded] = useState(false);
   const [previousDetails, setPreviousDetails] = useState<any[] | null>(null);
   const rawQs = Array.isArray(quiz.questions) ? quiz.questions : [];
-  // No shuffle: options shown in original DB order.
-  // correct=0 in DB always = first option is the correct answer.
-  // Student sends answers[i] = oi (the clicked display index = original index).
-  const qs: Q[] = rawQs as Q[];
+
+  // Stable shuffle — computed ONCE per mount via useRef.
+  // shuffleMap[qi][displayPos] = originalIdx in DB.
+  // answers[i] always stores the ORIGINAL index so DB can compare against correct=0.
+  const shuffleRef = useRef<{ qs: Q[]; map: number[][] } | null>(null);
+  if (!shuffleRef.current) {
+    const maps: number[][] = [];
+    const shuffledQs = (rawQs as Q[]).map((q, qi) => {
+      if ((q.type || "mc") !== "mc" || !Array.isArray(q.options) || q.options.length < 2) {
+        maps.push((q.options || []).map((_, k) => k));
+        return q;
+      }
+      // Fisher-Yates
+      const idx = q.options.map((_, k) => k);
+      for (let k = idx.length - 1; k > 0; k--) {
+        const j = Math.floor(Math.random() * (k + 1));
+        [idx[k], idx[j]] = [idx[j], idx[k]];
+      }
+      maps.push(idx); // maps[qi][displayPos] = originalIdx
+      return { ...q, options: idx.map((k) => q.options[k]) } as Q;
+    });
+    shuffleRef.current = { qs: shuffledQs, map: maps };
+  }
+  const qs = shuffleRef.current.qs;
+  const shuffleMap = shuffleRef.current.map;
   const mcCount = qs.filter((q) => (q.type || "mc") === "mc").length;
 
   // Load previous attempt — students can take only ONCE; teachers preview without submitting
@@ -309,15 +330,17 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
             ) : (
             <div className="grid gap-2">
               {q.options.map((o, oi) => {
-                const sel = answers[i] === oi;
+                // originalIdx: the DB index this displayed option maps to
+                const originalIdx = shuffleMap[i]?.[oi] ?? oi;
+                const sel = answers[i] === originalIdx;
                 const det = previousDetails?.find((d: any) => d.i === i);
-                // correctIdx is always 0 from DB (teacher stores correct answer first)
-                const correctIdx = det?.correct ?? (q as any).correct ?? 0;
-                const correctAfter = done && oi === correctIdx;
-                const wrongAfter = done && sel && oi !== correctIdx;
+                // correctOriginalIdx: always 0 in DB (correct=0), confirmed by server details
+                const correctOriginalIdx = det?.correct ?? 0;
+                const correctAfter = done && originalIdx === correctOriginalIdx;
+                const wrongAfter = done && sel && !correctAfter;
                 return (
                   <button key={oi} disabled={done || isTeacher}
-                    onClick={() => setAnswers({ ...answers, [i]: oi })}
+                    onClick={() => setAnswers({ ...answers, [i]: originalIdx })}
                     className={`text-right px-4 py-3 rounded-xl border-2 transition ${
                       correctAfter ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40" :
                       wrongAfter ? "border-rose-500 bg-rose-50 dark:bg-rose-950/40" :
