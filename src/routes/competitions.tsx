@@ -869,7 +869,7 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
 }
 
 function SubmissionsList({ comp, uid, isTeacher }: { comp: Comp; uid: string; isTeacher: boolean }) {
-  const [subs, setSubs] = useState<(Sub & { name?: string; avatar_url?: string | null })[]>([]);
+  const [subs, setSubs] = useState<(Sub & { name?: string; avatar_url?: string | null; _rank?: number | null })[]>([]);
   const isMulti = Array.isArray(comp.questions) && comp.questions.length > 0;
 
   const loadSubs = async () => {
