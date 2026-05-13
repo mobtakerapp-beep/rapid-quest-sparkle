@@ -243,7 +243,25 @@ function ContestPage() {
           </div>
         )}
       </main>
-      {editorImageUrl && <ImageTextEditor onClose={() => setEditorImageUrl(null)} initialImageUrl={editorImageUrl} />}
+      {editorImageUrl && (
+        <ImageTextEditor
+          onClose={() => setEditorImageUrl(null)}
+          initialImageUrl={editorImageUrl}
+          onSend={async (dataUrl) => {
+            if (!uid) return;
+            const res = await fetch(dataUrl);
+            const blob = await res.blob();
+            const path = `${uid}/${Date.now()}.jpg`;
+            const { error: upErr } = await supabase.storage.from("chat-images").upload(path, blob, { contentType: "image/jpeg" });
+            if (upErr) throw upErr;
+            const url = supabase.storage.from("chat-images").getPublicUrl(path).data.publicUrl;
+            const { error } = await supabase.from("gallery_contest_entries").insert({ contest_id: id, user_id: uid, media_url: url, caption: null });
+            if (error) throw error;
+            import("sonner").then(({ toast }) => toast.success("تم إرسال مشاركتك ✨"));
+            load(uid);
+          }}
+        />
+      )}
     </div>
   );
 }

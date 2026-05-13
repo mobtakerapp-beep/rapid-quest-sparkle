@@ -1,19 +1,17 @@
 import { useRef, useState, useEffect } from "react";
-import { X, Download, Type, Image as ImageIcon, RefreshCw } from "lucide-react";
+import { X, Download, Type, Image as ImageIcon, RefreshCw, Send } from "lucide-react";
 
-type Props = { onClose: () => void; initialImageUrl?: string };
+type Props = {
+  onClose: () => void;
+  initialImageUrl?: string;
+  onSend?: (dataUrl: string) => Promise<void>;
+};
 
 const FONT_SIZES = [20, 28, 36, 48, 60, 72, 90, 110];
 
 const COLORS = [
   "#ffffff", "#000000", "#fbbf24", "#f87171", "#34d399",
   "#60a5fa", "#a78bfa", "#f472b6", "#fb923c", "#4ade80",
-];
-
-const POSITIONS = [
-  { label: "أعلى", value: "top" },
-  { label: "وسط", value: "center" },
-  { label: "أسفل", value: "bottom" },
 ];
 
 const BG_OPTIONS = [
@@ -23,7 +21,6 @@ const BG_OPTIONS = [
   { label: "ملوّن", value: "colored" },
 ];
 
-// Arabic + English professional fonts
 const FONTS: { label: string; family: string; googleName?: string; lang: "ar" | "en" | "both" }[] = [
   { label: "طجوال (عصري)", family: "Tajawal", googleName: "Tajawal:wght@400;700;900", lang: "ar" },
   { label: "القاهرة (أنيق)", family: "Cairo", googleName: "Cairo:wght@400;700;900", lang: "ar" },
@@ -52,7 +49,7 @@ function loadGoogleFont(googleName: string) {
   document.head.appendChild(link);
 }
 
-export function ImageTextEditor({ onClose, initialImageUrl }: Props) {
+export function ImageTextEditor({ onClose, initialImageUrl, onSend }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [text, setText] = useState("");
@@ -61,16 +58,16 @@ export function ImageTextEditor({ onClose, initialImageUrl }: Props) {
   const [bgStyle, setBgStyle] = useState<"none" | "dark" | "light" | "colored">("dark");
   const [bgColor, setBgColor] = useState("#000000");
   const [bgOpacity, setBgOpacity] = useState(0.45);
-  const [position, setPosition] = useState<"top" | "center" | "bottom">("bottom");
+  const [textPos, setTextPos] = useState<{ x: number; y: number }>({ x: 0.5, y: 0.82 });
   const [bold, setBold] = useState(true);
   const [selectedFont, setSelectedFont] = useState("Tajawal");
   const [fontTab, setFontTab] = useState<"ar" | "en">("ar");
+  const [sending, setSending] = useState(false);
+  const isDragging = useRef(false);
 
-  // Load all fonts on mount + handle initial image URL
   useEffect(() => {
     FONTS.forEach((f) => { if (f.googleName) loadGoogleFont(f.googleName); });
     if (initialImageUrl) {
-      // Load from URL (cross-origin: fetch as blob → dataURL)
       fetch(initialImageUrl)
         .then((r) => r.blob())
         .then((blob) => {
@@ -113,20 +110,21 @@ export function ImageTextEditor({ onClose, initialImageUrl }: Props) {
         else cur = test;
       }
       if (cur) lines.push(cur);
-      const totalH = lines.length * lineH + 20 * scale;
-      let yStart: number;
-      if (position === "top") yStart = fs + 20 * scale;
-      else if (position === "center") yStart = (H - totalH) / 2 + fs;
-      else yStart = H - totalH - 20 * scale + fs;
+      const totalH = lines.length * lineH;
 
-      // Draw background box
+      const xCenter = textPos.x * W;
+      const blockCenter = textPos.y * H;
+      const blockTop = blockCenter - totalH / 2;
+      const yStart = blockTop + fs * 0.85;
+
       if (bgStyle !== "none") {
         const padding = 24 * scale;
+        ctx.font = `${bold ? "900" : "400"} ${fs}px ${fontFamily}`;
         const maxLineW = Math.max(...lines.map((l) => ctx.measureText(l).width));
-        const boxW = Math.min(maxLineW + padding * 2, W * 0.95);
-        const boxH = totalH + padding * 0.5;
-        const boxX = (W - boxW) / 2;
-        const boxY = yStart - fs - padding * 0.5;
+        const boxW = Math.min(maxLineW + padding * 2, W * 0.97);
+        const boxH = totalH + padding;
+        const boxX = xCenter - boxW / 2;
+        const boxY = blockTop - padding * 0.3;
         let hex = bgStyle === "colored" ? bgColor : bgStyle === "dark" ? "#000000" : "#ffffff";
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
@@ -147,7 +145,6 @@ export function ImageTextEditor({ onClose, initialImageUrl }: Props) {
         ctx.fill();
       }
 
-      // Draw text with subtle shadow
       ctx.shadowColor = bgStyle === "none" ? "rgba(0,0,0,0.8)" : "transparent";
       ctx.shadowBlur = bgStyle === "none" ? 8 * scale : 0;
       ctx.shadowOffsetX = bgStyle === "none" ? 2 * scale : 0;
@@ -157,13 +154,47 @@ export function ImageTextEditor({ onClose, initialImageUrl }: Props) {
       ctx.textAlign = "center";
       ctx.direction = "rtl";
       lines.forEach((line, i) => {
-        ctx.fillText(line, W / 2, yStart + i * lineH);
+        ctx.fillText(line, xCenter, yStart + i * lineH);
       });
     };
     img.src = imgSrc;
   };
 
-  useEffect(() => { draw(); }, [imgSrc, text, fontSize, color, position, bold, selectedFont, bgStyle, bgColor, bgOpacity]);
+  useEffect(() => { draw(); }, [imgSrc, text, fontSize, color, textPos, bold, selectedFont, bgStyle, bgColor, bgOpacity]);
+
+  const toNorm = (clientX: number, clientY: number, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: Math.max(0.02, Math.min(0.98, (clientX - rect.left) / rect.width)),
+      y: Math.max(0.02, Math.min(0.98, (clientY - rect.top) / rect.height)),
+    };
+  };
+
+  const onCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    isDragging.current = true;
+    setTextPos(toNorm(e.clientX, e.clientY, canvas));
+  };
+  const onCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDragging.current) return;
+    const canvas = canvasRef.current; if (!canvas) return;
+    setTextPos(toNorm(e.clientX, e.clientY, canvas));
+  };
+  const onCanvasMouseUp = () => { isDragging.current = false; };
+
+  const onCanvasTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const t = e.touches[0]; if (!t) return;
+    isDragging.current = true;
+    setTextPos(toNorm(t.clientX, t.clientY, canvas));
+  };
+  const onCanvasTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDragging.current) return;
+    e.preventDefault();
+    const canvas = canvasRef.current; if (!canvas) return;
+    const t = e.touches[0]; if (!t) return;
+    setTextPos(toNorm(t.clientX, t.clientY, canvas));
+  };
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -180,6 +211,19 @@ export function ImageTextEditor({ onClose, initialImageUrl }: Props) {
     a.download = "صورة-مع-نص.png";
     a.href = canvas.toDataURL("image/png");
     a.click();
+  };
+
+  const handleSend = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !onSend) return;
+    setSending(true);
+    try {
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      await onSend(dataUrl);
+      onClose();
+    } finally {
+      setSending(false);
+    }
   };
 
   const filteredFonts = FONTS.filter((f) => f.lang === fontTab || f.lang === "both");
@@ -203,7 +247,24 @@ export function ImageTextEditor({ onClose, initialImageUrl }: Props) {
           </label>
         ) : (
           <>
-            <canvas ref={canvasRef} className="w-full rounded-2xl border border-border bg-secondary/20" />
+            <div className="relative">
+              <canvas
+                ref={canvasRef}
+                className="w-full rounded-2xl border border-border bg-secondary/20 cursor-crosshair touch-none"
+                onMouseDown={onCanvasMouseDown}
+                onMouseMove={onCanvasMouseMove}
+                onMouseUp={onCanvasMouseUp}
+                onMouseLeave={onCanvasMouseUp}
+                onTouchStart={onCanvasTouchStart}
+                onTouchMove={onCanvasTouchMove}
+                onTouchEnd={onCanvasMouseUp}
+              />
+              {text && (
+                <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full pointer-events-none">
+                  اسحب على الصورة لتحريك النص
+                </div>
+              )}
+            </div>
 
             <div className="grid gap-3">
               <div>
@@ -213,7 +274,6 @@ export function ImageTextEditor({ onClose, initialImageUrl }: Props) {
                   className="w-full px-4 py-2 rounded-xl border border-border bg-background resize-none text-right font-bold text-lg" />
               </div>
 
-              {/* Font selector */}
               <div>
                 <label className="block text-sm font-bold mb-2">الخط</label>
                 <div className="flex gap-1 mb-2">
@@ -239,20 +299,12 @@ export function ImageTextEditor({ onClose, initialImageUrl }: Props) {
                     {FONT_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className="text-xs font-bold mb-1 block">الموضع</label>
-                  <select value={position} onChange={(e) => setPosition(e.target.value as any)}
-                    className="px-3 py-1.5 rounded-xl border border-border bg-background text-sm">
-                    {POSITIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-                  </select>
-                </div>
                 <div className="flex items-center gap-2 mt-4">
                   <input type="checkbox" id="bold-cb" checked={bold} onChange={(e) => setBold(e.target.checked)} className="h-4 w-4" />
                   <label htmlFor="bold-cb" className="text-sm font-bold">عريض</label>
                 </div>
               </div>
 
-              {/* Text color */}
               <div>
                 <label className="text-xs font-bold mb-1 block">لون النص</label>
                 <div className="flex flex-wrap gap-2">
@@ -266,7 +318,6 @@ export function ImageTextEditor({ onClose, initialImageUrl }: Props) {
                 </div>
               </div>
 
-              {/* Background */}
               <div>
                 <label className="text-xs font-bold mb-1 block">خلفية النص</label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -296,12 +347,18 @@ export function ImageTextEditor({ onClose, initialImageUrl }: Props) {
             </div>
 
             <div className="flex gap-2 pt-2">
-              <button onClick={download}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">
-                <Download className="h-4 w-4" /> تحميل الصورة
+              {onSend && (
+                <button onClick={handleSend} disabled={sending || !imgSrc}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
+                  <Send className="h-4 w-4" /> {sending ? "جاري الإرسال..." : "إرسال"}
+                </button>
+              )}
+              <button onClick={download} disabled={!imgSrc}
+                className={`${onSend ? "" : "flex-1 "}inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold disabled:opacity-50 ${onSend ? "bg-secondary hover:bg-secondary/70" : "bg-[image:var(--gradient-hero)] text-white"}`}>
+                <Download className="h-4 w-4" /> تحميل
               </button>
-              <label className="px-4 py-2.5 rounded-xl bg-secondary font-bold text-sm cursor-pointer hover:bg-secondary/70 transition inline-flex items-center gap-1">
-                <RefreshCw className="h-4 w-4" /> صورة أخرى
+              <label className="px-4 py-2.5 rounded-xl bg-secondary font-bold text-sm cursor-pointer hover:bg-secondary/70 transition inline-flex items-center gap-1.5">
+                <RefreshCw className="h-4 w-4" /> تغيير
                 <input type="file" accept="image/*" className="hidden" onChange={onFile} />
               </label>
             </div>

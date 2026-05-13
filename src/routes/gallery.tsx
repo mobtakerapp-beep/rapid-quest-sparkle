@@ -333,7 +333,24 @@ function GalleryPage() {
           onClose={() => setOpenItem(null)}
         />
       )}
-      {showImageEditor && <ImageTextEditor onClose={() => setShowImageEditor(false)} />}
+      {showImageEditor && (
+        <ImageTextEditor
+          onClose={() => setShowImageEditor(false)}
+          onSend={async (dataUrl) => {
+            if (!uid) return;
+            const res = await fetch(dataUrl);
+            const blob = await res.blob();
+            const path = `${uid}/${Date.now()}.jpg`;
+            const { error: upErr } = await supabase.storage.from("chat-images").upload(path, blob, { contentType: "image/jpeg" });
+            if (upErr) throw upErr;
+            const publicUrl = supabase.storage.from("chat-images").getPublicUrl(path).data.publicUrl;
+            const { error } = await supabase.from("messages").insert({ user_id: uid, content: null, image_url: publicUrl, category: "gallery" });
+            if (error) throw error;
+            import("sonner").then(({ toast }) => toast.success("تم الإرسال للمعرض ✨"));
+            load(true);
+          }}
+        />
+      )}
     </div>
   );
 }
