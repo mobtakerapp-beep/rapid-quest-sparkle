@@ -308,6 +308,39 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
 
   if (!loaded) return <FullPageLoader />;
 
+  const essayCount = qs.filter((q) => (q.type || "mc") === "essay").length;
+
+  // After submission: show results summary only (no questions replay)
+  if (done && !isTeacher) {
+    return (
+      <div dir="rtl" className="min-h-screen bg-background">
+        <header className="bg-card border-b border-border sticky top-0 z-10">
+          <div className="container mx-auto px-4 py-3"><button onClick={onBack} className="text-sm inline-flex items-center gap-1"><ArrowLeft className="h-4 w-4" /> العودة</button></div>
+        </header>
+        <main className="container mx-auto px-4 py-10 max-w-md space-y-4">
+          <div className="text-center bg-card rounded-3xl border border-border p-8 shadow-lg space-y-4">
+            <div className="text-6xl">🎯</div>
+            <h2 className="text-2xl font-black">{quiz.title}</h2>
+            {mcCount > 0 && (
+              <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-5">
+                <div className="text-xs text-emerald-700 dark:text-emerald-400 font-bold mb-1">درجة الأسئلة الاختيارية</div>
+                <div className="text-4xl font-black text-emerald-700 dark:text-emerald-400">{score} / {mcCount}</div>
+              </div>
+            )}
+            {essayCount > 0 && (
+              <div className="bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 rounded-2xl p-4">
+                <div className="text-sm font-bold text-violet-700 dark:text-violet-400">📝 الأسئلة المقالية ({essayCount})</div>
+                <div className="text-xs text-violet-600 dark:text-violet-500 mt-1">تم الإرسال للمعلم — بانتظار التصحيح</div>
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground">تم تسجيل النتيجة وإضافة نقاطك ✅</div>
+            <button onClick={onBack} className="w-full px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">العودة للقائمة</button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div dir="rtl" className="min-h-screen bg-background">
       <header className="bg-card border-b border-border sticky top-0 z-10">
@@ -319,37 +352,10 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
           <div key={i} className="bg-card rounded-2xl border border-border p-5">
             <div className="font-bold mb-3 flex gap-1 items-start justify-between">
               <div className="flex gap-1"><span>{i + 1}.</span><MathText text={q.question} /></div>
-              {done && (q.type || "mc") === "mc" && (() => {
-                const det = previousDetails?.find((d: any) => d.i === i);
-                // use server-returned points if available (most reliable)
-                if (det) {
-                  const ok = det.points === 1;
-                  return (
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-                      {ok ? "1 / 1" : "0 / 1"}
-                    </span>
-                  );
-                }
-                const correctIdx = (q as any).correct ?? 0;
-                const ok = answers[i] === correctIdx;
-                return (
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-                    {ok ? "1 / 1" : "0 / 1"}
-                  </span>
-                );
-              })()}
-              {(q.type || "mc") === "essay" && (() => {
-                const det = previousDetails?.find((d: any) => d.i === i);
-                if (done && det?.points !== null && det?.points !== undefined) {
-                  return <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{det.points} / 1 (مقالي مُصحح)</span>;
-                }
-                return <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">مقالي {done ? "(بانتظار التصحيح)" : ""}</span>;
-              })()}
             </div>
             {q.image_url && <img src={q.image_url} alt="" className="w-full max-h-72 object-contain rounded-xl mb-3 bg-secondary/30" />}
             {(q.type || "mc") === "essay" ? (
               <textarea
-                disabled={done}
                 value={essays[i] || ""}
                 onChange={(e) => setEssays({ ...essays, [i]: e.target.value })}
                 placeholder="اكتب إجابتك هنا..."
@@ -360,21 +366,12 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
             <div className="grid gap-2">
               {q.options.map((o, oi) => {
                 const sel = answers[i] === oi;
-                const det = previousDetails?.find((d: any) => d.i === i);
-                // Use server-confirmed correct index; fallback to 0 only when truly missing
-                const correctIdx = (det?.correct != null && det.correct >= 0) ? det.correct : 0;
-                // Correct option: the one the server says is right (shown after submission)
-                const correctAfter = done && oi === correctIdx;
-                // Wrong option: what the student selected but was wrong
-                const wrongAfter = done && sel && det != null && det.points === 0;
                 return (
-                  <button key={oi} disabled={done || isTeacher}
+                  <button key={oi} disabled={isTeacher}
                     onClick={() => setAnswers({ ...answers, [i]: oi })}
                     className={`text-right px-4 py-3 rounded-xl border-2 transition ${
-                      correctAfter ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40" :
-                      wrongAfter ? "border-rose-500 bg-rose-50 dark:bg-rose-950/40" :
                       sel ? "border-[var(--brand)] bg-[var(--brand)]/10" : "border-border"
-                    }`}><MathText text={o} /> {correctAfter && <Check className="inline h-4 w-4 text-emerald-600" />}</button>
+                    }`}><MathText text={o} /></button>
                 );
               })}
             </div>
@@ -385,19 +382,10 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
           <div dir="rtl" className="text-center bg-secondary/60 rounded-2xl border border-border p-4 text-sm text-muted-foreground font-bold">
             👀 أنت تشاهد الاختبار بصفة مراجع — لا يمكنك الإجابة
           </div>
-        ) : !done ? (
+        ) : (
           <button onClick={submit}
             disabled={qs.some((q, i) => (q.type || "mc") === "mc" ? answers[i] === undefined : !essays[i]?.trim())}
             className="w-full px-5 py-3 rounded-2xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">إنهاء الاختبار</button>
-        ) : (
-          <div className="text-center bg-card rounded-2xl border border-border p-6">
-            <div className="text-3xl font-black mb-2">🎯 {score}/{mcCount}</div>
-            <div className="text-sm text-muted-foreground mb-3">
-              {qs.length > mcCount && <>الأسئلة المقالية ({qs.length - mcCount}) تحتاج تصحيح المعلم.<br /></>}
-              تفاصيل الدرجات بجانب كل سؤال أعلاه
-            </div>
-            <div className="text-muted-foreground text-xs">تم تسجيل النتيجة وإضافة نقاطك</div>
-          </div>
         )}
       </main>
     </div>

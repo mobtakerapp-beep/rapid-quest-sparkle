@@ -74,6 +74,61 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
   const items: TickerItem[] = [];
   try {
     const now = new Date().toISOString();
+    const twoDaysFromNow = new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString();
+
+    // ── فعاليات قادمة (في غضون 7 أيام) ──
+    const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+    const { data: upcomingEvents } = await supabase
+      .from("events")
+      .select("id, title, description, starts_at, type")
+      .gte("starts_at", now)
+      .lte("starts_at", sevenDaysFromNow)
+      .order("starts_at", { ascending: true })
+      .limit(5);
+
+    for (const ev of (upcomingEvents || [])) {
+      const startsDate = new Date(ev.starts_at);
+      const diffMs = startsDate.getTime() - Date.now();
+      const diffDays = Math.ceil(diffMs / (1000 * 3600 * 24));
+      const timeStr = startsDate.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
+      const dayStr = diffDays === 0 ? "اليوم" : diffDays === 1 ? "غداً" : `بعد ${diffDays} أيام`;
+      const icon = ev.type === "competition" ? "🏆" : ev.type === "assignment" ? "📋" : "📅";
+      items.push({
+        id: `event-${ev.id}`,
+        text: `${icon} فعالية قادمة: "${ev.title}" — ${dayStr} الساعة ${timeStr}`,
+        type: "auto",
+      });
+    }
+
+    // ── تنبيه انتهاء المسابقات (خلال يومين) ──
+    const { data: endingSoonComps } = await supabase
+      .from("competitions")
+      .select("id, title, ends_at")
+      .gt("ends_at", now)
+      .lte("ends_at", twoDaysFromNow)
+      .order("ends_at", { ascending: true })
+      .limit(5);
+
+    for (const comp of (endingSoonComps || [])) {
+      const endsDate = new Date(comp.ends_at);
+      const diffMs = endsDate.getTime() - Date.now();
+      const diffHours = Math.floor(diffMs / (1000 * 3600));
+      const diffMins = Math.floor((diffMs % (1000 * 3600)) / 60000);
+      let remaining = "";
+      if (diffHours >= 24) {
+        const days = Math.floor(diffHours / 24);
+        remaining = `فاضل ${days} يوم`;
+      } else if (diffHours > 0) {
+        remaining = `فاضل ${diffHours} ساعة و${diffMins} دقيقة`;
+      } else {
+        remaining = `فاضل ${diffMins} دقيقة فقط`;
+      }
+      items.push({
+        id: `comp-ending-${comp.id}`,
+        text: `⏰ تنبيه: مسابقة "${comp.title}" تنتهي قريباً — ${remaining}! شارك الآن قبل فوات الأوان 🔥`,
+        type: "auto",
+      });
+    }
 
     // ── مسابقات منتهية: الفائز النهائي ──
     const { data: endedComps } = await supabase
@@ -115,7 +170,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
     const { data: activeComps } = await supabase
       .from("competitions")
       .select("id, title, ends_at")
-      .gt("ends_at", now)
+      .gt("ends_at", twoDaysFromNow)
       .order("ends_at", { ascending: true })
       .limit(3);
 
@@ -231,11 +286,13 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       })
       .subscribe();
 
-    // Auto-refresh ticker the moment any new competition submission lands
+    // Auto-refresh ticker when new submissions, votes, or events land
     const subsCh = supabase
       .channel("ticker-subs-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "competition_submissions" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "gallery_contest_votes" }, () => refresh())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "events" }, () => refresh())
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "events" }, () => refresh())
       .subscribe();
 
     return () => {

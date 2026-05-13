@@ -81,22 +81,43 @@ export function MyCertificates({ uid }: { uid: string }) {
       ctx.fillText("✦", 200, 220); ctx.fillText("✦", W - 200, 220);
       ctx.fillText("✦", 200, H - 160); ctx.fillText("✦", W - 200, H - 160);
 
+      // Initiative logo at top
+      const logoImg = await loadImage("/app-icon.png");
+      if (logoImg) {
+        const logoSize = 180;
+        const logoX = W / 2 - logoSize / 2;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(W / 2, 220, logoSize / 2, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(logoImg, logoX, 220 - logoSize / 2, logoSize, logoSize);
+        ctx.restore();
+      }
+
+      // Initiative name below logo
+      ctx.fillStyle = theme.title; ctx.font = `bold 44px ${af}`;
+      ctx.fillText("مبادرة كلنا معاً – محافظة الوسطى", W / 2, 340);
+
+      ctx.strokeStyle = theme.accent; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(W / 2 - 500, 365); ctx.lineTo(W / 2 + 500, 365); ctx.stroke();
+
       // Trophy
-      ctx.font = "140px serif"; ctx.fillText("🏆", W / 2, 320);
+      ctx.font = "120px serif"; ctx.fillText("🏆", W / 2, 480);
 
       // Title
       ctx.fillStyle = theme.title; ctx.font = `bold 80px ${af}`;
-      ctx.fillText("شهادة تقدير", W / 2, 440);
+      ctx.fillText("شهادة تقدير", W / 2, 570);
 
-      ctx.fillStyle = theme.body + "bb"; ctx.font = `36px ${af}`;
-      ctx.fillText("مبادرة « كلنا معاً » – محافظة الوسطى", W / 2, 510);
+      ctx.fillStyle = theme.body + "bb"; ctx.font = `32px ${af}`;
+      ctx.fillText("تُقدّمها مبادرة « كلنا معاً » – محافظة الوسطى", W / 2, 620);
 
       // Divider
       ctx.strokeStyle = theme.accent; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(W / 2 - 600, 550); ctx.lineTo(W / 2 + 600, 550); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(W / 2 - 600, 660); ctx.lineTo(W / 2 + 600, 660); ctx.stroke();
 
       ctx.fillStyle = theme.body; ctx.font = `42px ${af}`;
-      ctx.fillText("تُمنح هذه الشهادة إلى", W / 2, 660);
+      ctx.fillText("تُمنح هذه الشهادة إلى", W / 2, 760);
 
       ctx.fillStyle = theme.name; ctx.font = `bold 100px ${af}`;
       ctx.fillText(studentName || "—", W / 2, 800);
@@ -198,6 +219,10 @@ export function MyCertificates({ uid }: { uid: string }) {
               }}
               className="rounded-2xl border-4 p-5 text-center relative overflow-hidden"
             >
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <img src="/app-icon.png" alt="شعار" className="h-8 w-8 rounded-full object-cover border-2" style={{ borderColor: theme.accent }} />
+                <span className="text-xs font-bold" style={{ color: theme.title }}>مبادرة كلنا معاً</span>
+              </div>
               <div className="text-4xl mb-2">🏆</div>
               <div className="text-xs font-bold mb-1" style={{ color: theme.title }}>شهادة تقدير</div>
               <div className="font-black text-lg mb-2" style={{ color: theme.name }}>{c.title}</div>
