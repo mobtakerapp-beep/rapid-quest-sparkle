@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
-import { Send, Image as ImageIcon, LogOut, Trash2, Ban, Shield, X, ArrowLeft, User as UserIcon, BookOpen, GraduationCap, Heart, Smile } from "lucide-react";
+import { Send, Image as ImageIcon, LogOut, Trash2, Ban, Shield, X, ArrowLeft, User as UserIcon, BookOpen, GraduationCap, Heart, Smile, LockOpen, Lock } from "lucide-react";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { playLogoutSound } from "@/lib/sounds";
 import { ReportButton } from "@/components/ReportButton";
@@ -44,7 +44,7 @@ const CHAT_CLOSE_OMAN = 23; // 11:00 مساءً
 function getOmanHour() {
   return (new Date().getUTCHours() + 4) % 24;
 }
-function isChatOpenNow() {
+function isChatOpenByTime() {
   const h = getOmanHour();
   return h >= CHAT_OPEN_OMAN && h < CHAT_CLOSE_OMAN;
 }
@@ -55,6 +55,7 @@ function ChatPage() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMod, setIsMod] = useState(false);
+  const [canControlChat, setCanControlChat] = useState(false); // admin + supervisor + teacher
   const [messages, setMessages] = useState<Message[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [text, setText] = useState("");
@@ -62,13 +63,27 @@ function ChatPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
-  const [chatOpen, setChatOpen] = useState(isChatOpenNow);
+  // chatOverride: null = يعتمد على الوقت | 'open' | 'closed'
+  const [chatOverride, setChatOverride] = useState<'open' | 'closed' | null>(null);
+  const [togglingChat, setTogglingChat] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // هل الشات مفتوح الآن؟
+  const chatOpen = chatOverride === 'open'
+    ? true
+    : chatOverride === 'closed'
+    ? false
+    : isChatOpenByTime();
+
+  // تحديث دوري كل دقيقة إذا كان الوضع تلقائياً
   useEffect(() => {
-    const t = setInterval(() => setChatOpen(isChatOpenNow()), 60_000);
+    if (chatOverride !== null) return;
+    const t = setInterval(() => {
+      // force re-render to recalculate isChatOpenByTime
+      setChatOverride(prev => prev);
+    }, 60_000);
     return () => clearInterval(t);
-  }, []);
+  }, [chatOverride]);
 
   // Auth + load
   useEffect(() => {
@@ -88,6 +103,8 @@ function ChatPage() {
         .eq("user_id", data.session.user.id);
       setIsAdmin(!!roles?.some((r) => r.role === "admin"));
       setIsMod(!!roles?.some((r) => ["admin","supervisor"].includes(String(r.role))));
+      setCanControlChat(!!roles?.some((r) => ["admin","supervisor","teacher"].includes(String(r.role))));
+
       // Require profile completion
       const { data: myProf } = await supabase
         .from("profiles")
@@ -98,6 +115,23 @@ function ChatPage() {
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
+
+  // جلب آخر حالة تحكم للشات من قاعدة البيانات
+  useEffect(() => {
+    const fetchChatControl = async () => {
+      const { data } = await supabase
+        .from("messages")
+        .select("content")
+        .eq("category", "chat_control")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data?.content === "open" || data?.content === "closed") {
+        setChatOverride(data.content);
+      }
+    };
+    fetchChatControl();
+  }, []);
 
   // Initial messages + realtime
   useEffect(() => {
@@ -125,6 +159,13 @@ function ChatPage() {
       .channel("chat-room")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
         const m = payload.new as Message & { category?: string };
+        // رسائل تحكم الشات
+        if (m.category === "chat_control") {
+          if (m.content === "open" || m.content === "closed") {
+            setChatOverride(m.content);
+          }
+          return;
+        }
         if (m.category && m.category !== "chat") return;
         setMessages((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
         setProfiles((prev) => {
@@ -161,6 +202,28 @@ function ChatPage() {
     setImagePreview(URL.createObjectURL(f));
   };
 
+  // تبديل حالة الشات (فتح/قفل) — للأدمن والمشرف والمعلم فقط
+  const toggleChatOpen = async () => {
+    if (!user || !canControlChat) return;
+    setTogglingChat(true);
+    const newState: 'open' | 'closed' = chatOpen ? 'closed' : 'open';
+    try {
+      const { error } = await supabase.from("messages").insert({
+        user_id: user.id,
+        content: newState,
+        image_url: null,
+        category: "chat_control",
+      });
+      if (error) throw error;
+      setChatOverride(newState);
+      toast.success(newState === 'open' ? "✅ تم فتح الشات لجميع المستخدمين" : "🔒 تم قفل الشات");
+    } catch {
+      toast.error("فشل تغيير حالة الشات");
+    } finally {
+      setTogglingChat(false);
+    }
+  };
+
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || (!text.trim() && !imageFile)) return;
@@ -182,7 +245,6 @@ function ChatPage() {
         category: "chat",
       }).select().single();
       if (error) throw error;
-      // Optimistic: show immediately without waiting for realtime
       if (inserted) setMessages((prev) => prev.some((m) => m.id === inserted.id) ? prev : [...prev, inserted as Message]);
       setText("");
       setImageFile(null);
@@ -237,6 +299,22 @@ function ChatPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* زر فتح/قفل الشات — للأدمن والمشرف والمعلم فقط */}
+          {canControlChat && (
+            <button
+              onClick={toggleChatOpen}
+              disabled={togglingChat}
+              title={chatOpen ? "قفل الشات" : "فتح الشات"}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-60 ${
+                chatOpen
+                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                  : "bg-red-100 text-red-700 hover:bg-red-200"
+              }`}
+            >
+              {chatOpen ? <LockOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              <span className="hidden sm:inline">{chatOpen ? "الشات مفتوح" : "الشات مغلق"}</span>
+            </button>
+          )}
           {isAdmin && (
             <span className="hidden sm:inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">
               <Shield className="h-3 w-3" /> مشرف
@@ -307,6 +385,14 @@ function ChatPage() {
             </div>
           );
         })}
+      </div>
+
+      {/* شريط المواعيد — يظهر دائماً في أسفل منطقة الرسائل */}
+      <div className="max-w-3xl w-full mx-auto px-4 pb-1">
+        <p className="text-xs text-muted-foreground text-center bg-secondary/40 rounded-xl px-3 py-2 leading-relaxed">
+          📅 يفتح الشات يومياً الساعة <strong>5:00 مساءً</strong> حتى <strong>11:00 مساءً</strong> بتوقيت سلطنة عُمان —
+          كما يفتح أثناء الاجتماعات المجدولة بين المعلمين والطلبة وأولياء الأمور في وقت الاجتماع
+        </p>
       </div>
 
       {/* Composer */}
