@@ -38,8 +38,8 @@ const roleBadge = (rt?: string | null) => {
 };
 
 // ---- إعدادات وقت الشات (توقيت عُمان UTC+4) ----
-const CHAT_OPEN_OMAN  = 7;  // 7:00 صباحاً
-const CHAT_CLOSE_OMAN = 20; // 8:00 مساءً
+const CHAT_OPEN_OMAN  = 17; // 5:00 مساءً
+const CHAT_CLOSE_OMAN = 23; // 11:00 مساءً
 
 function getOmanHour() {
   return (new Date().getUTCHours() + 4) % 24;
@@ -311,10 +311,15 @@ function ChatPage() {
 
       {/* Composer */}
       {!chatOpen && !isMod && (
-        <div className="bg-amber-50 border-t border-amber-200 px-4 py-4 sticky bottom-0 text-center" dir="rtl">
-          <div className="text-2xl mb-1">🔒</div>
-          <p className="font-bold text-amber-800 text-sm">الشات مغلق حالياً</p>
-          <p className="text-amber-600 text-xs mt-1">يفتح يومياً من الساعة {CHAT_OPEN_OMAN}:00 صباحاً حتى {CHAT_CLOSE_OMAN}:00 مساءً (توقيت عُمان)</p>
+        <div className="bg-amber-50 border-t border-amber-200 px-4 py-5 sticky bottom-0 text-center" dir="rtl">
+          <div className="text-3xl mb-2">🔒</div>
+          <p className="font-black text-amber-800 text-base">الشات مغلق حالياً</p>
+          <p className="text-amber-700 text-sm mt-2 font-semibold">
+            يفتح يومياً الساعة <span className="bg-amber-200 px-1.5 py-0.5 rounded font-black">5:00 مساءً</span> بتوقيت سلطنة عُمان
+          </p>
+          <p className="text-amber-600 text-xs mt-1.5 leading-relaxed">
+            كما يفتح أثناء الاجتماعات المجدولة بين المعلمين والطلبة وأولياء الأمور في الوقت المحدد للاجتماع
+          </p>
         </div>
       )}
       {(chatOpen || isMod) && (
