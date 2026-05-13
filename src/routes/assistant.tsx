@@ -192,7 +192,8 @@ function AssistantPage() {
 
   return (
     <div dir={dir} className="min-h-screen bg-background flex flex-col">
-      <header className="bg-card border-b border-border sticky top-0 z-10">
+      {/* Header + MathToolbar — both sticky so they stay at the top */}
+      <div className="sticky top-0 z-10 bg-card border-b border-border">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> {isAr ? "الرئيسية" : "Home"}
@@ -204,7 +205,11 @@ function AssistantPage() {
             <h1 className="font-bold">{isAr ? "المساعد الذكي" : "AI Assistant"}</h1>
           </div>
         </div>
-      </header>
+        {/* Math toolbar pinned directly under the header */}
+        <div className="border-t border-border/50 bg-card/95 backdrop-blur">
+          <MathToolbar targetRef={inputRef} onChange={setInput} />
+        </div>
+      </div>
 
       <main className="flex-1 container mx-auto px-4 py-6 max-w-3xl flex flex-col">
         <div className="flex-1 space-y-3 mb-4">
@@ -266,7 +271,6 @@ function AssistantPage() {
               </button>
             </div>
           )}
-          <MathToolbar targetRef={inputRef} onChange={setInput} />
           <div className="flex gap-2">
             <label className="px-3 py-3 rounded-2xl border border-border bg-card cursor-pointer hover:bg-secondary inline-flex items-center" title="إرفاق صورة">
               <ImageIcon className="h-4 w-4" />
