@@ -258,6 +258,8 @@ function AssistantPage() {
         </div>
 
         <div className="sticky bottom-0 bg-background pt-2 space-y-2">
+          {/* Math toolbar — pinned directly above the input box */}
+          <MathToolbar targetRef={inputRef} onChange={setInput} />
           {pendingImage && (
             <div className="relative inline-block">
               <img src={pendingImage.previewData} alt="معاينة" className="max-h-32 rounded-xl border border-border" />
