@@ -154,17 +154,20 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       .order("points", { ascending: false })
       .limit(3);
 
-    (topProfiles || []).forEach((p: any, i: number) => {
+    const medals = ["🥇", "🥈", "🥉"];
+    let medalIdx = 0;
+    (topProfiles || []).forEach((p: any) => {
       if (!p.display_name) return;
-      const medals = ["🥇", "🥈", "🥉"];
+      const pts = p.points ?? 0;
+      if (pts <= 0) return; // only show if they have actual points
       const roleLabel = getRoleLabel(p.role_type);
       const nameWithRole = roleLabel ? `${roleLabel} ${p.display_name}` : p.display_name;
-      const pts = p.points ?? 0;
       items.push({
-        id: `profile-${i}`,
-        text: `${medals[i]} المتصدر: ${nameWithRole}${pts > 0 ? ` — ${pts} نقطة` : " — لم يتسجل نقاط بعد"}`,
+        id: `profile-${medalIdx}`,
+        text: `${medals[medalIdx]} المتصدر: ${nameWithRole} — ${pts} نقطة`,
         type: "auto",
       });
+      medalIdx++;
     });
   } catch (e) {
     console.error("ticker fetch error", e);
