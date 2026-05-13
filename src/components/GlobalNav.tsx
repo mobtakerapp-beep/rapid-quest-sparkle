@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import { Link, useRouter } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { User as UserIcon, Moon, Sun, BadgeCheck, MessageSquare, Home } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "./NotificationBell";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
 
 export function GlobalNav() {
-  const router = useRouter();
-  const isHome = router.state.location.pathname === "/";
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isHome = pathname === "/";
   const [uid, setUid] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
@@ -68,12 +68,10 @@ export function GlobalNav() {
 
   return (
     <div className="fixed top-[62px] left-3 z-[190] flex items-center gap-1 bg-card/95 backdrop-blur border border-border rounded-2xl px-2 py-1 shadow-xl" dir="rtl">
-      {!isHome && (
-        <Link to="/" className="flex items-center gap-1 px-3 py-2 rounded-xl hover:bg-secondary text-[var(--brand)] font-bold text-sm" aria-label="الرئيسية">
-          <Home className="h-4 w-4" />
-          <span>الرئيسية</span>
-        </Link>
-      )}
+      <Link to="/" className="flex items-center gap-1 px-3 py-2 rounded-xl hover:bg-secondary text-[var(--brand)] font-bold text-sm" aria-label="الرئيسية">
+        <Home className="h-4 w-4" />
+        <span>الرئيسية</span>
+      </Link>
       <button onClick={toggleDark} className="p-2 rounded-xl hover:bg-secondary" aria-label="الوضع الليلي">
         {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </button>
