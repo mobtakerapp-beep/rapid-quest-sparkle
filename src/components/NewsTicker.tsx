@@ -188,7 +188,7 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
 
   useEffect(() => {
     refresh();
-    const interval = setInterval(refresh, 30 * 60 * 1000);
+    const interval = setInterval(refresh, 60 * 1000);
 
     channelRef.current = supabase
       .channel(TICKER_CHANNEL)
@@ -213,9 +213,17 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       })
       .subscribe();
 
+    // Auto-refresh ticker the moment any new competition submission lands
+    const subsCh = supabase
+      .channel("ticker-subs-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "competition_submissions" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "gallery_contest_votes" }, () => refresh())
+      .subscribe();
+
     return () => {
       clearInterval(interval);
       if (channelRef.current) supabase.removeChannel(channelRef.current);
+      supabase.removeChannel(subsCh);
     };
   }, []);
 
