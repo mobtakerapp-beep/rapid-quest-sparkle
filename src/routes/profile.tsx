@@ -100,7 +100,7 @@ function ProfilePage() {
       avatar_url: avatarUrl,
       theme,
       country: country.trim() || null,
-      school: roleType === "teacher" ? (school.trim() || null) : null,
+      school: school.trim() || null,
       gender: gender || null,
     } as any, { onConflict: "id" });
     if (!error) {
@@ -336,14 +336,12 @@ function ProfilePage() {
               </div>
             </div>
 
-            {roleType === "teacher" && (
-              <div>
-                <label className="text-sm font-semibold mb-2 block">المدرسة</label>
-                <input value={school} onChange={(e) => setSchool(e.target.value)} maxLength={120}
-                  placeholder="اسم المدرسة"
-                  className="w-full px-4 py-3 rounded-xl border border-border bg-background" />
-              </div>
-            )}
+            <div>
+              <label className="text-sm font-semibold mb-2 block">المدرسة</label>
+              <input value={school} onChange={(e) => setSchool(e.target.value)} maxLength={120}
+                placeholder="اسم المدرسة"
+                className="w-full px-4 py-3 rounded-xl border border-border bg-background" />
+            </div>
 
             {roleType === "student" && (
               <div>

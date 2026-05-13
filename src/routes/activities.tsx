@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, BookOpen, Upload, FileText, Download, Trash2, Video, Image as ImageIcon, File as FileIcon, Plus, X, CheckCircle2, Clock, MessageCircle, Send } from "lucide-react";
+import { ArrowLeft, BookOpen, Upload, FileText, Download, Trash2, Video, Image as ImageIcon, File as FileIcon, Plus, X, CheckCircle2, Clock, MessageCircle, Send, ShieldAlert, CheckSquare, Square } from "lucide-react";
 import { Reactions } from "@/components/Reactions";
 import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
@@ -45,6 +45,9 @@ function ActivitiesPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -99,9 +102,46 @@ function ActivitiesPage() {
 
   const del = async (id: string) => {
     if (!confirm("حذف النشاط؟")) return;
+    const item = items.find((i) => i.id === id);
     const { error } = await supabase.from("activities").delete().eq("id", id);
     if (error) return toast.error("فشل الحذف");
+    if (item?.file_url) {
+      const marker = "/storage/v1/object/public/activity-files/";
+      const idx = item.file_url.indexOf(marker);
+      if (idx !== -1) {
+        const path = decodeURIComponent(item.file_url.slice(idx + marker.length).split("?")[0]);
+        await supabase.storage.from("activity-files").remove([path]);
+      }
+    }
     setItems((p) => p.filter((i) => i.id !== id));
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const selectAll = () => setSelected(new Set(filtered.map((i) => i.id)));
+  const clearSelect = () => { setSelected(new Set()); setSelectMode(false); };
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`حذف ${selected.size} نشاط نهائياً من الأرشيف والتخزين؟`)) return;
+    setBulkDeleting(true);
+    const ids = Array.from(selected);
+    for (const item of items.filter((i) => ids.includes(i.id) && i.file_url)) {
+      if (!item.file_url) continue;
+      const marker = "/storage/v1/object/public/activity-files/";
+      const idx = item.file_url.indexOf(marker);
+      if (idx !== -1) {
+        const path = decodeURIComponent(item.file_url.slice(idx + marker.length).split("?")[0]);
+        await supabase.storage.from("activity-files").remove([path]);
+      }
+    }
+    const { error } = await supabase.from("activities").delete().in("id", ids);
+    setBulkDeleting(false);
+    if (error) return toast.error("فشل الحذف: " + error.message);
+    toast.success(`تم حذف ${ids.length} نشاط وتحرير المساحة ✨`);
+    setItems((p) => p.filter((i) => !ids.includes(i.id)));
+    setSelected(new Set()); setSelectMode(false);
   };
 
   const approve = async (id: string) => {
@@ -126,8 +166,26 @@ function ActivitiesPage() {
             </div>
             <h1 className="font-bold">بنك الأنشطة</h1>
           </div>
+          {isAdmin && (
+            <button onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition ${selectMode ? "bg-rose-100 text-rose-700" : "bg-secondary hover:bg-secondary/70"}`}>
+              <ShieldAlert className="h-4 w-4" />
+              {selectMode ? "إلغاء" : "تحديد للحذف"}
+            </button>
+          )}
         </div>
       </header>
+      {selectMode && isAdmin && (
+        <div className="sticky top-[57px] z-20 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center gap-3" dir="rtl">
+          <span className="text-sm font-bold text-rose-700">{selected.size} محدد</span>
+          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({filtered.length})</button>
+          <button onClick={clearSelect} className="text-xs px-3 py-1 rounded-lg bg-secondary font-bold hover:bg-secondary/70">إلغاء التحديد</button>
+          <button onClick={bulkDelete} disabled={selected.size === 0 || bulkDeleting}
+            className="mr-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600 text-white text-sm font-bold disabled:opacity-50">
+            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${selected.size})`}
+          </button>
+        </div>
+      )}
 
       <main className="container mx-auto px-4 py-6 max-w-5xl">
         {/* Welcome banner */}
@@ -195,8 +253,20 @@ function ActivitiesPage() {
               const isImg = it.file_type.startsWith("image/");
               const isVid = it.file_type.startsWith("video/");
               const canDelete = it.user_id === uid || isAdmin;
+              const isSelected = selected.has(it.id);
               return (
-                <ActivityCard key={it.id} it={it} Icon={Icon} isImg={isImg} isVid={isVid} canDelete={canDelete} isAdmin={isAdmin} uid={uid} onApprove={approve} onDelete={del} />
+                <div key={it.id} className="relative">
+                  {selectMode && isAdmin && (
+                    <button onClick={() => toggleSelect(it.id)}
+                      className={`absolute top-2 right-2 z-10 p-1 rounded-lg transition ${isSelected ? "text-rose-500" : "text-white drop-shadow"}`}>
+                      {isSelected ? <CheckSquare className="h-6 w-6" /> : <Square className="h-6 w-6" />}
+                    </button>
+                  )}
+                  <div onClick={() => selectMode && isAdmin && toggleSelect(it.id)}
+                    className={selectMode ? "cursor-pointer" : ""}>
+                    <ActivityCard it={it} Icon={Icon} isImg={isImg} isVid={isVid} canDelete={!selectMode && canDelete} isAdmin={isAdmin} uid={uid} onApprove={approve} onDelete={del} />
+                  </div>
+                </div>
               );
             })}
           </div>

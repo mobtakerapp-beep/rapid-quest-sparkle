@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Trophy, Heart, Upload, Trash2, MessageCircle, Send, Crown } from "lucide-react";
+import { ArrowLeft, Trophy, Heart, Upload, Trash2, MessageCircle, Send, Crown, Type } from "lucide-react";
+import { ImageTextEditor } from "@/components/ImageTextEditor";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/gallery-contest/$id")({ component: ContestPage });
@@ -29,6 +30,7 @@ function ContestPage() {
   const [caption, setCaption] = useState("");
   const [busy, setBusy] = useState(false);
   const [openComments, setOpenComments] = useState<string | null>(null);
+  const [editorImageUrl, setEditorImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -194,7 +196,13 @@ function ContestPage() {
                   {v ? (
                     <video src={e.media_url} controls className="w-full aspect-square object-cover bg-black" />
                   ) : e.media_url ? (
-                    <img src={e.media_url} alt="" className="w-full aspect-square object-cover" />
+                    <div className="relative group">
+                      <img src={e.media_url} alt="" className="w-full aspect-square object-cover" />
+                      <button onClick={() => setEditorImageUrl(e.media_url)}
+                        className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-violet-700/90 hover:bg-violet-800 text-white px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold">
+                        <Type className="h-3.5 w-3.5" /> كتابة
+                      </button>
+                    </div>
                   ) : (
                     <div className="w-full aspect-square flex items-center justify-center bg-gradient-to-br from-violet-100 via-pink-50 to-amber-100 p-4 text-center text-base font-bold text-foreground">
                       {e.caption || "—"}
@@ -235,6 +243,7 @@ function ContestPage() {
           </div>
         )}
       </main>
+      {editorImageUrl && <ImageTextEditor onClose={() => setEditorImageUrl(null)} initialImageUrl={editorImageUrl} />}
     </div>
   );
 }

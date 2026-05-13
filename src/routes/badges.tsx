@@ -109,9 +109,20 @@ function BadgesPage() {
     });
   }, [navigate]);
 
+  const loadGoogleFont = async (family: string) => {
+    const href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}&display=swap`;
+    if (!document.querySelector(`link[href="${href}"]`)) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet"; link.href = href;
+      document.head.appendChild(link);
+    }
+    try { await (document as any).fonts.load(`72px "${family}"`); } catch { /* ignore */ }
+  };
+
   const certificate = async () => {
     setGenerating(true);
     try {
+      await loadGoogleFont(selectedFont.family);
       const W = 2480, H = 1754;
       const c = document.createElement("canvas");
       c.width = W; c.height = H;

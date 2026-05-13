@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { X, Download, Type, Image as ImageIcon, RefreshCw } from "lucide-react";
 
-type Props = { onClose: () => void };
+type Props = { onClose: () => void; initialImageUrl?: string };
 
 const FONT_SIZES = [20, 28, 36, 48, 60, 72, 90, 110];
 
@@ -52,7 +52,7 @@ function loadGoogleFont(googleName: string) {
   document.head.appendChild(link);
 }
 
-export function ImageTextEditor({ onClose }: Props) {
+export function ImageTextEditor({ onClose, initialImageUrl }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [text, setText] = useState("");
@@ -66,9 +66,21 @@ export function ImageTextEditor({ onClose }: Props) {
   const [selectedFont, setSelectedFont] = useState("Tajawal");
   const [fontTab, setFontTab] = useState<"ar" | "en">("ar");
 
-  // Load all fonts on mount
+  // Load all fonts on mount + handle initial image URL
   useEffect(() => {
     FONTS.forEach((f) => { if (f.googleName) loadGoogleFont(f.googleName); });
+    if (initialImageUrl) {
+      // Load from URL (cross-origin: fetch as blob → dataURL)
+      fetch(initialImageUrl)
+        .then((r) => r.blob())
+        .then((blob) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => setImgSrc(ev.target?.result as string);
+          reader.readAsDataURL(blob);
+        })
+        .catch(() => setImgSrc(initialImageUrl));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const draw = () => {

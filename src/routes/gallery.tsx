@@ -131,9 +131,23 @@ function GalleryPage() {
     } finally { setUploading(false); }
   };
 
+  const delFromStorage = async (url: string) => {
+    for (const bucket of ["chat-images", "gallery-media"]) {
+      const marker = `/storage/v1/object/public/${bucket}/`;
+      const idx = url.indexOf(marker);
+      if (idx !== -1) {
+        const path = decodeURIComponent(url.slice(idx + marker.length).split("?")[0]);
+        await supabase.storage.from(bucket).remove([path]);
+        break;
+      }
+    }
+  };
+
   const del = async (id: string) => {
+    const item = items.find((i) => i.id === id);
     const { error } = await supabase.from("messages").delete().eq("id", id);
     if (error) return toast.error("لا يمكن الحذف");
+    if (item?.image_url) await delFromStorage(item.image_url);
     setItems((p) => p.filter((i) => i.id !== id));
     if (openItem?.id === id) setOpenItem(null);
   };
@@ -148,13 +162,16 @@ function GalleryPage() {
 
   const bulkDelete = async () => {
     if (selected.size === 0) return;
-    if (!confirm(`حذف ${selected.size} عنصر نهائياً؟`)) return;
+    if (!confirm(`حذف ${selected.size} عنصر نهائياً من الأرشيف والتخزين؟`)) return;
     setBulkDeleting(true);
     const ids = Array.from(selected);
+    for (const item of items.filter((i) => ids.includes(i.id) && i.image_url)) {
+      if (item.image_url) await delFromStorage(item.image_url);
+    }
     const { error } = await supabase.from("messages").delete().in("id", ids);
     setBulkDeleting(false);
     if (error) return toast.error("فشل الحذف: " + error.message);
-    toast.success(`تم حذف ${ids.length} عنصر`);
+    toast.success(`تم حذف ${ids.length} عنصر وتحرير المساحة ✨`);
     setItems((p) => p.filter((i) => !ids.includes(i.id)));
     setSelected(new Set());
     setSelectMode(false);

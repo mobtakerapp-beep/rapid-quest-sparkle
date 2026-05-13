@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Target, Plus, X, Check } from "lucide-react";
+import { ArrowLeft, Target, Plus, X, Check, ShieldAlert, CheckSquare, Square, Trash2 } from "lucide-react";
 import { FullPageLoader } from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { MathToolbar } from "@/components/MathToolbar";
@@ -26,6 +26,10 @@ function QuizzesPage() {
   const [filter, setFilter] = useState("الكل");
   const [questions, setQuestions] = useState<Q[]>([{ question: "", options: ["", "", "", ""], correct: 0, type: "mc" }]);
   const [attemptedIds, setAttemptedIds] = useState<Set<string>>(new Set());
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const subjects = ["الكل", "رياضيات", "علوم", "لغة عربية", "إنجليزي", "دراسات", "إسلامية", "عام"];
 
@@ -39,7 +43,9 @@ function QuizzesPage() {
         supabase.from("profiles").select("role_type").eq("id", id).maybeSingle(),
       ]);
       if ((prof as any)?.role_type === "parent") { setIsParent(true); return; }
+      const adminRoles = !!roles?.some((r) => ["admin", "supervisor"].includes(String(r.role)));
       setIsTeacher(!!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role))));
+      setIsAdmin(adminRoles);
       load(id);
     });
   }, [navigate]);
@@ -96,6 +102,25 @@ function QuizzesPage() {
     setTitle(""); setSubject("عام"); setQuestions([{ question: "", options: ["", "", "", ""], correct: 0, type: "mc" }]); setShowForm(false); load(uid ?? undefined);
   };
 
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const selectAll = () => setSelected(new Set(list.map((q) => q.id)));
+  const clearSelect = () => { setSelected(new Set()); setSelectMode(false); };
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`حذف ${selected.size} اختبار نهائياً؟`)) return;
+    setBulkDeleting(true);
+    const ids = Array.from(selected);
+    const { error } = await supabase.from("quizzes").delete().in("id", ids);
+    setBulkDeleting(false);
+    if (error) return toast.error("فشل الحذف: " + error.message);
+    toast.success(`تم حذف ${ids.length} اختبار ✨`);
+    setList((p) => p.filter((q) => !ids.includes(q.id)));
+    setSelected(new Set()); setSelectMode(false);
+  };
+
   const filtered = filter === "الكل" ? list : list.filter((q) => q.subject === filter);
 
   if (active && uid) return <QuizPlay quiz={active} uid={uid} isTeacher={isTeacher} onBack={() => { setActive(null); load(); }} />;
@@ -118,8 +143,26 @@ function QuizzesPage() {
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center text-white"><Target className="h-5 w-5" /></div>
             <h1 className="font-bold">بنك الاختبارات</h1>
           </div>
+          {isAdmin && (
+            <button onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition ${selectMode ? "bg-rose-100 text-rose-700" : "bg-secondary hover:bg-secondary/70"}`}>
+              <ShieldAlert className="h-4 w-4" />
+              {selectMode ? "إلغاء" : "تحديد للحذف"}
+            </button>
+          )}
         </div>
       </header>
+      {selectMode && isAdmin && (
+        <div className="sticky top-[57px] z-20 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center gap-3" dir="rtl">
+          <span className="text-sm font-bold text-rose-700">{selected.size} محدد</span>
+          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({filtered.length})</button>
+          <button onClick={clearSelect} className="text-xs px-3 py-1 rounded-lg bg-secondary font-bold hover:bg-secondary/70">إلغاء</button>
+          <button onClick={bulkDelete} disabled={selected.size === 0 || bulkDeleting}
+            className="mr-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600 text-white text-sm font-bold disabled:opacity-50">
+            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${selected.size})`}
+          </button>
+        </div>
+      )}
       <main className="container mx-auto px-4 py-6 max-w-3xl">
         <div className="mb-4 flex flex-wrap gap-2">
           {subjects.map((s) => (
@@ -164,9 +207,15 @@ function QuizzesPage() {
                 toast.success("تم الحذف");
                 setList((p) => p.filter((x) => x.id !== q.id));
               };
+              const isSelected = selected.has(q.id);
               return (
-              <div key={q.id} className="relative">
-                <button onClick={() => openQuiz(q.id)} className="w-full text-right bg-card rounded-2xl border border-border p-4 hover:shadow-lg transition">
+              <div key={q.id} className={`relative ${isSelected && selectMode ? "ring-2 ring-rose-400 rounded-2xl" : ""}`}>
+                {selectMode && isAdmin && (
+                  <button onClick={() => toggleSelect(q.id)} className="absolute top-3 right-3 z-10">
+                    {isSelected ? <CheckSquare className="h-5 w-5 text-rose-500" /> : <Square className="h-5 w-5 text-muted-foreground" />}
+                  </button>
+                )}
+                <button onClick={() => selectMode ? toggleSelect(q.id) : openQuiz(q.id)} className="w-full text-right bg-card rounded-2xl border border-border p-4 hover:shadow-lg transition">
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-bold">{q.title}</div>
                     <div className="flex items-center gap-1.5 shrink-0">

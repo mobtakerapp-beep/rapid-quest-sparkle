@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Send, Sparkles, Bot, Image as ImageIcon, X, Palette, Pencil, Eraser, Trash2, Download } from "lucide-react";
+import { ArrowLeft, Send, Sparkles, Bot, Image as ImageIcon, X, Palette, Pencil, Eraser, Trash2, Download, Type } from "lucide-react";
+import { ImageTextEditor } from "@/components/ImageTextEditor";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -45,6 +46,7 @@ function AssistantPage() {
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [uid, setUid] = useState<string | null>(null);
+  const [editorImageUrl, setEditorImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -231,14 +233,24 @@ function AssistantPage() {
                 {m.generatedImage && (
                   <div className="relative mb-2 group">
                     <img src={m.generatedImage} alt="" className="rounded-xl max-h-80 object-contain bg-white/20 w-full" />
-                    <button
-                      onClick={() => downloadImage(m.generatedImage!)}
-                      className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 hover:bg-black text-white p-2 rounded-xl flex items-center gap-1.5 text-xs font-bold"
-                      title="تحميل الصورة"
-                    >
-                      <Download className="h-4 w-4" />
-                      تحميل
-                    </button>
+                    <div className="absolute top-2 left-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => downloadImage(m.generatedImage!)}
+                        className="bg-black/70 hover:bg-black text-white p-2 rounded-xl flex items-center gap-1.5 text-xs font-bold"
+                        title="تحميل الصورة"
+                      >
+                        <Download className="h-4 w-4" />
+                        تحميل
+                      </button>
+                      <button
+                        onClick={() => setEditorImageUrl(m.generatedImage!)}
+                        className="bg-violet-700/90 hover:bg-violet-800 text-white p-2 rounded-xl flex items-center gap-1.5 text-xs font-bold"
+                        title="كتابة على الصورة"
+                      >
+                        <Type className="h-4 w-4" />
+                        كتابة
+                      </button>
+                    </div>
                   </div>
                 )}
                 {m.role === "assistant" ? (
@@ -301,6 +313,9 @@ function AssistantPage() {
       {showDraw && uid && (
         <DrawModal uid={uid} onClose={() => setShowDraw(false)}
           onAttach={(url, data) => { setPendingImage({ url, previewData: data }); setShowDraw(false); }} />
+      )}
+      {editorImageUrl && (
+        <ImageTextEditor onClose={() => setEditorImageUrl(null)} initialImageUrl={editorImageUrl} />
       )}
     </div>
   );

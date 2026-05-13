@@ -135,8 +135,8 @@ function Index() {
   }, []);
 
   const roleLabel = roleLabelFor(roleType, gender);
-  const isTeacher = roleType === "teacher" || roleType === "supervisor" || roleType === "admin";
-  const isStudent = roleType === "student";
+  const isTeacher = roleType === "teacher" || roleType === "supervisor" || roleType === "admin" || isAdmin;
+  const isStudent = roleType === "student" && !isAdmin;
 
   return (
     <div dir="rtl" className="min-h-screen bg-background overflow-hidden">
