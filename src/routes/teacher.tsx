@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search } from "lucide-react";
+import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search, Palette, Type as TypeIcon } from "lucide-react";
+import { CERT_THEMES, CERT_FONTS, type CertTheme, type CertFont } from "@/lib/certThemes";
 import { FullPageLoader } from "@/components/LoadingSpinner";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import { toast } from "sonner";
@@ -317,6 +318,8 @@ function CertificatePanel({ teacherId }: { teacherId: string }) {
   const [body, setBody] = useState("");
   const [imgFile, setImgFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState<CertTheme>(CERT_THEMES[0]);
+  const [selectedFont, setSelectedFont] = useState<CertFont>(CERT_FONTS[0]);
 
   const search = async () => {
     if (!q.trim()) return;
@@ -341,10 +344,12 @@ function CertificatePanel({ teacherId }: { teacherId: string }) {
       const { error } = await supabase.from("certificates").insert({
         teacher_id: teacherId, student_id: target.id,
         title: title.trim(), body: body.trim() || null, image_url,
+        bg: `theme:${selectedTheme.id}|font:${selectedFont.family}`,
       });
       if (error) throw error;
       toast.success("تم إرسال الشهادة 🎖️");
       setTitle(""); setBody(""); setImgFile(null); setTarget(null); setResults([]); setQ("");
+      setSelectedTheme(CERT_THEMES[0]); setSelectedFont(CERT_FONTS[0]);
     } catch (e: any) {
       toast.error(e.message || "فشل الإرسال");
     } finally { setSending(false); }
@@ -375,7 +380,7 @@ function CertificatePanel({ teacherId }: { teacherId: string }) {
           </div>
         </>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex items-center justify-between p-2 rounded-xl bg-secondary">
             <div className="text-sm">إلى: <b>{target.display_name}</b></div>
             <button onClick={() => setTarget(null)} className="text-xs text-destructive">تغيير</button>
@@ -397,10 +402,63 @@ function CertificatePanel({ teacherId }: { teacherId: string }) {
 
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان الشهادة (مثال: التميز في الرياضيات)"
             className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="نص الشهادة (اختياري)، يمكنك تعديل النص الجاهز أو كتابة نص خاص" rows={4}
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="نص الشهادة (اختياري)" rows={3}
             className="w-full px-4 py-2.5 rounded-xl border border-border bg-background resize-none" />
+
+          {/* ── منتقي الثيم ── */}
+          <div>
+            <div className="text-xs font-bold mb-2 flex items-center gap-1.5"><Palette className="h-3.5 w-3.5 text-[var(--brand)]" /> لون الشهادة</div>
+            <div className="grid grid-cols-6 gap-2">
+              {CERT_THEMES.map((t) => (
+                <button key={t.id} type="button" onClick={() => setSelectedTheme(t)}
+                  title={t.label}
+                  className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 transition ${selectedTheme.id === t.id ? "border-[var(--brand)] shadow-md" : "border-border hover:border-[var(--brand)]/50"}`}>
+                  <div className="w-8 h-8 rounded-lg shadow-sm border border-white/20"
+                    style={{ background: `linear-gradient(135deg, ${t.bg1}, ${t.border1})` }} />
+                  <span className="text-[9px] font-bold text-center leading-tight line-clamp-2">{t.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── منتقي الخط ── */}
+          <div>
+            <div className="text-xs font-bold mb-2 flex items-center gap-1.5"><TypeIcon className="h-3.5 w-3.5 text-[var(--brand)]" /> الخط</div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {CERT_FONTS.map((f) => (
+                <button key={f.family} type="button" onClick={() => setSelectedFont(f)}
+                  style={{ fontFamily: `"${f.family}", Tajawal, sans-serif` }}
+                  className={`px-2 py-1.5 rounded-xl border-2 text-xs text-center transition ${selectedFont.family === f.family ? "border-[var(--brand)] bg-[var(--brand)]/10 font-bold" : "border-border hover:border-[var(--brand)]/40"}`}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── معاينة حية ── */}
+          <div>
+            <div className="text-xs font-bold mb-2 text-muted-foreground">معاينة الشهادة:</div>
+            <div
+              className="rounded-2xl border-4 p-5 text-center relative overflow-hidden shadow-md"
+              style={{
+                background: `linear-gradient(135deg, ${selectedTheme.bg1}, ${selectedTheme.bg2})`,
+                borderColor: selectedTheme.border1,
+                fontFamily: `"${selectedFont.family}", Tajawal, sans-serif`,
+              }}
+            >
+              <div className="text-3xl mb-2">🏆</div>
+              <div className="text-xs font-black mb-1" style={{ color: selectedTheme.title }}>شهادة تقدير</div>
+              <div className="text-base font-black mb-1" style={{ color: selectedTheme.name }}>
+                {target.display_name || "اسم المستخدم"}
+              </div>
+              {title && <div className="text-sm font-bold mb-1" style={{ color: selectedTheme.title }}>{title}</div>}
+              {body && <p className="text-[11px] leading-relaxed" style={{ color: selectedTheme.body }}>{body}</p>}
+              <div className="text-[10px] mt-2 opacity-70" style={{ color: selectedTheme.body }}>مبادرة كلنا معاً – محافظة الوسطى</div>
+            </div>
+          </div>
+
           <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-sm">
-            📷 {imgFile ? imgFile.name : "إرفاق صورة شهادة (اختياري)"}
+            📷 {imgFile ? imgFile.name : "إرفاق صورة (اختياري)"}
             <input type="file" accept="image/*" onChange={(e) => setImgFile(e.target.files?.[0] || null)} className="hidden" />
           </label>
           <button onClick={send} disabled={sending || !title.trim()}

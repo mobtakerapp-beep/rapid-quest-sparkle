@@ -54,9 +54,14 @@ function ActivitiesPage() {
       if (!data.session) { navigate({ to: "/login" }); return; }
       const id = data.session.user.id;
       setUid(id);
-      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", id);
-      const privileged = !!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role)));
-      const admin = !!roles?.some((r) => ["admin","supervisor"].includes(String(r.role)));
+      const [{ data: roles }, { data: profile }] = await Promise.all([
+        supabase.from("user_roles").select("role").eq("user_id", id),
+        supabase.from("profiles").select("role_type").eq("id", id).maybeSingle(),
+      ]);
+      const roleList = (roles || []).map((r: any) => String(r.role));
+      const rt = profile?.role_type || "";
+      const admin = roleList.some((r) => ["admin", "supervisor"].includes(r)) || ["admin", "supervisor"].includes(rt);
+      const privileged = admin || roleList.some((r) => r === "teacher") || rt === "teacher";
       setIsAdmin(admin);
       setCanUpload(privileged);
       load();
