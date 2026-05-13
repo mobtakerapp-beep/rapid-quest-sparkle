@@ -171,7 +171,7 @@ function ActivitiesPage() {
             </div>
             <h1 className="font-bold">بنك الأنشطة</h1>
           </div>
-          {canUpload && (
+          {isAdmin && (
             <button onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold transition ${selectMode ? "bg-rose-100 text-rose-700" : "bg-secondary hover:bg-secondary/70"}`}>
               <ShieldAlert className="h-4 w-4" />
@@ -180,7 +180,7 @@ function ActivitiesPage() {
           )}
         </div>
       </header>
-      {selectMode && canUpload && (
+      {selectMode && isAdmin && (
         <div className="sticky top-[57px] z-20 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center gap-3" dir="rtl">
           <span className="text-sm font-bold text-rose-700">{selected.size} محدد</span>
           <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({filtered.length})</button>
@@ -261,14 +261,14 @@ function ActivitiesPage() {
               const isSelected = selected.has(it.id);
               return (
                 <div key={it.id} className="relative">
-                  {selectMode && canDelete && (
+                  {selectMode && isAdmin && (
                     <button onClick={() => toggleSelect(it.id)}
                       className={`absolute top-2 right-2 z-10 p-1 rounded-lg transition ${isSelected ? "text-rose-500" : "text-white drop-shadow"}`}>
                       {isSelected ? <CheckSquare className="h-6 w-6" /> : <Square className="h-6 w-6" />}
                     </button>
                   )}
-                  <div onClick={() => selectMode && canDelete && toggleSelect(it.id)}
-                    className={selectMode && canDelete ? "cursor-pointer" : ""}>
+                  <div onClick={() => selectMode && isAdmin && toggleSelect(it.id)}
+                    className={selectMode && isAdmin ? "cursor-pointer" : ""}>
                     <ActivityCard it={it} Icon={Icon} isImg={isImg} isVid={isVid} canDelete={!selectMode && canDelete} isAdmin={isAdmin} uid={uid} onApprove={approve} onDelete={del} />
                   </div>
                 </div>
