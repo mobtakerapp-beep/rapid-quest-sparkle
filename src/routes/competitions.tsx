@@ -873,12 +873,12 @@ function SubmissionsList({ comp, uid, isTeacher }: { comp: Comp; uid: string; is
   const isMulti = Array.isArray(comp.questions) && comp.questions.length > 0;
 
   const loadSubs = async () => {
-    const { data } = await supabase.from("competition_submissions").select("*").eq("competition_id", comp.id);
-    const ids = (data || []).map((s) => s.user_id);
-    const { data: profs } = ids.length ? await supabase.from("profiles").select("id, display_name, avatar_url").in("id", ids) : { data: [] };
-    const nameMap: Record<string, { name: string; avatar: string | null }> = {};
-    (profs || []).forEach((p: any) => { nameMap[p.id] = { name: p.display_name || "—", avatar: p.avatar_url }; });
-    const list = (data || []).map((s: any) => ({ ...s, name: nameMap[s.user_id]?.name, avatar_url: nameMap[s.user_id]?.avatar }))
+    // Use Edge Function (service role) to bypass RLS — all users see all participants
+    const { data: fnData, error: fnErr } = await supabase.functions.invoke("comp-subs", {
+      body: { competition_id: comp.id },
+    });
+    const raw: any[] = (fnErr || !fnData?.data) ? [] : fnData.data;
+    const list = raw.map((s: any) => ({ ...s }))
       .sort((a: any, b: any) => {
         if (isMulti) return (b.correct_count || 0) - (a.correct_count || 0) || a.time_taken_seconds - b.time_taken_seconds;
         return Number(b.is_correct) - Number(a.is_correct) || a.time_taken_seconds - b.time_taken_seconds;

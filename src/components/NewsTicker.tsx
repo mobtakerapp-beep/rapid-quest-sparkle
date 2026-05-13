@@ -247,7 +247,8 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
 
   const customItems = loadCustomItems();
 
-  if (!canManage && items.length === 0) return null;
+  // Always render the bar so the fixed-top height stays consistent (avoids layout shift).
+  // Teachers/supervisors see the "add" button even when empty; others see a welcome message.
 
   const displayText = items.length > 0
     ? items.map((it) => it.text).join("   ✦   ")

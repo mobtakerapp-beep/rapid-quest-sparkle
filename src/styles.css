@@ -155,11 +155,11 @@
 }
 
 .app-content-with-nav {
-  padding-top: 6rem;
+  padding-top: 4rem;
 }
 
 .app-content-with-nav [dir="rtl"] > header.sticky.top-0 {
-  top: 6rem;
+  top: 4rem;
 }
 
 .math-text {
