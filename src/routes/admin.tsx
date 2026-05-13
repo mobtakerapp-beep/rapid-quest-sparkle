@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Shield, Users, BookOpen, Trophy, AlertTriangle, Ban, CheckCircle2, Trash2, Star } from "lucide-react";
+import { ArrowLeft, Shield, Users, BookOpen, Trophy, AlertTriangle, Ban, CheckCircle2, Trash2, Star, Bell } from "lucide-react";
 import { FullPageLoader } from "@/components/LoadingSpinner";
 
 export const Route = createFileRoute("/admin")({ component: AdminPage });
@@ -19,6 +19,8 @@ function AdminPage() {
   const [reports, setReports] = useState<any[]>([]);
   const [tab, setTab] = useState<"overview" | "users" | "reports">("overview");
   const [q, setQ] = useState("");
+  const [warningTarget, setWarningTarget] = useState<Profile | null>(null);
+  const [warningReason, setWarningReason] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -59,8 +61,36 @@ function AdminPage() {
   const toggleBan = async (p: Profile) => {
     const { error } = await supabase.from("profiles").update({ is_banned: !p.is_banned }).eq("id", p.id);
     if (error) return toast.error(error.message);
+    // Send notification for ban
+    if (!p.is_banned) {
+      await supabase.from("notifications").insert({
+        user_id: p.id, title: "⛔ تم حظر حسابك",
+        body: "تم حظر حسابك من قِبل الإدارة. للاستفسار تواصل مع المشرف.",
+        type: "ban", link: "/",
+      });
+    }
     toast.success(p.is_banned ? "تم رفع الحظر" : "تم الحظر");
     setUsers(list => list.map(x => x.id === p.id ? { ...x, is_banned: !p.is_banned } : x));
+  };
+
+  const sendWarning = async () => {
+    if (!warningTarget || !warningReason.trim()) return;
+    const newCount = (warningTarget.warning_count || 0) + 1;
+    const [r1] = await Promise.all([
+      supabase.from("profiles").update({ warning_count: newCount }).eq("id", warningTarget.id),
+      supabase.from("notifications").insert({
+        user_id: warningTarget.id,
+        title: `⚠️ إنذار رسمي (${newCount})`,
+        body: warningReason.trim(),
+        type: "warning",
+        link: "/",
+      }),
+    ]);
+    if (r1.error) return toast.error(r1.error.message);
+    toast.success(`تم إرسال الإنذار إلى ${warningTarget.display_name}`);
+    setUsers(list => list.map(x => x.id === warningTarget.id ? { ...x, warning_count: newCount } : x));
+    setWarningTarget(null);
+    setWarningReason("");
   };
 
   const runWeekly = async () => {
@@ -77,10 +107,42 @@ function AdminPage() {
     </div>
   );
 
+  /* ── Warning modal ── */
+  const WarningModal = warningTarget ? (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setWarningTarget(null)}>
+      <div dir="rtl" className="bg-card rounded-3xl border border-border p-6 max-w-sm w-full shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 font-black text-lg">
+          <AlertTriangle className="h-5 w-5 text-amber-500" />
+          إرسال إنذار رسمي
+        </div>
+        <div className="text-sm text-muted-foreground">المستخدم: <b>{warningTarget.display_name}</b></div>
+        <textarea
+          value={warningReason}
+          onChange={(e) => setWarningReason(e.target.value)}
+          placeholder="اكتب سبب الإنذار..."
+          rows={3}
+          className="w-full px-4 py-3 rounded-xl border border-border bg-background resize-none text-sm"
+          autoFocus
+        />
+        <div className="flex gap-2">
+          <button onClick={sendWarning} disabled={!warningReason.trim()}
+            className="flex-1 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm disabled:opacity-50">
+            <Bell className="h-4 w-4 inline me-1" /> إرسال الإنذار
+          </button>
+          <button onClick={() => { setWarningTarget(null); setWarningReason(""); }}
+            className="px-4 py-2 rounded-xl bg-secondary font-bold text-sm">
+            إلغاء
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   const filtered = users.filter(u => !q || (u.display_name || "").toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div dir="rtl" className="min-h-screen bg-background">
+      {WarningModal}
       <header className="bg-card border-b border-border sticky top-0 z-10 backdrop-blur bg-card/90">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
@@ -157,10 +219,16 @@ function AdminPage() {
                         {u.is_admin ? (
                           <span className="text-xs text-muted-foreground">محمي</span>
                         ) : (
-                          <button onClick={() => toggleBan(u)} className={`px-3 py-1 rounded-lg text-xs font-bold ${u.is_banned ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}>
-                            {u.is_banned ? <CheckCircle2 className="h-3 w-3 inline" /> : <Ban className="h-3 w-3 inline" />}
-                            {" "}{u.is_banned ? "رفع الحظر" : "حظر"}
-                          </button>
+                          <div className="flex items-center justify-center gap-1 flex-wrap">
+                            <button onClick={() => { setWarningTarget(u); setWarningReason(""); }}
+                              className="px-2 py-1 rounded-lg text-xs font-bold bg-amber-500 text-white">
+                              <AlertTriangle className="h-3 w-3 inline me-0.5" /> إنذار
+                            </button>
+                            <button onClick={() => toggleBan(u)} className={`px-2 py-1 rounded-lg text-xs font-bold ${u.is_banned ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}>
+                              {u.is_banned ? <CheckCircle2 className="h-3 w-3 inline" /> : <Ban className="h-3 w-3 inline" />}
+                              {" "}{u.is_banned ? "رفع" : "حظر"}
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

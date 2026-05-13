@@ -162,6 +162,15 @@ export function ImageTextEditor({ onClose, initialImageUrl, onSend }: Props) {
 
   useEffect(() => { draw(); }, [imgSrc, text, fontSize, color, textPos, bold, selectedFont, bgStyle, bgColor, bgOpacity]);
 
+  const handleFontSelect = (family: string, googleName?: string) => {
+    setSelectedFont(family);
+    if (googleName) {
+      loadGoogleFont(googleName);
+      // Re-draw after font is likely loaded so the canvas updates immediately
+      setTimeout(() => setSelectedFont(family), 400);
+    }
+  };
+
   const toNorm = (clientX: number, clientY: number, canvas: HTMLCanvasElement) => {
     const rect = canvas.getBoundingClientRect();
     return {
@@ -282,7 +291,7 @@ export function ImageTextEditor({ onClose, initialImageUrl, onSend }: Props) {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {filteredFonts.map((f) => (
-                    <button key={f.family} onClick={() => setSelectedFont(f.family)}
+                    <button key={f.family} onClick={() => handleFontSelect(f.family, f.googleName)}
                       style={{ fontFamily: `"${f.family}", Tajawal, sans-serif` }}
                       className={`px-3 py-2 rounded-xl border-2 text-sm text-center transition ${selectedFont === f.family ? "border-[var(--brand)] bg-[var(--brand)]/10 font-bold" : "border-border hover:border-[var(--brand)]/40"}`}>
                       {f.label}
@@ -354,7 +363,7 @@ export function ImageTextEditor({ onClose, initialImageUrl, onSend }: Props) {
               {onSend && (
                 <button onClick={handleSend} disabled={sending || !imgSrc}
                   className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
-                  <Send className="h-4 w-4" /> {sending ? "جاري الإرسال..." : "تعديل"}
+                  <Send className="h-4 w-4" /> {sending ? "جاري الإرسال..." : "إرسال"}
                 </button>
               )}
               <label className="px-4 py-2.5 rounded-xl bg-secondary font-bold text-sm cursor-pointer hover:bg-secondary/70 transition inline-flex items-center gap-1.5">

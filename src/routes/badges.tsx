@@ -121,21 +121,34 @@ function BadgesPage() {
 
       // Stars decoration
       ctx.fillStyle = theme.accent; ctx.font = "60px serif";
-      ctx.fillText("⭐⭐⭐", W / 2, 1120);
+      ctx.fillText("⭐⭐⭐", W / 2, 1080);
 
       // Date
-      ctx.fillStyle = theme.body + "99"; ctx.font = `36px ${fontFamily}`;
+      ctx.fillStyle = theme.body + "99"; ctx.font = `34px ${fontFamily}`;
       const date = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
-      ctx.fillText(`التاريخ: ${date}`, W / 2, 1220);
+      ctx.fillText(`التاريخ: ${date}`, W / 2, 1170);
 
-      // Signature area
-      ctx.strokeStyle = theme.body + "60"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(W / 2 - 500, 1440); ctx.lineTo(W / 2 + 500, 1440); ctx.stroke();
-      ctx.fillStyle = theme.title; ctx.font = `bold 44px ${fontFamily}`;
-      ctx.fillText("المديرة العامة للتعليم بمحافظة الوسطى", W / 2, 1510);
+      // Decorative separator before footer
+      ctx.strokeStyle = theme.accent + "80"; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(W / 2 - 700, 1290); ctx.lineTo(W / 2 - 60, 1290);
+      ctx.moveTo(W / 2 + 60, 1290); ctx.lineTo(W / 2 + 700, 1290);
+      ctx.stroke();
+      ctx.fillStyle = theme.accent; ctx.font = "36px serif";
+      ctx.fillText("❖", W / 2, 1302);
 
-      ctx.fillStyle = theme.body + "80"; ctx.font = `30px ${fontFamily}`;
-      ctx.fillText("منصة كلنا معاً للمتابعة الإلكترونية", W / 2, 1640);
+      // Footer – signature area
+      ctx.strokeStyle = theme.border2; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(W / 2 - 480, 1400); ctx.lineTo(W / 2 + 480, 1400); ctx.stroke();
+
+      ctx.fillStyle = theme.title; ctx.font = `bold 52px ${fontFamily}`;
+      ctx.fillText("كلنا معاً", W / 2, 1470);
+
+      ctx.fillStyle = theme.body + "90"; ctx.font = `32px ${fontFamily}`;
+      ctx.fillText("مبادرة كلنا معاً – محافظة الوسطى", W / 2, 1540);
+
+      ctx.fillStyle = theme.accent; ctx.font = "32px serif";
+      ctx.fillText("✦  ✦  ✦", W / 2, 1610);
 
       const img = c.toDataURL("image/jpeg", 0.95);
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -143,7 +156,6 @@ function BadgesPage() {
       doc.save(`شهادة-تقدير-${name || "بدون-اسم"}.pdf`);
     } finally {
       setGenerating(false);
-      setShowThemePicker(false);
     }
   };
 
@@ -227,21 +239,23 @@ function BadgesPage() {
           </button>
         </div>
 
-        {/* Quiz scores */}
+        {/* Quiz scores – compact scrollable */}
         {attempts.length > 0 && (
-          <div className="bg-card rounded-3xl border border-border p-6 shadow-[var(--shadow-card)] mt-6">
-            <h3 className="font-bold mb-4 flex items-center gap-2"><Target className="h-5 w-5 text-rose-500" /> درجات اختباراتي ({attempts.length})</h3>
-            <div className="space-y-2">
+          <div className="bg-card rounded-3xl border border-border p-5 shadow-[var(--shadow-card)] mt-6">
+            <h3 className="font-bold mb-3 flex items-center gap-2"><Target className="h-5 w-5 text-rose-500" /> درجات اختباراتي <span className="text-xs font-normal text-muted-foreground">({attempts.length})</span></h3>
+            <div className="overflow-y-auto max-h-64 space-y-1.5 pl-1 scrollbar-thin">
               {attempts.map((a) => {
                 const pct = a.total > 0 ? Math.round((a.score / a.total) * 100) : 0;
-                const color = pct >= 75 ? "emerald" : pct >= 50 ? "amber" : "rose";
+                const bar = pct >= 75 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-400" : "bg-rose-500";
+                const txt = pct >= 75 ? "text-emerald-700" : pct >= 50 ? "text-amber-700" : "text-rose-700";
                 return (
-                  <div key={a.id} className={`flex items-center justify-between p-3 rounded-xl border border-${color}-200 bg-${color}-50/50`}>
+                  <div key={a.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/50 hover:bg-secondary transition">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] font-black shrink-0 ${bar}`}>{pct}%</div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sm truncate">{a.quiz_title}</div>
-                      <div className="text-[11px] text-muted-foreground">{new Date(a.created_at).toLocaleDateString("ar-EG")}</div>
+                      <div className="font-bold text-xs truncate">{a.quiz_title}</div>
+                      <div className="text-[10px] text-muted-foreground">{new Date(a.created_at).toLocaleDateString("ar-EG")}</div>
                     </div>
-                    <div className={`text-base font-black text-${color}-700`}>{a.score} / {a.total}</div>
+                    <div className={`text-sm font-black ${txt} shrink-0`}>{a.score}/{a.total}</div>
                   </div>
                 );
               })}
@@ -249,7 +263,9 @@ function BadgesPage() {
           </div>
         )}
 
+        {/* شهادات الموقع */}
         {uid && <MyCertificates uid={uid} />}
+        {/* الشارات */}
         {uid && <MyBadges uid={uid} />}
 
         <div className="text-center text-sm font-bold mb-3 mt-6 text-muted-foreground">

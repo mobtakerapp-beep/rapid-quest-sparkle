@@ -132,17 +132,32 @@ export function MyCertificates({ uid }: { uid: string }) {
       }
 
       // Stars
-      ctx.fillStyle = theme.accent; ctx.font = "60px serif";
-      ctx.fillText("⭐⭐⭐", W / 2, 1490);
+      ctx.fillStyle = theme.accent; ctx.font = "58px serif";
+      ctx.fillText("⭐⭐⭐", W / 2, 1420);
 
       // Date + signer
-      ctx.fillStyle = theme.body + "99"; ctx.font = `34px ${af}`;
+      ctx.fillStyle = theme.body + "99"; ctx.font = `32px ${af}`;
       const date = new Date(c.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
-      ctx.fillText(`التاريخ: ${date}`, W / 2, 1570);
+      ctx.fillText(`التاريخ: ${date}`, W / 2, 1490);
 
-      ctx.fillStyle = theme.title; ctx.font = `bold 38px ${af}`;
+      // Decorative separator
+      ctx.strokeStyle = theme.accent + "80"; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(W / 2 - 700, 1540); ctx.lineTo(W / 2 - 50, 1540);
+      ctx.moveTo(W / 2 + 50, 1540); ctx.lineTo(W / 2 + 700, 1540);
+      ctx.stroke();
+      ctx.fillStyle = theme.accent; ctx.font = "28px serif";
+      ctx.fillText("❖", W / 2, 1550);
+
+      // Teacher name
+      ctx.strokeStyle = theme.border2; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(W / 2 - 420, 1575); ctx.lineTo(W / 2 + 420, 1575); ctx.stroke();
+      ctx.fillStyle = theme.title; ctx.font = `bold 36px ${af}`;
       const role = c.teacher_gender === "female" ? "المعلمة" : "المعلم";
-      ctx.fillText(`${role}: ${c.teacher_name || "—"}`, W / 2, 1640);
+      ctx.fillText(`${role}: ${c.teacher_name || "—"}`, W / 2, 1613);
+
+      ctx.fillStyle = theme.accent; ctx.font = "22px serif";
+      ctx.fillText("✦  كلنا معاً  ✦", W / 2, 1640);
 
       const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
       const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });

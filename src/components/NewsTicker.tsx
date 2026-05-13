@@ -93,6 +93,24 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       });
     }
 
+    // ── مسابقات مفتوحة (بدون تاريخ انتهاء): المتصدر ──
+    const { data: openComps } = await supabase
+      .from("competitions")
+      .select("id, title, ends_at")
+      .is("ends_at", null)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    for (const comp of (openComps || [])) {
+      const top = await getTopSubmission(comp.id);
+      if (!top) continue;
+      items.push({
+        id: `comp-open-${comp.id}`,
+        text: `🏆 متصدر مسابقة "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — النتيجة: ${top.score}` : ""}`,
+        type: "auto",
+      });
+    }
+
     // ── مسابقات نشطة: المتصدر الحالي ──
     const { data: activeComps } = await supabase
       .from("competitions")
