@@ -202,27 +202,10 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
   const [loaded, setLoaded] = useState(false);
   const [previousDetails, setPreviousDetails] = useState<any[] | null>(null);
   const rawQs = Array.isArray(quiz.questions) ? quiz.questions : [];
-  // Stable shuffle ref: shuffle MC options once per mount.
-  // answers[i] always stores the ORIGINAL option index (not display index).
-  // This means: submit directly to backend (correct=0 in DB always matches original 0).
-  const shuffleRef = useRef<{ qs: Q[]; map: Record<number, number[]> } | null>(null);
-  if (!shuffleRef.current) {
-    const map: Record<number, number[]> = {};
-    const shuffledQs = rawQs.map((q: any, qi: number) => {
-      if ((q.type || "mc") !== "mc" || !Array.isArray(q.options) || q.options.length < 2) return q;
-      // Fisher-Yates shuffle
-      const idx: number[] = q.options.map((_: any, i: number) => i);
-      for (let i = idx.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [idx[i], idx[j]] = [idx[j], idx[i]];
-      }
-      map[qi] = idx; // map[qi][displayPos] = originalIdx
-      return { ...q, options: idx.map((i: number) => q.options[i]) };
-    });
-    shuffleRef.current = { qs: shuffledQs as Q[], map };
-  }
-  const qs = shuffleRef.current.qs;
-  const shuffleMap = shuffleRef.current.map;
+  // No shuffle: options shown in original DB order.
+  // correct=0 in DB always = first option is the correct answer.
+  // Student sends answers[i] = oi (the clicked display index = original index).
+  const qs: Q[] = rawQs as Q[];
   const mcCount = qs.filter((q) => (q.type || "mc") === "mc").length;
 
   // Load previous attempt — students can take only ONCE; teachers preview without submitting
@@ -288,8 +271,16 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
               <div className="flex gap-1"><span>{i + 1}.</span><MathText text={q.question} /></div>
               {done && (q.type || "mc") === "mc" && (() => {
                 const det = previousDetails?.find((d: any) => d.i === i);
-                // answers[i] holds the original index submitted; correctIdx is always 0 from DB
-                const correctIdx = (q as any).correct ?? det?.correct ?? 0;
+                // use server-returned points if available (most reliable)
+                if (det) {
+                  const ok = det.points === 1;
+                  return (
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                      {ok ? "1 / 1" : "0 / 1"}
+                    </span>
+                  );
+                }
+                const correctIdx = (q as any).correct ?? 0;
                 const ok = answers[i] === correctIdx;
                 return (
                   <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
@@ -318,17 +309,15 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
             ) : (
             <div className="grid gap-2">
               {q.options.map((o, oi) => {
-                // originalIdx: what this display-position maps to in DB ordering
-                const originalIdx = shuffleMap[i] ? shuffleMap[i][oi] : oi;
-                const sel = answers[i] === originalIdx;
+                const sel = answers[i] === oi;
                 const det = previousDetails?.find((d: any) => d.i === i);
-                // correctIdx is always 0 from DB (teacher stores first option as correct)
-                const correctIdx = (q as any).correct ?? det?.correct ?? 0;
-                const correctAfter = done && originalIdx === correctIdx;
-                const wrongAfter = done && sel && originalIdx !== correctIdx;
+                // correctIdx is always 0 from DB (teacher stores correct answer first)
+                const correctIdx = det?.correct ?? (q as any).correct ?? 0;
+                const correctAfter = done && oi === correctIdx;
+                const wrongAfter = done && sel && oi !== correctIdx;
                 return (
                   <button key={oi} disabled={done || isTeacher}
-                    onClick={() => setAnswers({ ...answers, [i]: originalIdx })}
+                    onClick={() => setAnswers({ ...answers, [i]: oi })}
                     className={`text-right px-4 py-3 rounded-xl border-2 transition ${
                       correctAfter ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40" :
                       wrongAfter ? "border-rose-500 bg-rose-50 dark:bg-rose-950/40" :

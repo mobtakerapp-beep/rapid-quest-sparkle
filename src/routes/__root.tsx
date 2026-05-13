@@ -15,6 +15,7 @@ import { EventReminderWatcher } from "@/components/EventReminderWatcher";
 import { TickerWithRole } from "@/components/NewsTicker";
 import { DhikrReminder } from "@/components/DhikrReminder";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { LiveClock } from "@/components/LiveClock";
 
 function NotFoundComponent() {
   return (
@@ -102,6 +103,9 @@ function RootComponent() {
       <EventReminderWatcher />
       <DhikrReminder />
       <TickerWithRole />
+      <div className="flex justify-center py-1 bg-background/80 border-b border-border/30 text-xs text-muted-foreground">
+        <LiveClock />
+      </div>
       <div className="app-content-with-nav">
         <Outlet />
       </div>
