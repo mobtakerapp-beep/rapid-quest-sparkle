@@ -6,7 +6,7 @@ import { ArrowLeft, User as UserIcon, GraduationCap, BookOpen, Heart, LogOut, Sh
 import { FullPageLoader } from "@/components/LoadingSpinner";
 import { playLogoutSound } from "@/lib/sounds";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
-import { getCountryFlag } from "@/lib/countryFlag";
+import { getCountryFlag, ARAB_COUNTRIES } from "@/lib/countryFlag";
 // MyCertificates and MyBadges now live on the /badges page
 
 export const Route = createFileRoute("/profile")({
@@ -327,9 +327,13 @@ function ProfilePage() {
             <div>
               <label className="text-sm font-semibold mb-2 block">الدولة</label>
               <div className="relative">
-                <input value={country} onChange={(e) => setCountry(e.target.value)} maxLength={60}
-                  placeholder="سلطنة عُمان"
-                  className="w-full px-4 py-3 rounded-xl border border-border bg-background" />
+                <select value={country} onChange={(e) => setCountry(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-border bg-background appearance-none cursor-pointer pr-10">
+                  <option value="">— اختر الدولة —</option>
+                  {ARAB_COUNTRIES.map((c) => (
+                    <option key={c.name} value={c.name}>{c.flag} {c.name}</option>
+                  ))}
+                </select>
                 {country && getCountryFlag(country) && (
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xl pointer-events-none">{getCountryFlag(country)}</span>
                 )}

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Award, Download, User as UserIcon, Target, Palette, Type as TypeIcon, X } from "lucide-react";
+import { ArrowLeft, Award, Download, User as UserIcon, Target, Palette, Type as TypeIcon } from "lucide-react";
 import jsPDF from "jspdf";
 import { MyBadges } from "@/components/MyBadges";
 import { MyCertificates } from "@/components/MyCertificates";
@@ -24,8 +24,6 @@ function BadgesPage() {
   const [audience, setAudience] = useState<"student" | "teacher">("student");
   const [attempts, setAttempts] = useState<Attempt[]>([]);
 
-  // Certificate theme picker state
-  const [showThemePicker, setShowThemePicker] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState(CERT_THEMES[0]);
   const [selectedFont, setSelectedFont] = useState(CERT_FONTS[0]);
   const [generating, setGenerating] = useState(false);
@@ -177,10 +175,55 @@ function BadgesPage() {
           <div className="text-5xl font-black bg-[image:var(--gradient-hero)] bg-clip-text text-transparent mb-1">{points}</div>
           <div className="text-sm text-muted-foreground mb-4">نقطة</div>
           <div className="text-sm mb-4">حصلت على <strong>{Object.keys(counts).length}</strong> من أصل <strong>{all.filter(b => b.audience === audience).length}</strong> شارة</div>
+        </div>
 
-          <button onClick={() => setShowThemePicker(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">
-            <Palette className="h-4 w-4" /> تخصيص وتحميل شهادة تقدير
+        {/* ── منتقي الثيم والشهادة inline ── */}
+        <div className="bg-card rounded-3xl border border-border p-5 mb-6 space-y-4">
+          <div className="font-bold flex items-center gap-2"><Palette className="h-4 w-4 text-[var(--brand)]" /> تخصيص شهادة التقدير</div>
+
+          <div>
+            <div className="text-xs font-bold mb-2 text-muted-foreground">اللون / الثيم</div>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {CERT_THEMES.map((t) => (
+                <button key={t.id} type="button" onClick={() => setSelectedTheme(t)}
+                  title={t.label}
+                  className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 transition ${selectedTheme.id === t.id ? "border-[var(--brand)] shadow-md" : "border-border hover:border-[var(--brand)]/50"}`}>
+                  <div className="w-8 h-8 rounded-lg shadow-sm border border-white/20"
+                    style={{ background: `linear-gradient(135deg, ${t.bg1}, ${t.border1})` }} />
+                  <span className="text-[9px] font-bold text-center leading-tight">{t.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs font-bold mb-2 text-muted-foreground flex items-center gap-1"><TypeIcon className="h-3.5 w-3.5" /> الخط</div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {CERT_FONTS.map((f) => (
+                <button key={f.family} type="button" onClick={() => setSelectedFont(f)}
+                  style={{ fontFamily: `"${f.family}", Tajawal, sans-serif` }}
+                  className={`px-2 py-1.5 rounded-xl border-2 text-xs text-center transition ${selectedFont.family === f.family ? "border-[var(--brand)] bg-[var(--brand)]/10 font-bold" : "border-border hover:border-[var(--brand)]/40"}`}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border-4 p-4 text-center"
+            style={{
+              background: `linear-gradient(135deg, ${selectedTheme.bg1}, ${selectedTheme.bg2})`,
+              borderColor: selectedTheme.border1,
+              fontFamily: `"${selectedFont.family}", Tajawal, sans-serif`,
+            }}>
+            <div className="text-2xl mb-1">🏆</div>
+            <div className="text-xs font-black mb-0.5" style={{ color: selectedTheme.title }}>شهادة تقدير</div>
+            <div className="text-base font-black" style={{ color: selectedTheme.name }}>{name || "اسمك"}</div>
+            <div className="text-[10px] mt-0.5 opacity-70" style={{ color: selectedTheme.body }}>مبادرة كلنا معاً – {points} نقطة</div>
+          </div>
+
+          <button onClick={certificate} disabled={generating}
+            className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
+            <Download className="h-4 w-4" /> {generating ? "جاري التحضير..." : "تحميل الشهادة PDF"}
           </button>
         </div>
 
@@ -231,65 +274,6 @@ function BadgesPage() {
         </div>
       </main>
 
-      {/* Certificate theme picker modal */}
-      {showThemePicker && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" dir="rtl" onClick={() => setShowThemePicker(false)}>
-          <div className="bg-card rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 font-black text-lg">
-                <Palette className="h-5 w-5 text-[var(--brand)]" /> تخصيص الشهادة
-              </div>
-              <button onClick={() => setShowThemePicker(false)} className="p-2 rounded-xl hover:bg-secondary"><X className="h-4 w-4" /></button>
-            </div>
-
-            {/* Theme picker */}
-            <div>
-              <label className="block text-sm font-bold mb-2">الثيم / اللون</label>
-              <div className="grid grid-cols-5 gap-2">
-                {CERT_THEMES.map((t) => (
-                  <button key={t.id} onClick={() => setSelectedTheme(t)}
-                    className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition ${selectedTheme.id === t.id ? "border-[var(--brand)] shadow-md" : "border-border hover:border-[var(--brand)]/40"}`}>
-                    <div className="w-9 h-9 rounded-xl border border-white/20 shadow"
-                      style={{ background: `linear-gradient(135deg, ${t.bg1}, ${t.border1})` }} />
-                    <span className="text-[10px] font-bold text-center leading-tight">{t.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Font picker */}
-            <div>
-              <label className="block text-sm font-bold mb-2 flex items-center gap-1"><TypeIcon className="h-4 w-4" /> الخط</label>
-              <div className="grid grid-cols-2 gap-2">
-                {CERT_FONTS.map((f) => (
-                  <button key={f.family} onClick={() => setSelectedFont(f)}
-                    style={{ fontFamily: `"${f.family}", Tajawal, sans-serif` }}
-                    className={`px-3 py-2.5 rounded-xl border-2 text-sm text-center transition ${selectedFont.family === f.family ? "border-[var(--brand)] bg-[var(--brand)]/10 font-bold" : "border-border hover:border-[var(--brand)]/40"}`}>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Preview */}
-            <div className="rounded-2xl border-4 p-4 text-center relative overflow-hidden"
-              style={{
-                background: `linear-gradient(135deg, ${selectedTheme.bg1}, ${selectedTheme.bg2})`,
-                borderColor: selectedTheme.border1,
-                fontFamily: `"${selectedFont.family}", Tajawal, sans-serif`,
-              }}>
-              <div className="text-xs font-black mb-1" style={{ color: selectedTheme.title }}>شهادة تقدير</div>
-              <div className="text-lg font-black" style={{ color: selectedTheme.name }}>{name || "اسم الطالب"}</div>
-              <div className="text-[10px] mt-1" style={{ color: selectedTheme.body }}>مبادرة كلنا معاً</div>
-            </div>
-
-            <button onClick={certificate} disabled={generating}
-              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
-              <Download className="h-4 w-4" /> {generating ? "جاري التحضير..." : "تحميل الشهادة PDF"}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

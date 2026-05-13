@@ -88,7 +88,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       if (!top || !top.isCorrect) continue;
       items.push({
         id: `comp-${comp.id}`,
-        text: `🏆 الفائز في "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — النتيجة: ${top.score}` : ""} — الوقت: ${top.time}`,
+        text: `🏆 الفائز في مسابقة "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — النتيجة: ${top.score}` : ""} — الوقت: ${top.time}`,
         type: "auto",
       });
     }
@@ -106,7 +106,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       if (!top) continue;
       items.push({
         id: `comp-active-${comp.id}`,
-        text: `⚡ المتصدر حالياً في "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — ${top.score}` : ""} — المسابقة لا تزال نشطة!`,
+        text: `⚡ المتصدر حالياً في مسابقة "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — ${top.score}` : ""} — المسابقة لا تزال نشطة!`,
         type: "auto",
       });
     }

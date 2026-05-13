@@ -347,16 +347,16 @@ export function ImageTextEditor({ onClose, initialImageUrl, onSend }: Props) {
             </div>
 
             <div className="flex gap-2 pt-2">
+              <button onClick={download} disabled={!imgSrc}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold disabled:opacity-50 bg-secondary hover:bg-secondary/70">
+                <Download className="h-4 w-4" /> تحميل
+              </button>
               {onSend && (
                 <button onClick={handleSend} disabled={sending || !imgSrc}
                   className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
-                  <Send className="h-4 w-4" /> {sending ? "جاري الإرسال..." : "إرسال"}
+                  <Send className="h-4 w-4" /> {sending ? "جاري الإرسال..." : "تعديل"}
                 </button>
               )}
-              <button onClick={download} disabled={!imgSrc}
-                className={`${onSend ? "" : "flex-1 "}inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold disabled:opacity-50 ${onSend ? "bg-secondary hover:bg-secondary/70" : "bg-[image:var(--gradient-hero)] text-white"}`}>
-                <Download className="h-4 w-4" /> تحميل
-              </button>
               <label className="px-4 py-2.5 rounded-xl bg-secondary font-bold text-sm cursor-pointer hover:bg-secondary/70 transition inline-flex items-center gap-1.5">
                 <RefreshCw className="h-4 w-4" /> تغيير
                 <input type="file" accept="image/*" className="hidden" onChange={onFile} />
