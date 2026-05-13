@@ -145,9 +145,6 @@ function AdminPage() {
       {WarningModal}
       <header className="bg-card border-b border-border sticky top-0 z-10 backdrop-blur bg-card/90">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> الرئيسية
-          </Link>
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-amber-600 to-orange-700 flex items-center justify-center text-white">
               <Shield className="h-5 w-5" />

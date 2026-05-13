@@ -215,9 +215,6 @@ function ProfilePage() {
 
       <div className="relative max-w-2xl mx-auto pt-16 sm:pt-12">
         <div className="flex items-center justify-between mb-4">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> العودة للرئيسية
-          </Link>
           <button type="button" onClick={async () => { playLogoutSound(); await new Promise(r => setTimeout(r, 350)); await supabase.auth.signOut(); navigate({ to: "/" }); }}
             className="inline-flex items-center gap-2 text-sm text-destructive hover:opacity-80">
             <LogOut className="h-4 w-4" /> تسجيل خروج

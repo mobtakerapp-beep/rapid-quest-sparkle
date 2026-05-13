@@ -196,16 +196,11 @@ function AssistantPage() {
     <div dir={dir} className="min-h-screen bg-background flex flex-col">
       {/* Header — sticky at top (math toolbar moved above the input box below) */}
       <div className="sticky top-0 z-10 bg-card border-b border-border">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> {isAr ? "الرئيسية" : "Home"}
-          </Link>
-          <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white">
-              <Bot className="h-5 w-5" />
-            </div>
-            <h1 className="font-bold">{isAr ? "المساعد الذكي" : "AI Assistant"}</h1>
+        <div className="container mx-auto px-4 py-3 flex items-center gap-2">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-white">
+            <Bot className="h-5 w-5" />
           </div>
+          <h1 className="font-bold">{isAr ? "المساعد الذكي" : "AI Assistant"}</h1>
         </div>
       </div>
 

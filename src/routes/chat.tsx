@@ -291,7 +291,6 @@ function ChatPage() {
       {/* Header */}
       <header className="bg-card border-b border-border px-4 py-3 flex items-center justify-between sticky top-0 z-10 backdrop-blur bg-card/90">
         <div className="flex items-center gap-3">
-          <Link to="/" className="p-2 rounded-lg hover:bg-secondary" title="الرئيسية"><ArrowLeft className="h-4 w-4" /></Link>
           <div className="h-10 w-10 rounded-xl bg-[image:var(--gradient-hero)] flex items-center justify-center text-white font-bold">ك</div>
           <div>
             <h1 className="font-bold leading-tight">مجتمع كلنا معك</h1>
