@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, User as UserIcon, GraduationCap, BookOpen, Heart, LogOut, Shield, Key, Camera, Palette } from "lucide-react";
+import { ArrowLeft, User as UserIcon, GraduationCap, BookOpen, Heart, LogOut, Shield, Key, Camera, Palette, AlertTriangle, Ban, ChevronDown, ChevronUp } from "lucide-react";
 import { FullPageLoader } from "@/components/LoadingSpinner";
 import { playLogoutSound } from "@/lib/sounds";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
@@ -37,6 +37,8 @@ function ProfilePage() {
   const [classCodeInput, setClassCodeInput] = useState("");
   const [myTeacherName, setMyTeacherName] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
+  const [warnings, setWarnings] = useState<{ id: string; title: string; body: string | null; type: string; created_at: string }[]>([]);
+  const [showWarnings, setShowWarnings] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -61,6 +63,14 @@ function ProfilePage() {
         setGender(((p as any).gender as "male" | "female") || "");
       }
       setIsAdmin(!!roles?.some((r) => r.role === "admin"));
+      // Load warnings & ban notifications
+      const { data: warns } = await supabase
+        .from("notifications")
+        .select("id, title, body, type, created_at")
+        .eq("user_id", id)
+        .in("type", ["warning", "ban"])
+        .order("created_at", { ascending: false });
+      setWarnings(warns || []);
       // Load teacher info
       const tid = (p as any)?.teacher_id;
       if (tid) {
@@ -228,6 +238,74 @@ function ProfilePage() {
         <Link to="/badges" className="block mb-6 mt-4 rounded-2xl bg-[image:var(--gradient-warm)] text-white p-4 text-center font-bold shadow-[var(--shadow-soft)] hover:scale-[1.02] transition">
           🏆 شاراتي وإنجازاتي وشهاداتي ←
         </Link>
+
+        {/* Warnings & Violations Log */}
+        {warnings.length > 0 && (
+          <div className="mb-4 rounded-3xl border-2 border-amber-400/60 bg-amber-50 dark:bg-amber-950/20 shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowWarnings((v) => !v)}
+              className="w-full flex items-center justify-between gap-3 px-5 py-4 text-right"
+            >
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+                <span className="font-black text-amber-700 dark:text-amber-400">
+                  إنذاراتي وسجل المخالفات
+                </span>
+                <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-500 text-white text-xs font-black">
+                  {warnings.length}
+                </span>
+              </div>
+              {showWarnings
+                ? <ChevronUp className="h-4 w-4 text-amber-500" />
+                : <ChevronDown className="h-4 w-4 text-amber-500" />}
+            </button>
+
+            {showWarnings && (
+              <div className="px-5 pb-5 space-y-3">
+                <p className="text-xs text-amber-600 dark:text-amber-400 mb-3">
+                  هذه السجلات تُرسلها الإدارة عند حدوث مخالفة. تواصل مع مشرفك للاستفسار.
+                </p>
+                {warnings.map((w, i) => (
+                  <div
+                    key={w.id}
+                    className={`rounded-2xl border p-4 space-y-1.5 ${
+                      w.type === "ban"
+                        ? "border-red-300 bg-red-50 dark:bg-red-950/30"
+                        : "border-amber-200 bg-white dark:bg-amber-950/10"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        {w.type === "ban"
+                          ? <Ban className="h-4 w-4 text-red-500" />
+                          : <AlertTriangle className="h-4 w-4 text-amber-500" />}
+                        <span className={`font-black text-sm ${w.type === "ban" ? "text-red-600" : "text-amber-700 dark:text-amber-400"}`}>
+                          {w.title}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {w.type === "warning" && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold border border-amber-200">
+                            إنذار #{warnings.filter((x) => x.type === "warning").indexOf(w) + 1}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(w.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}
+                        </span>
+                      </div>
+                    </div>
+                    {w.body && (
+                      <p className="text-sm text-muted-foreground leading-relaxed border-r-2 border-amber-300 pr-3 mt-1">
+                        {w.body}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 3) Themes / Settings — تحت الشهادات والشارات */}
         <div className="bg-card rounded-3xl border border-border p-6 shadow-[var(--shadow-card)] mt-6 mb-4">
