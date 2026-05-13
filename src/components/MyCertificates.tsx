@@ -133,31 +133,42 @@ export function MyCertificates({ uid }: { uid: string }) {
 
       // Stars
       ctx.fillStyle = theme.accent; ctx.font = "58px serif";
-      ctx.fillText("⭐⭐⭐", W / 2, 1420);
+      ctx.fillText("⭐⭐⭐", W / 2, 1380);
 
-      // Date + signer
-      ctx.fillStyle = theme.body + "99"; ctx.font = `32px ${af}`;
-      const date = new Date(c.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
-      ctx.fillText(`التاريخ: ${date}`, W / 2, 1490);
-
-      // Decorative separator
+      // Full-width separator
       ctx.strokeStyle = theme.accent + "80"; ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(W / 2 - 700, 1540); ctx.lineTo(W / 2 - 50, 1540);
-      ctx.moveTo(W / 2 + 50, 1540); ctx.lineTo(W / 2 + 700, 1540);
+      ctx.moveTo(W / 2 - 800, 1430); ctx.lineTo(W / 2 - 50, 1430);
+      ctx.moveTo(W / 2 + 50, 1430); ctx.lineTo(W / 2 + 800, 1430);
       ctx.stroke();
-      ctx.fillStyle = theme.accent; ctx.font = "28px serif";
-      ctx.fillText("❖", W / 2, 1550);
+      ctx.fillStyle = theme.accent; ctx.font = "30px serif";
+      ctx.fillText("❖", W / 2, 1442);
 
-      // Teacher name
-      ctx.strokeStyle = theme.border2; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(W / 2 - 420, 1575); ctx.lineTo(W / 2 + 420, 1575); ctx.stroke();
-      ctx.fillStyle = theme.title; ctx.font = `bold 36px ${af}`;
+      // Footer block: teacher name + date side by side
       const role = c.teacher_gender === "female" ? "المعلمة" : "المعلم";
-      ctx.fillText(`${role}: ${c.teacher_name || "—"}`, W / 2, 1613);
+      const teacherLabel = `${role}: ${c.teacher_name || "—"}`;
+      const date = new Date(c.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+      const dateLabel = `التاريخ: ${date}`;
 
-      ctx.fillStyle = theme.accent; ctx.font = "22px serif";
-      ctx.fillText("✦  كلنا معاً  ✦", W / 2, 1640);
+      ctx.font = `bold 40px ${af}`;
+      ctx.fillStyle = theme.title;
+      // Teacher name on the right side
+      ctx.textAlign = "right";
+      ctx.fillText(teacherLabel, W / 2 - 80, 1540);
+      // Date on the left side
+      ctx.textAlign = "left";
+      ctx.fillStyle = theme.body + "bb";
+      ctx.font = `36px ${af}`;
+      ctx.fillText(dateLabel, W / 2 + 80, 1540);
+
+      // Underline spanning both
+      ctx.textAlign = "center";
+      ctx.strokeStyle = theme.border2; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(W / 2 - 800, 1570); ctx.lineTo(W / 2 + 800, 1570); ctx.stroke();
+
+      // Brand footer
+      ctx.fillStyle = theme.accent; ctx.font = "26px serif";
+      ctx.fillText("✦  كلنا معاً  ✦", W / 2, 1620);
 
       const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
       const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });

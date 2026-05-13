@@ -314,8 +314,22 @@ function AssistantPage() {
         <DrawModal uid={uid} onClose={() => setShowDraw(false)}
           onAttach={(url, data) => { setPendingImage({ url, previewData: data }); setShowDraw(false); }} />
       )}
-      {editorImageUrl && (
-        <ImageTextEditor onClose={() => setEditorImageUrl(null)} initialImageUrl={editorImageUrl} />
+      {editorImageUrl && uid && (
+        <ImageTextEditor
+          onClose={() => setEditorImageUrl(null)}
+          initialImageUrl={editorImageUrl}
+          onSend={async (dataUrl: string) => {
+            // Upload edited image then attach it to the chat
+            const blob = await (await fetch(dataUrl)).blob();
+            const path = `${uid}/edited-${Date.now()}.jpg`;
+            const { error } = await supabase.storage.from("chat-images").upload(path, blob, { contentType: "image/jpeg" });
+            if (error) { toast.error("فشل رفع الصورة"); return; }
+            const url = supabase.storage.from("chat-images").getPublicUrl(path).data.publicUrl;
+            setPendingImage({ url, previewData: dataUrl });
+            setInput(isAr ? "حلّل هذه الصورة المعدّلة." : "Analyze this edited image.");
+            setEditorImageUrl(null);
+          }}
+        />
       )}
     </div>
   );
