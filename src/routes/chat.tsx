@@ -269,21 +269,7 @@ function ChatPage() {
             <p className="text-xs text-muted-foreground">شات تعليمي مباشر</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          {/* ===== زر التحديد للحذف الجماعي ===== */}
-          {isMod && (
-            <button
-              onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold border transition-colors ${
-                selectMode
-                  ? "bg-rose-100 text-rose-700 border-rose-300"
-                  : "bg-secondary text-foreground border-border hover:bg-secondary/80"
-              }`}
-            >
-              <ShieldAlert className="h-4 w-4" />
-              {selectMode ? "إلغاء التحديد" : "تحديد للحذف"}
-            </button>
-          )}
+        <div className="flex items-center gap-2">
           <Link to="/profile" className="p-2 rounded-lg hover:bg-secondary text-muted-foreground" title="بياناتي">
             <UserIcon className="h-4 w-4" />
           </Link>
@@ -348,24 +334,39 @@ function ChatPage() {
           </p>
         </div>
 
-        {/* ===== زر فتح/قفل الشات — دايرة في المنتصف ===== */}
-        {canControlChat && (
-          <div className="flex justify-center py-2">
-            <button
-              onClick={toggleChatOpen}
-              disabled={togglingChat}
-              title={chatOpen ? "اضغط لقفل الشات" : "اضغط لفتح الشات"}
-              className={`flex flex-col items-center justify-center w-24 h-24 rounded-full text-white font-black shadow-lg border-4 transition-all disabled:opacity-60 active:scale-95 ${
-                chatOpen
-                  ? "bg-emerald-500 border-emerald-300 hover:bg-emerald-600 shadow-emerald-200"
-                  : "bg-red-500 border-red-300 hover:bg-red-600 shadow-red-200"
-              }`}
-            >
-              {chatOpen
-                ? <><LockOpen className="h-7 w-7 mb-1" /><span className="text-[11px] leading-tight text-center">مفتوح<br/>اضغط للقفل</span></>
-                : <><Lock className="h-7 w-7 mb-1" /><span className="text-[11px] leading-tight text-center">مغلق<br/>اضغط للفتح</span></>
-              }
-            </button>
+        {/* ===== زر فتح/قفل + زر التحديد ===== */}
+        {(canControlChat || isMod) && (
+          <div className="flex justify-center items-center gap-4 py-2 flex-wrap">
+            {canControlChat && (
+              <button
+                onClick={toggleChatOpen}
+                disabled={togglingChat}
+                title={chatOpen ? "اضغط لقفل الشات" : "اضغط لفتح الشات"}
+                className={`flex flex-col items-center justify-center w-24 h-24 rounded-full text-white font-black shadow-lg border-4 transition-all disabled:opacity-60 active:scale-95 ${
+                  chatOpen
+                    ? "bg-emerald-500 border-emerald-300 hover:bg-emerald-600 shadow-emerald-200"
+                    : "bg-red-500 border-red-300 hover:bg-red-600 shadow-red-200"
+                }`}
+              >
+                {chatOpen
+                  ? <><LockOpen className="h-7 w-7 mb-1" /><span className="text-[11px] leading-tight text-center">مفتوح<br/>اضغط للقفل</span></>
+                  : <><Lock className="h-7 w-7 mb-1" /><span className="text-[11px] leading-tight text-center">مغلق<br/>اضغط للفتح</span></>
+                }
+              </button>
+            )}
+            {isMod && (
+              <button
+                onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
+                className={`flex flex-col items-center justify-center w-24 h-24 rounded-full font-black shadow-lg border-4 transition-all active:scale-95 ${
+                  selectMode
+                    ? "bg-rose-500 border-rose-300 text-white hover:bg-rose-600"
+                    : "bg-secondary border-border text-foreground hover:bg-secondary/80"
+                }`}
+              >
+                <ShieldAlert className="h-7 w-7 mb-1" />
+                <span className="text-[11px] leading-tight text-center">{selectMode ? "إلغاء\nالتحديد" : "تحديد\nللحذف"}</span>
+              </button>
+            )}
           </div>
         )}
 

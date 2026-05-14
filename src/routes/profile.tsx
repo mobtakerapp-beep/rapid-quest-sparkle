@@ -208,18 +208,36 @@ function ProfilePage() {
   ];
   const isElevated = roleType === "teacher" || roleType === "supervisor" || isAdmin;
 
+  const handleLogout = async () => {
+    playLogoutSound();
+    await new Promise(r => setTimeout(r, 350));
+    await supabase.auth.signOut();
+    navigate({ to: "/" });
+  };
+
   return (
-    <div dir="rtl" className="min-h-screen bg-background p-4 relative overflow-hidden">
+    <div dir="rtl" className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="bg-card border-b border-border sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <button type="button" onClick={handleLogout}
+            className="inline-flex items-center gap-2 text-sm text-destructive hover:opacity-80 font-bold">
+            <LogOut className="h-4 w-4" /> تسجيل خروج
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-9 rounded-xl bg-[image:var(--gradient-hero)] flex items-center justify-center text-white">
+              <UserIcon className="h-5 w-5" />
+            </div>
+            <h1 className="font-bold">ملفي الشخصي</h1>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-4 relative overflow-hidden">
       <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[var(--brand)] opacity-20 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[var(--brand-2)] opacity-20 blur-3xl pointer-events-none" />
 
-      <div className="relative max-w-2xl mx-auto pt-16 sm:pt-12">
-        <div className="flex items-center justify-between mb-4">
-          <button type="button" onClick={async () => { playLogoutSound(); await new Promise(r => setTimeout(r, 350)); await supabase.auth.signOut(); navigate({ to: "/" }); }}
-            className="inline-flex items-center gap-2 text-sm text-destructive hover:opacity-80">
-            <LogOut className="h-4 w-4" /> تسجيل خروج
-          </button>
-        </div>
+      <div className="relative max-w-2xl mx-auto pt-4 sm:pt-4">
 
         {displayName && roleType && (
           <div className="mb-4 rounded-2xl bg-[image:var(--gradient-hero)] text-white p-4 text-center shadow-[var(--shadow-soft)]">
@@ -493,6 +511,7 @@ function ProfilePage() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

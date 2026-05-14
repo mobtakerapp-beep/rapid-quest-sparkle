@@ -1,7 +1,7 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Calendar as CalIcon, Plus, X } from "lucide-react";
+import { Calendar as CalIcon, Plus, X, Trash2, CheckSquare, Square } from "lucide-react";
 import { toast } from "sonner";
 import { DateTimePicker } from "@/components/DateTimePicker";
 import { playNotificationSound } from "@/lib/sounds";
@@ -34,12 +34,18 @@ function CalendarPage() {
   const [desc, setDesc] = useState("");
   const [startsAt, setStartsAt] = useState("");
   const [type, setType] = useState("general");
+  // تحديد جماعي
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const uidRef = useRef<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) { navigate({ to: "/login" }); return; }
       const id = data.session.user.id;
       setUid(id);
+      uidRef.current = id;
       const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", id);
       setIsTeacher(!!roles?.some((r) => ["admin", "teacher", "supervisor"].includes(String(r.role))));
       load();
@@ -51,7 +57,23 @@ function CalendarPage() {
     setEvents((data || []) as Ev[]);
   };
 
-  // Schedule client-side reminders for upcoming events (fires once when due)
+  // ── Realtime subscription ──
+  useEffect(() => {
+    const ch = supabase.channel("calendar-events-rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "events" }, (p) => {
+        setEvents((prev) => prev.some((x) => x.id === (p.new as any).id) ? prev : [...prev, p.new as Ev].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "events" }, (p) => {
+        setEvents((prev) => prev.filter((x) => x.id !== (p.old as any).id));
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "events" }, (p) => {
+        setEvents((prev) => prev.map((x) => x.id === (p.new as any).id ? p.new as Ev : x));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
+  // ── Reminders ──
   useEffect(() => {
     const fired = new Set<string>(JSON.parse(localStorage.getItem("ev_fired") || "[]"));
     const timers: ReturnType<typeof setTimeout>[] = [];
@@ -59,15 +81,13 @@ function CalendarPage() {
       if (fired.has(e.id)) return;
       const ms = new Date(e.starts_at).getTime() - Date.now();
       if (ms <= 0 && ms > -10 * 60 * 1000) {
-        notifyEventNow(e);
-        fired.add(e.id);
+        notifyEventNow(e); fired.add(e.id);
         localStorage.setItem("ev_fired", JSON.stringify([...fired]));
         return;
       }
       if (ms > 0 && ms < 24 * 3600 * 1000) {
         timers.push(setTimeout(() => {
-          notifyEventNow(e);
-          fired.add(e.id);
+          notifyEventNow(e); fired.add(e.id);
           localStorage.setItem("ev_fired", JSON.stringify([...fired]));
         }, ms));
       }
@@ -84,12 +104,40 @@ function CalendarPage() {
     });
     if (error) return toast.error(error.message);
     toast.success("تمت إضافة الفعالية 🎉");
-    const delay = new Date(startsAt).getTime() - Date.now();
-    if (delay <= 10 * 60 * 1000) {
-      toast.info("تم ضبط تنبيه هذه الفعالية، سيظهر في موعدها هنا وفي الجرس 🔔");
-    }
     setTitle(""); setDesc(""); setStartsAt(""); setShowForm(false);
     load();
+  };
+
+  const deleteOne = async (id: string) => {
+    if (!confirm("حذف الفعالية؟")) return;
+    const { error } = await supabase.from("events").delete().eq("id", id);
+    if (error) return toast.error("لا تملك صلاحية الحذف");
+    toast.success("تم الحذف");
+    setEvents((p) => p.filter((x) => x.id !== id));
+  };
+
+  const deleteSelected = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`حذف ${selected.size} فعالية؟`)) return;
+    setDeleting(true);
+    try {
+      const ids = Array.from(selected);
+      const { error } = await supabase.from("events").delete().in("id", ids);
+      if (error) throw error;
+      setEvents((prev) => prev.filter((e) => !selected.has(e.id)));
+      setSelected(new Set());
+      setSelectMode(false);
+      toast.success(`تم حذف ${ids.length} فعالية`);
+    } catch { toast.error("فشل الحذف"); }
+    finally { setDeleting(false); }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
 
   // Group by date
@@ -116,10 +164,46 @@ function CalendarPage() {
             </div>
             <h1 className="font-bold">التقويم والفعاليات</h1>
           </div>
+          {/* زر التحديد للحذف الجماعي */}
+          {isTeacher && (
+            <button
+              onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold border transition-colors ${
+                selectMode ? "bg-rose-100 text-rose-700 border-rose-300" : "bg-secondary text-foreground border-border hover:bg-secondary/80"
+              }`}
+            >
+              <Trash2 className="h-4 w-4" />
+              {selectMode ? "إلغاء" : "تحديد للحذف"}
+            </button>
+          )}
         </div>
       </header>
+
+      {/* شريط التحديد الجماعي */}
+      {selectMode && isTeacher && (
+        <div className="sticky top-[57px] z-10 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center gap-3" dir="rtl">
+          <span className="text-sm font-black text-rose-700">{selected.size} محدد</span>
+          <button
+            onClick={() => setSelected(new Set(events.map((e) => e.id)))}
+            className="px-3 py-1 rounded-lg text-xs font-bold bg-rose-200 text-rose-800 hover:bg-rose-300"
+          >
+            تحديد الكل
+          </button>
+          {selected.size > 0 && (
+            <button
+              onClick={deleteSelected}
+              disabled={deleting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60 mr-auto"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              حذف {selected.size} فعالية
+            </button>
+          )}
+        </div>
+      )}
+
       <main className="container mx-auto px-4 py-6 max-w-3xl">
-        {isTeacher && (
+        {isTeacher && !selectMode && (
           <div className="mb-6">
             {!showForm ? (
               <button onClick={() => setShowForm(true)} className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[image:var(--gradient-hero)] text-white font-bold">
@@ -155,34 +239,38 @@ function CalendarPage() {
                 <div className="text-sm font-bold text-muted-foreground mb-2">{day}</div>
                 <div className="space-y-2">
                   {list.map((e) => {
-                    const canDelete = isTeacher && (e.created_by === uid || isTeacher);
-                    const onDelete = async () => {
-                      if (!confirm("حذف الفعالية؟")) return;
-                      const { error } = await supabase.from("events").delete().eq("id", e.id);
-                      if (error) return toast.error("لا تملك صلاحية الحذف");
-                      toast.success("تم الحذف");
-                      setEvents((p) => p.filter((x) => x.id !== e.id));
-                    };
+                    const isSelected = selected.has(e.id);
                     return (
-                    <div key={e.id} className="bg-card rounded-2xl border border-border p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <div className="font-bold mb-1">{e.title}</div>
-                          {e.description && <div className="text-sm text-muted-foreground">{e.description}</div>}
-                          <div className="text-xs text-muted-foreground mt-2">
-                            {new Date(e.starts_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                      <div
+                        key={e.id}
+                        onClick={selectMode ? () => toggleSelect(e.id) : undefined}
+                        className={`bg-card rounded-2xl border border-border p-4 transition-colors ${
+                          selectMode ? "cursor-pointer " + (isSelected ? "ring-2 ring-rose-400 bg-rose-50" : "hover:bg-secondary/50") : ""
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          {selectMode && (
+                            <div className="flex-shrink-0 self-center">
+                              {isSelected ? <CheckSquare className="h-5 w-5 text-rose-600" /> : <Square className="h-5 w-5 text-muted-foreground" />}
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <div className="font-bold mb-1">{e.title}</div>
+                            {e.description && <div className="text-sm text-muted-foreground">{e.description}</div>}
+                            <div className="text-xs text-muted-foreground mt-2">
+                              {new Date(e.starts_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className={`text-xs px-2 py-1 rounded-full ${typeColors[e.type] || typeColors.general}`}>{e.type}</span>
+                            {isTeacher && !selectMode && (
+                              <button onClick={() => deleteOne(e.id)} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className={`text-xs px-2 py-1 rounded-full ${typeColors[e.type] || typeColors.general}`}>{e.type}</span>
-                          {canDelete && (
-                            <button onClick={onDelete} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
                       </div>
-                    </div>
                     );
                   })}
                 </div>

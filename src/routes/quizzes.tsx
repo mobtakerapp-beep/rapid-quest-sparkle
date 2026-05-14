@@ -50,6 +50,17 @@ function QuizzesPage() {
     });
   }, [navigate]);
 
+  // ── Realtime subscription ──
+  useEffect(() => {
+    const ch = supabase.channel("quizzes-rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "quizzes" }, () => load())
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "quizzes" }, () => load())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "quizzes" }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const load = async (userId?: string) => {
     const currentUid = userId ?? uid;
     // Use RPC so students get list without correct answers; teachers/admins still see everything via RLS

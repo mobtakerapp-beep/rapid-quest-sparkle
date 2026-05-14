@@ -15,14 +15,22 @@ function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"student" | "teacher">("student");
 
+  const loadProfiles = async () => {
+    const { data: profs } = await supabase.from("profiles").select("id, display_name, role_type, points").order("points", { ascending: false }).limit(200);
+    const all = (profs || []) as any as Row[];
+    setStudents(all.filter((p) => !p.role_type || p.role_type === "student").slice(0, 50));
+    setTeachers(all.filter((p) => ["teacher","supervisor","admin"].includes(p.role_type || "")).slice(0, 50));
+    setLoading(false);
+  };
+
   useEffect(() => {
-    (async () => {
-      const { data: profs } = await supabase.from("profiles").select("id, display_name, role_type, points").order("points", { ascending: false }).limit(200);
-      const all = (profs || []) as any as Row[];
-      setStudents(all.filter((p) => !p.role_type || p.role_type === "student").slice(0, 50));
-      setTeachers(all.filter((p) => ["teacher","supervisor","admin"].includes(p.role_type || "")).slice(0, 50));
-      setLoading(false);
-    })();
+    loadProfiles();
+    // ── Realtime subscription ──
+    const ch = supabase.channel("leaderboard-rt")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () => loadProfiles())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const rows = tab === "student" ? students : teachers;

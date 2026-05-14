@@ -73,6 +73,22 @@ function ActivitiesPage() {
     setItems((data || []) as Activity[]);
   };
 
+  // ── Realtime subscription ──
+  useEffect(() => {
+    const ch = supabase.channel("activities-rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activities" }, (p) => {
+        setItems((prev) => prev.some((x) => x.id === (p.new as any).id) ? prev : [p.new as Activity, ...prev]);
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "activities" }, (p) => {
+        setItems((prev) => prev.filter((x) => x.id !== (p.old as any).id));
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "activities" }, (p) => {
+        setItems((prev) => prev.map((x) => x.id === (p.new as any).id ? p.new as Activity : x));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
   const upload = async () => {
     if (!uid || !title.trim()) { toast.error("أكمل البيانات"); return; }
     if (file && file.size > 50 * 1024 * 1024) { toast.error("الملف كبير (الحد 50 ميجا)"); return; }

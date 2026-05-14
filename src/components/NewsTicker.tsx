@@ -89,13 +89,19 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
     for (const ev of (upcomingEvents || [])) {
       const startsDate = new Date(ev.starts_at);
       const diffMs = startsDate.getTime() - Date.now();
-      const diffDays = Math.ceil(diffMs / (1000 * 3600 * 24));
+      const diffHours = Math.floor(diffMs / (1000 * 3600));
+      const diffMins = Math.floor((diffMs % (1000 * 3600)) / 60000);
       const timeStr = startsDate.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
-      const dayStr = diffDays === 0 ? "اليوم" : diffDays === 1 ? "غداً" : `بعد ${diffDays} أيام`;
+      let dayStr: string;
+      if (diffMins < 2) dayStr = "الآن!";
+      else if (diffHours < 1) dayStr = `باقي ${diffMins} دقيقة`;
+      else if (diffHours < 24) dayStr = `اليوم الساعة ${timeStr} — باقي ${diffHours} ساعة${diffMins > 0 ? ` و${diffMins} دقيقة` : ""}`;
+      else if (diffHours < 48) dayStr = `غداً الساعة ${timeStr}`;
+      else dayStr = `بعد ${Math.ceil(diffMs / (1000 * 3600 * 24))} أيام الساعة ${timeStr}`;
       const icon = ev.type === "competition" ? "🏆" : ev.type === "assignment" ? "📋" : "📅";
       items.push({
         id: `event-${ev.id}`,
-        text: `${icon} فعالية قادمة: "${ev.title}" — ${dayStr} الساعة ${timeStr}`,
+        text: `${icon} فعالية قادمة: "${ev.title}" — ${dayStr}`,
         type: "auto",
       });
     }
