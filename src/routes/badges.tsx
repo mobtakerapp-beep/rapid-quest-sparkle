@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Award, Download, User as UserIcon, Target, Palette, Type as TypeIcon } from "lucide-react";
+import { ArrowLeft, Award, Download, User as UserIcon, Target, Palette, Type as TypeIcon, Copy, Check, Users, Search } from "lucide-react";
 import jsPDF from "jspdf";
 import { MyBadges } from "@/components/MyBadges";
 import { MyCertificates } from "@/components/MyCertificates";
@@ -26,6 +26,18 @@ function BadgesPage() {
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [gradedSubs, setGradedSubs] = useState<GradedSub[]>([]);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [isParent, setIsParent] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+
+  // Parent portal state
+  const [parentCodeInput, setParentCodeInput] = useState("");
+  const [linking, setLinking] = useState(false);
+  const [linkedStudent, setLinkedStudent] = useState<{
+    uid: string; name: string; points: number; counts: Record<string,number>;
+    attempts: Attempt[]; gradedSubs: GradedSub[];
+  } | null>(null);
+  const [linkError, setLinkError] = useState("");
+  const [generatingParentReport, setGeneratingParentReport] = useState(false);
 
   const [selectedTheme, setSelectedTheme] = useState(CERT_THEMES[0]);
   const [selectedFont, setSelectedFont] = useState(CERT_FONTS[0]);
@@ -44,6 +56,9 @@ function BadgesPage() {
         supabase.from("quiz_attempts").select("id, quiz_id, score, total, created_at").eq("user_id", id).order("created_at", { ascending: false }),
       ]);
       setName(p?.display_name || ""); setPoints(p?.points || 0); setAvatar((p as any)?.avatar_url || null);
+
+      if ((p as any)?.role_type === "parent") { setIsParent(true); return; }
+
       const isTeacher = p?.role_type === "teacher" || p?.role_type === "supervisor" || !!roles?.some((r) => r.role === "admin");
       setAudience(isTeacher ? "teacher" : "student");
       setAll((bs || []) as B[]);
@@ -70,6 +85,42 @@ function BadgesPage() {
       setGradedSubs((subs || []).map((s: any) => ({ ...s, title: amap[s.assignment_id]?.title || "واجب", subject: amap[s.assignment_id]?.subject })));
     });
   }, [navigate]);
+
+  const lookupStudent = async () => {
+    const code = parentCodeInput.trim();
+    if (!code) { setLinkError("أدخل كود الطالب"); return; }
+    setLinking(true); setLinkError(""); setLinkedStudent(null);
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("id, display_name, points, role_type")
+      .eq("id", code)
+      .eq("role_type", "student")
+      .maybeSingle();
+    if (!prof) {
+      setLinkError("لم يُعثر على طالب بهذا الكود — تأكد من الكود وأعد المحاولة");
+      setLinking(false); return;
+    }
+    const sid = prof.id;
+    const [{ data: ub }, { data: at }] = await Promise.all([
+      supabase.from("user_badges").select("badge_id").eq("user_id", sid),
+      supabase.from("quiz_attempts").select("id, quiz_id, score, total, created_at").eq("user_id", sid).order("created_at", { ascending: false }),
+    ]);
+    const c: Record<string, number> = {};
+    (ub || []).forEach((x: any) => { c[x.badge_id] = (c[x.badge_id] || 0) + 1; });
+    const qids = [...new Set((at || []).map((a: any) => a.quiz_id))];
+    const { data: quizzes } = qids.length ? await supabase.from("quizzes").select("id, title, subject").in("id", qids) : { data: [] };
+    const qmap: Record<string, { title: string; subject: string }> = {};
+    (quizzes || []).forEach((q: any) => { qmap[q.id] = { title: q.title, subject: q.subject }; });
+    const mappedAt: Attempt[] = (at || []).map((a: any) => ({ ...a, quiz_title: qmap[a.quiz_id]?.title || "اختبار", subject: qmap[a.quiz_id]?.subject }));
+    const { data: subs } = await supabase.from("assignment_submissions").select("id, assignment_id, grade, feedback, graded_at").eq("student_id", sid).not("grade", "is", null).order("graded_at", { ascending: false });
+    const aids = [...new Set((subs || []).map((s: any) => s.assignment_id))];
+    const { data: asgs } = aids.length ? await supabase.from("assignments").select("id, title, subject").in("id", aids) : { data: [] };
+    const amap: Record<string, { title: string; subject: string }> = {};
+    (asgs || []).forEach((a: any) => { amap[a.id] = { title: a.title, subject: a.subject }; });
+    const mappedSubs: GradedSub[] = (subs || []).map((s: any) => ({ ...s, title: amap[s.assignment_id]?.title || "واجب", subject: amap[s.assignment_id]?.subject }));
+    setLinkedStudent({ uid: sid, name: prof.display_name || "—", points: prof.points || 0, counts: c, attempts: mappedAt, gradedSubs: mappedSubs });
+    setLinking(false);
+  };
 
   const certificate = async () => {
     setGenerating(true);
@@ -309,11 +360,201 @@ function BadgesPage() {
     }
   };
 
+  const downloadStudentReport = async (
+    sName: string, sPoints: number, sCounts: Record<string,number>,
+    sAttempts: Attempt[], sGradedSubs: GradedSub[], setLoading: (v: boolean) => void
+  ) => {
+    setLoading(true);
+    try {
+      await loadGoogleFont(selectedFont.family);
+      const theme = selectedTheme;
+      const af = `"${selectedFont.family}", Tajawal, Cairo, Arial`;
+      const W = 1240, H = 1754;
+      const c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      const ctx = c.getContext("2d")!;
+      ctx.direction = "rtl";
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, theme.bg1); g.addColorStop(1, theme.bg2);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = theme.border1; ctx.lineWidth = 18;
+      ctx.strokeRect(40, 40, W - 80, H - 80);
+      ctx.strokeStyle = theme.border2; ctx.lineWidth = 4;
+      ctx.strokeRect(80, 80, W - 160, H - 160);
+      ctx.textAlign = "center";
+      ctx.fillStyle = theme.title; ctx.font = `bold 56px ${af}`;
+      ctx.fillText("كشف درجات الطالب", W / 2, 170);
+      ctx.fillStyle = theme.body + "bb"; ctx.font = `26px ${af}`;
+      ctx.fillText("مبادرة « كلنا معاً » – محافظة الوسطى", W / 2, 215);
+      ctx.strokeStyle = theme.accent; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(140, 240); ctx.lineTo(W - 140, 240); ctx.stroke();
+      ctx.fillStyle = theme.body; ctx.font = `28px ${af}`;
+      ctx.textAlign = "right";
+      const date = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+      ctx.fillText(`اسم الطالب: ${sName || "—"}`, W - 110, 290);
+      ctx.fillText(`النقاط: ${sPoints}`, W - 110, 330);
+      ctx.textAlign = "left";
+      ctx.fillText(`التاريخ: ${date}`, 110, 290);
+      ctx.fillText(`عدد الشارات: ${Object.keys(sCounts).length}`, 110, 330);
+      let y = 380;
+      const drawSection = (title: string, rows: string[][], headers: string[]) => {
+        if (y > H - 220) return;
+        ctx.textAlign = "right";
+        ctx.fillStyle = theme.title; ctx.font = `bold 32px ${af}`;
+        ctx.fillText(title, W - 110, y); y += 20;
+        ctx.fillStyle = theme.accent + "40"; ctx.fillRect(110, y, W - 220, 44);
+        ctx.fillStyle = theme.title; ctx.font = `bold 22px ${af}`;
+        const colW = (W - 220) / headers.length;
+        headers.forEach((h, i) => { ctx.textAlign = "center"; ctx.fillText(h, W - 110 - colW * i - colW / 2, y + 30); });
+        y += 44; ctx.font = `22px ${af}`; ctx.fillStyle = theme.body;
+        rows.forEach((r, ri) => {
+          if (y > H - 200) return;
+          if (ri % 2 === 0) { ctx.fillStyle = theme.bg2 + "80"; ctx.fillRect(110, y, W - 220, 40); }
+          ctx.fillStyle = theme.body;
+          r.forEach((cell, i) => { ctx.textAlign = "center"; ctx.fillText(cell.length > 30 ? cell.slice(0, 28) + "…" : cell, W - 110 - colW * i - colW / 2, y + 28); });
+          y += 40;
+        }); y += 30;
+      };
+      if (sAttempts.length) {
+        const rows = sAttempts.slice(0, 12).map((a) => {
+          const pct = a.total > 0 ? Math.round((a.score / a.total) * 100) : 0;
+          return [new Date(a.created_at).toLocaleDateString("ar-EG"), `${pct}%`, `${a.score}/${a.total}`, a.subject || "عام", a.quiz_title || "اختبار"];
+        });
+        drawSection(`📝 درجات الاختبارات (${sAttempts.length})`, rows, ["الاختبار", "المادة", "الدرجة", "النسبة", "التاريخ"]);
+      }
+      if (sGradedSubs.length) {
+        const rows = sGradedSubs.slice(0, 12).map((s) => [
+          s.graded_at ? new Date(s.graded_at).toLocaleDateString("ar-EG") : "—", String(s.grade ?? "—"), s.subject || "عام", s.title || "واجب",
+        ]);
+        drawSection(`📚 درجات الواجبات (${sGradedSubs.length})`, rows, ["الواجب", "المادة", "الدرجة", "التاريخ"]);
+      }
+      if (!sAttempts.length && !sGradedSubs.length) {
+        ctx.fillStyle = theme.body; ctx.font = `28px ${af}`; ctx.textAlign = "center";
+        ctx.fillText("لا توجد درجات مسجّلة بعد", W / 2, y + 40);
+      }
+      ctx.fillStyle = theme.accent; ctx.font = "26px serif"; ctx.textAlign = "center";
+      ctx.fillText("✦  كلنا معاً  ✦", W / 2, H - 110);
+      ctx.fillStyle = theme.body + "99"; ctx.font = `20px ${af}`;
+      ctx.fillText("توقيع ولي الأمر: ____________________", W / 2, H - 60);
+      const img = c.toDataURL("image/jpeg", 0.95);
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      doc.addImage(img, "JPEG", 0, 0, 210, 297);
+      doc.save(`كشف-درجات-${sName || "طالب"}.pdf`);
+    } finally { setLoading(false); }
+  };
+
   const colors: Record<string, string> = {
     amber: "from-amber-400 to-orange-500", emerald: "from-emerald-400 to-teal-500",
     rose: "from-rose-400 to-pink-500", violet: "from-violet-400 to-purple-500",
     cyan: "from-cyan-400 to-blue-500",
   };
+
+  // ── Parent portal view ──────────────────────────────────────────────────
+  if (isParent) return (
+    <div dir="rtl" className="min-h-screen bg-background">
+      <header className="bg-card border-b border-border sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-3 flex items-center gap-2">
+          <Link to="/"><ArrowLeft className="h-5 w-5" /></Link>
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white"><Users className="h-5 w-5" /></div>
+          <h1 className="font-bold">بوابة ولي الأمر</h1>
+        </div>
+      </header>
+      <main className="container mx-auto px-4 py-6 max-w-xl space-y-6">
+        <div className="bg-card rounded-3xl border border-border p-6 space-y-4">
+          <div className="text-center">
+            <div className="text-4xl mb-2">👨‍👧‍👦</div>
+            <h2 className="text-xl font-black">ادخل كود ابنك / ابنتك</h2>
+            <p className="text-xs text-muted-foreground mt-1">اطلب من الطالب نسخ كوده من صفحة "شاراتي وإنجازاتي" وأرسله لك</p>
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={parentCodeInput}
+              onChange={(e) => { setParentCodeInput(e.target.value); setLinkError(""); }}
+              placeholder="الصق كود الطالب هنا..."
+              className="flex-1 px-4 py-3 rounded-xl border-2 border-border bg-background font-mono text-sm focus:border-[var(--brand)] outline-none transition"
+              onKeyDown={(e) => e.key === "Enter" && lookupStudent()}
+            />
+            <button onClick={lookupStudent} disabled={linking}
+              className="px-5 py-3 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50 inline-flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              {linking ? "..." : "بحث"}
+            </button>
+          </div>
+          {linkError && <p className="text-sm text-rose-600 font-bold text-center">{linkError}</p>}
+        </div>
+
+        {linkedStudent && (
+          <div className="space-y-4">
+            <div className="bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 rounded-3xl p-6 text-center">
+              <div className="text-4xl mb-2">✅</div>
+              <h3 className="text-2xl font-black">{linkedStudent.name}</h3>
+              <div className="text-5xl font-black bg-[image:var(--gradient-hero)] bg-clip-text text-transparent mt-2">{linkedStudent.points}</div>
+              <div className="text-sm text-muted-foreground">نقطة • {Object.keys(linkedStudent.counts).length} شارة</div>
+            </div>
+
+            {linkedStudent.attempts.length > 0 && (
+              <div className="bg-card rounded-3xl border border-border p-5">
+                <h3 className="font-bold mb-3 flex items-center gap-2"><Target className="h-5 w-5 text-rose-500" /> درجات الاختبارات <span className="text-xs font-normal text-muted-foreground">({linkedStudent.attempts.length})</span></h3>
+                <div className="overflow-y-auto max-h-64 space-y-1.5">
+                  {linkedStudent.attempts.map((a) => {
+                    const pct = a.total > 0 ? Math.round((a.score / a.total) * 100) : 0;
+                    const bar = pct >= 75 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-400" : "bg-rose-500";
+                    const txt = pct >= 75 ? "text-emerald-700" : pct >= 50 ? "text-amber-700" : "text-rose-700";
+                    return (
+                      <div key={a.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/50">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-[10px] font-black shrink-0 ${bar}`}>{pct}%</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-xs truncate">{a.quiz_title}</div>
+                          <div className="text-[10px] text-muted-foreground">{new Date(a.created_at).toLocaleDateString("ar-EG")}</div>
+                        </div>
+                        <div className={`text-sm font-black ${txt} shrink-0`}>{a.score}/{a.total}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {linkedStudent.gradedSubs.length > 0 && (
+              <div className="bg-card rounded-3xl border border-border p-5">
+                <h3 className="font-bold mb-3 flex items-center gap-2"><Target className="h-5 w-5 text-violet-500" /> درجات الواجبات <span className="text-xs font-normal text-muted-foreground">({linkedStudent.gradedSubs.length})</span></h3>
+                <div className="overflow-y-auto max-h-48 space-y-1.5">
+                  {linkedStudent.gradedSubs.map((s) => (
+                    <div key={s.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/50">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-violet-500 text-white text-[10px] font-black shrink-0">{s.grade ?? "—"}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-xs truncate">{s.title}</div>
+                        <div className="text-[10px] text-muted-foreground">{s.graded_at ? new Date(s.graded_at).toLocaleDateString("ar-EG") : "—"}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-card rounded-3xl border border-border p-5 space-y-3">
+              <div className="font-bold flex items-center gap-2"><Palette className="h-4 w-4 text-[var(--brand)]" /> تخصيص كشف الدرجات</div>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                {CERT_THEMES.map((t) => (
+                  <button key={t.id} type="button" onClick={() => setSelectedTheme(t)}
+                    className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 transition ${selectedTheme.id === t.id ? "border-[var(--brand)] shadow-md" : "border-border"}`}>
+                    <div className="w-8 h-8 rounded-lg" style={{ background: `linear-gradient(135deg, ${t.bg1}, ${t.border1})` }} />
+                    <span className="text-[9px] font-bold text-center">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => downloadStudentReport(linkedStudent.name, linkedStudent.points, linkedStudent.counts, linkedStudent.attempts, linkedStudent.gradedSubs, setGeneratingParentReport)}
+                disabled={generatingParentReport}
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50 transition">
+                <Download className="h-4 w-4" /> {generatingParentReport ? "جاري التحضير..." : "طباعة كشف درجات الطالب PDF"}
+              </button>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
 
   return (
     <div dir="rtl" className="min-h-screen bg-background">
@@ -337,6 +578,27 @@ function BadgesPage() {
           <div className="text-sm text-muted-foreground mb-4">نقطة</div>
           <div className="text-sm mb-4">حصلت على <strong>{Object.keys(counts).length}</strong> من أصل <strong>{all.filter(b => b.audience === audience).length}</strong> شارة</div>
         </div>
+
+        {/* كود ولي الأمر */}
+        {uid && audience === "student" && (
+          <div className="bg-teal-50 dark:bg-teal-950/30 border-2 border-teal-300 dark:border-teal-700 rounded-3xl p-5 mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="h-5 w-5 text-teal-600" />
+              <h3 className="font-bold text-teal-700 dark:text-teal-400">كود ولي الأمر</h3>
+            </div>
+            <p className="text-xs text-teal-600 dark:text-teal-500 mb-3">
+              أرسل هذا الكود لولي أمرك حتى يتمكن من متابعة درجاتك وطباعة كشف الدرجات
+            </p>
+            <div className="bg-white dark:bg-teal-950/60 rounded-2xl border border-teal-200 dark:border-teal-700 p-3 flex items-center gap-3">
+              <code className="flex-1 font-mono text-xs break-all text-teal-800 dark:text-teal-300 select-all">{uid}</code>
+              <button
+                onClick={() => { navigator.clipboard.writeText(uid); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition">
+                {codeCopied ? <><Check className="h-3.5 w-3.5" /> تم النسخ</> : <><Copy className="h-3.5 w-3.5" /> نسخ</>}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── منتقي الثيم والشهادة inline ── */}
         <div className="bg-card rounded-3xl border border-border p-5 mb-6 space-y-4">
