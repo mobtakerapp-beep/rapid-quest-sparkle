@@ -35,7 +35,7 @@ const features = [
   { icon: Target, title: "اختبارات تفاعلية", desc: "اختبر معلوماتك واكسب نقاطاً", color: "from-rose-500 to-pink-500", to: "/quizzes" as const, badgeKey: null },
   { icon: CalIcon, title: "التقويم", desc: "مواعيد المسابقات والفعاليات", color: "from-cyan-500 to-blue-500", to: "/calendar" as const, badgeKey: null },
   { icon: Trophy, title: "لوحة المتصدرين", desc: "أعلى معلم وأعلى طالب مشارك", color: "from-amber-500 to-orange-500", to: "/leaderboard" as const, badgeKey: null },
-  { icon: Award, title: "شاراتي", desc: "شاراتك وشهادة التقدير", color: "from-amber-500 to-yellow-500", to: "/badges" as const, badgeKey: null },
+  { icon: Award, title: "شاراتي وإنجازاتي", desc: "شاراتك وشهادة التقدير وكشف درجاتك", color: "from-amber-500 to-yellow-500", to: "/badges" as const, badgeKey: null },
   { icon: GraduationCap, title: "لوحة المعلم", desc: "متابعة إحصائيات الطلاب", color: "from-emerald-600 to-teal-600", to: "/teacher" as const, badgeKey: null },
   { icon: Shield, title: "لوحة الإدارة", desc: "نظرة شاملة على المنصة (للمشرف)", color: "from-amber-700 to-red-600", to: "/admin" as const, badgeKey: null },
 ];
