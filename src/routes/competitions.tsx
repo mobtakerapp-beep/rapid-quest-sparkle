@@ -7,7 +7,7 @@ import { Reactions } from "@/components/Reactions";
 import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
 import { ReportButton } from "@/components/ReportButton";
-import { playTick, playFanfare, fireworks, burstStars } from "@/lib/quizFx";
+import { playTick, playCorrect, playFanfare, fireworks, burstStars } from "@/lib/quizFx";
 
 export const Route = createFileRoute("/competitions")({ component: CompetitionsPage });
 
@@ -734,7 +734,12 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
                   const map = shuffleMapRef.current[idx];
                   const originalIdx = map ? map[di] : di;
                   return (
-                  <button key={di} onClick={() => recordAnswer(String(originalIdx))}
+                  <button key={di} onClick={(e) => {
+                      playCorrect();
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      burstStars({ x: (r.left + r.width / 2) / window.innerWidth, y: (r.top + r.height / 2) / window.innerHeight });
+                      recordAnswer(String(originalIdx));
+                    }}
                     className="text-right px-4 py-3 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition font-bold">
                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{['أ','ب','ج','د','هـ','و'][di] ?? String(di+1)}</span>
                     <MathText text={opt} />
@@ -797,6 +802,15 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  const lastTickRef = useRef(-1);
+  useEffect(() => {
+    if (isTeacher || submitted || ended || !isFinite(remaining)) return;
+    if (remaining > 0 && remaining !== lastTickRef.current) {
+      lastTickRef.current = remaining;
+      playTick(remaining);
+    }
+  }, [remaining, isTeacher, submitted, ended]);
 
   useEffect(() => {
     (async () => {
@@ -894,7 +908,12 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
             {comp.is_multiple_choice && shuffledSingle ? (
               <div className="grid sm:grid-cols-2 gap-2">
                 {shuffledSingle.options.map((opt, di) => (
-                  <button key={di} disabled={sending} onClick={() => submitMC(shuffledSingle.map[di])}
+                  <button key={di} disabled={sending} onClick={(e) => {
+                      playCorrect();
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      burstStars({ x: (r.left + r.width / 2) / window.innerWidth, y: (r.top + r.height / 2) / window.innerHeight });
+                      submitMC(shuffledSingle.map[di]);
+                    }}
                     className="text-right px-4 py-3 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition font-bold disabled:opacity-50">
                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-sm me-2">{['أ','ب','ج','د','هـ','و'][di] ?? String(di+1)}</span>
                     <MathText text={opt} />

@@ -1,0 +1,39 @@
+Run npm install
+npm warn ERESOLVE overriding peer dependency
+npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: @tanstack/react-start@1.167.65
+npm error Found: vite@6.4.2
+npm error node_modules/vite
+npm error   peerOptional vite@">=7.0.0" from @tanstack/start-plugin-core@1.169.20
+npm error   node_modules/@tanstack/react-start/node_modules/@tanstack/start-plugin-core
+npm error     @tanstack/start-plugin-core@"1.169.20" from @tanstack/react-start@1.167.65
+npm error     node_modules/@tanstack/react-start
+npm error       @tanstack/react-start@"^1.167.65" from the root project
+npm error     @tanstack/start-plugin-core@"1.169.20" from @tanstack/react-start-rsc@0.0.44
+npm error     node_modules/@tanstack/react-start/node_modules/@tanstack/react-start-rsc
+npm error       @tanstack/react-start-rsc@"0.0.44" from @tanstack/react-start@1.167.65
+npm error       node_modules/@tanstack/react-start
+npm error         @tanstack/react-start@"^1.167.65" from the root project
+npm error
+npm error Could not resolve dependency:
+npm error peerOptional vite@">=7.0.0" from @tanstack/react-start@1.167.65
+npm error node_modules/@tanstack/react-start
+npm error   @tanstack/react-start@"^1.167.65" from the root project
+npm error
+npm error Conflicting peer dependency: vite@8.0.12
+npm error node_modules/vite
+npm error   peerOptional vite@">=7.0.0" from @tanstack/react-start@1.167.65
+npm error   node_modules/@tanstack/react-start
+npm error     @tanstack/react-start@"^1.167.65" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /home/runner/.npm/_logs/2026-05-14T04_59_25_128Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-05-14T04_59_25_128Z-debug-0.log
+Error: Process completed with exit code 1.
