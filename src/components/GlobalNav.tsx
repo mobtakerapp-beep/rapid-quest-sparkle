@@ -1,12 +1,31 @@
 import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { User as UserIcon, Moon, Sun, MessageSquare, Home, LogOut, BadgeCheck } from "lucide-react";
+import { User as UserIcon, Moon, Sun, MessageSquare, Home, LogOut, BadgeCheck, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "./NotificationBell";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
 
+function InlineClock() {
+  const [time, setTime] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const locale = navigator.language || "ar-OM";
+  const timeStr = time.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const city = timezone.split("/").pop()?.replace(/_/g, " ") ?? "";
+  return (
+    <div className="flex flex-col items-center leading-none select-none" dir="ltr">
+      <span className="text-[11px] font-black tabular-nums text-foreground">{timeStr}</span>
+      <span className="text-[9px] text-muted-foreground opacity-70">{city}</span>
+    </div>
+  );
+}
+
 export function GlobalNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isHome = pathname === "/";
   const [uid, setUid] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
@@ -14,6 +33,7 @@ export function GlobalNav() {
   const [gender, setGender] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [dark, setDark] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("theme-mode");
@@ -23,6 +43,20 @@ export function GlobalNav() {
   }, []);
 
   useEffect(() => {
+    // Try cache first for instant display
+    try {
+      const cached = localStorage.getItem("home-greeting-v2");
+      if (cached) {
+        const c = JSON.parse(cached);
+        if (c.display_name) {
+          setName(c.display_name);
+          setRoleType(c.role_type || null);
+          setGender(c.gender || null);
+          setIsAdmin(!!c.isAdmin);
+        }
+      }
+    } catch {}
+
     const load = async (id: string) => {
       const [{ data: p }, { data: roles }] = await Promise.all([
         supabase.from("profiles").select("avatar_url, display_name, role_type, gender").eq("id", id).maybeSingle(),
@@ -41,17 +75,24 @@ export function GlobalNav() {
       else if (hasTeacher && effectiveRole !== "teacher") effectiveRole = "teacher";
       setRoleType(effectiveRole);
       setIsAdmin(hasAdmin);
+      setLoaded(true);
     };
+
     supabase.auth.getSession().then(({ data }) => {
       const id = data.session?.user.id || null;
       setUid(id);
       if (id) load(id);
+      else setLoaded(true);
     });
+
     const { data: sub } = supabase.auth.onAuthStateChange((_, s) => {
       const id = s?.user.id || null;
       setUid(id);
       if (id) load(id);
-      else { setAvatar(null); setName(null); setRoleType(null); setGender(null); setIsAdmin(false); }
+      else {
+        setAvatar(null); setName(null); setRoleType(null);
+        setGender(null); setIsAdmin(false); setLoaded(true);
+      }
     });
     return () => { sub.subscription.unsubscribe(); };
   }, []);
@@ -70,7 +111,6 @@ export function GlobalNav() {
   };
 
   const roleLabel = roleLabelFor(roleType, gender);
-
   const roleColor: Record<string, string> = {
     admin: "text-amber-600 dark:text-amber-400",
     supervisor: "text-violet-600 dark:text-violet-400",
@@ -82,69 +122,89 @@ export function GlobalNav() {
 
   return (
     <div
-      className="fixed top-[60px] left-0 right-0 z-[190] bg-card/97 backdrop-blur border-b border-border shadow-sm"
+      className="fixed top-[32px] left-0 right-0 z-[190] bg-card/97 backdrop-blur border-b border-border shadow-sm"
       dir="rtl"
     >
-      <div className="flex items-center justify-between px-3 py-1.5 gap-2">
+      <div className="flex items-center px-2 py-1 gap-1">
 
-        {/* يمين: التحية + الاسم مع صورة البروفايل */}
-        {uid ? (
-          <Link to="/profile" className="flex items-center gap-2 min-w-0 group flex-1">
-            {avatar ? (
-              <img
-                src={avatar}
-                alt=""
-                className="h-8 w-8 rounded-xl object-cover ring-2 ring-[var(--brand)]/40 group-hover:ring-[var(--brand)] transition shrink-0"
-              />
-            ) : (
-              <div className="h-8 w-8 rounded-xl bg-[image:var(--gradient-hero)] flex items-center justify-center text-white shrink-0">
-                <UserIcon className="h-4 w-4" />
+        {/* يمين: صورة + مرحبا بك + اللقب + الاسم */}
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          {uid ? (
+            <Link to="/profile" className="flex items-center gap-1.5 group min-w-0">
+              {/* الصورة أو الأيقونة */}
+              {avatar ? (
+                <img
+                  src={avatar}
+                  alt=""
+                  className="h-7 w-7 rounded-lg object-cover ring-2 ring-[var(--brand)]/30 group-hover:ring-[var(--brand)] transition shrink-0"
+                />
+              ) : (
+                <div className="h-7 w-7 rounded-lg bg-[image:var(--gradient-hero)] flex items-center justify-center text-white shrink-0">
+                  <UserIcon className="h-3.5 w-3.5" />
+                </div>
+              )}
+              {/* النص: مرحبا بك + اللقب + الاسم */}
+              <div className="flex flex-col min-w-0 leading-none gap-0.5">
+                <span className="text-[9px] text-muted-foreground">مرحباً بك 👋</span>
+                <div className="flex items-center gap-1 min-w-0">
+                  {roleLabel && (
+                    <span className={`text-[10px] font-bold truncate shrink-0 ${nameColor}`}>
+                      {roleLabel}
+                    </span>
+                  )}
+                  {name && (
+                    <span
+                      className={`text-[10px] font-black truncate ${nameColor}`}
+                      style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}
+                    >
+                      {name}
+                    </span>
+                  )}
+                </div>
+                {isAdmin && (
+                  <span className="text-[8px] px-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-black w-fit">
+                    {adminBadgeFor(gender)}
+                  </span>
+                )}
+                {(roleType === "teacher" || roleType === "supervisor") && !isAdmin && (
+                  <span className="text-[8px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5 w-fit">
+                    <BadgeCheck className="h-2 w-2" /> معتمد
+                  </span>
+                )}
               </div>
-            )}
-            <div className="flex flex-col min-w-0">
-              <span className="text-[10px] text-muted-foreground leading-none">مرحباً 👋</span>
-              <span
-                className={`text-xs font-black leading-snug truncate ${nameColor}`}
-                style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}
-              >
-                {roleLabel ? `${roleLabel} ` : ""}
-                {name || "..."}
-              </span>
-              {isAdmin && (
-                <span className="text-[9px] px-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-black w-fit">
-                  {adminBadgeFor(gender)}
-                </span>
-              )}
-              {(roleType === "teacher" || roleType === "supervisor") && !isAdmin && (
-                <span className="text-[9px] text-emerald-600 font-bold flex items-center gap-0.5">
-                  <BadgeCheck className="h-2.5 w-2.5" /> معتمد
-                </span>
-              )}
-            </div>
-          </Link>
-        ) : (
-          <Link to="/login" className="flex items-center gap-2 text-xs font-bold text-[var(--brand)] flex-1">
-            <div className="h-8 w-8 rounded-xl bg-secondary flex items-center justify-center">
-              <UserIcon className="h-4 w-4" />
-            </div>
-            <span>تسجيل الدخول</span>
-          </Link>
-        )}
+            </Link>
+          ) : (
+            <Link to="/login" className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--brand)]">
+              <div className="h-7 w-7 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                <UserIcon className="h-3.5 w-3.5" />
+              </div>
+              <span>تسجيل الدخول</span>
+            </Link>
+          )}
+        </div>
+
+        {/* وسط: الساعة */}
+        <div className="flex items-center justify-center px-2 shrink-0">
+          <InlineClock />
+        </div>
 
         {/* يسار: الأيقونات */}
-        <div className="flex items-center gap-0.5 shrink-0">
-          <Link
-            to="/"
-            className={`p-2 rounded-xl hover:bg-secondary transition ${pathname === "/" ? "text-[var(--brand)]" : "text-muted-foreground"}`}
-            aria-label="الرئيسية"
-            title="الرئيسية"
-          >
-            <Home className="h-4 w-4" />
-          </Link>
+        <div className="flex items-center gap-0 shrink-0">
+          {/* ايقونة الرئيسية تختفي لما تكون في الرئيسية */}
+          {!isHome && (
+            <Link
+              to="/"
+              className="p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition"
+              aria-label="الرئيسية"
+              title="الرئيسية"
+            >
+              <Home className="h-4 w-4" />
+            </Link>
+          )}
 
           <button
             onClick={toggleDark}
-            className="p-2 rounded-xl hover:bg-secondary text-muted-foreground transition"
+            className="p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition"
             aria-label="الوضع الليلي"
             title="الوضع الليلي"
           >
@@ -156,7 +216,7 @@ export function GlobalNav() {
           {uid && (
             <Link
               to={"/messages" as any}
-              className="p-2 rounded-xl hover:bg-secondary text-muted-foreground transition"
+              className="p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition"
               aria-label="الرسائل"
               title="الرسائل الخاصة"
             >
@@ -167,7 +227,7 @@ export function GlobalNav() {
           {uid && (
             <button
               onClick={handleSignOut}
-              className="p-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 hover:text-rose-600 transition"
+              className="p-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 hover:text-rose-600 transition"
               aria-label="تسجيل خروج"
               title="تسجيل خروج"
             >
