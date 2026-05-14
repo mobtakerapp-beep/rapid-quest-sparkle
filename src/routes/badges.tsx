@@ -42,6 +42,30 @@ function BadgesPage() {
   const [selectedTheme, setSelectedTheme] = useState(CERT_THEMES[0]);
   const [selectedFont, setSelectedFont] = useState(CERT_FONTS[0]);
   const [generating, setGenerating] = useState(false);
+  const [showCertCustomizer, setShowCertCustomizer] = useState(false);
+
+  // ── ريل تايم: تحديث فوري عند منح شارة ──────────────────────────────────
+  useEffect(() => {
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    supabase.auth.getSession().then(({ data }) => {
+      const id = data.session?.user.id;
+      if (!id) return;
+      ch = supabase
+        .channel(`badges-rt-${id}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "user_badges", filter: `user_id=eq.${id}` }, async () => {
+          const { data: ub } = await supabase.from("user_badges").select("badge_id").eq("user_id", id);
+          const c: Record<string, number> = {};
+          (ub || []).forEach((x: any) => { c[x.badge_id] = (c[x.badge_id] || 0) + 1; });
+          setCounts(c);
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${id}` }, async () => {
+          const { data: p } = await supabase.from("profiles").select("points").eq("id", id).maybeSingle();
+          if (p) setPoints(p.points || 0);
+        })
+        .subscribe();
+    });
+    return () => { if (ch) supabase.removeChannel(ch); };
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -600,59 +624,9 @@ function BadgesPage() {
           </div>
         )}
 
-        {/* ── منتقي الثيم والشهادة inline ── */}
-        <div className="bg-card rounded-3xl border border-border p-5 mb-6 space-y-4">
-          <div className="font-bold flex items-center gap-2"><Palette className="h-4 w-4 text-[var(--brand)]" /> تخصيص شهادة التقدير</div>
-
-          <div>
-            <div className="text-xs font-bold mb-2 text-muted-foreground">اللون / الثيم</div>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {CERT_THEMES.map((t) => (
-                <button key={t.id} type="button" onClick={() => setSelectedTheme(t)}
-                  title={t.label}
-                  className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 transition ${selectedTheme.id === t.id ? "border-[var(--brand)] shadow-md" : "border-border hover:border-[var(--brand)]/50"}`}>
-                  <div className="w-8 h-8 rounded-lg shadow-sm border border-white/20"
-                    style={{ background: `linear-gradient(135deg, ${t.bg1}, ${t.border1})` }} />
-                  <span className="text-[9px] font-bold text-center leading-tight">{t.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs font-bold mb-2 text-muted-foreground flex items-center gap-1"><TypeIcon className="h-3.5 w-3.5" /> الخط</div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {CERT_FONTS.map((f) => (
-                <button key={f.family} type="button" onClick={() => setSelectedFont(f)}
-                  style={{ fontFamily: `"${f.family}", Tajawal, sans-serif` }}
-                  className={`px-2 py-1.5 rounded-xl border-2 text-xs text-center transition ${selectedFont.family === f.family ? "border-[var(--brand)] bg-[var(--brand)]/10 font-bold" : "border-border hover:border-[var(--brand)]/40"}`}>
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border-4 p-4 text-center"
-            style={{
-              background: `linear-gradient(135deg, ${selectedTheme.bg1}, ${selectedTheme.bg2})`,
-              borderColor: selectedTheme.border1,
-              fontFamily: `"${selectedFont.family}", Tajawal, sans-serif`,
-            }}>
-            <div className="text-2xl mb-1">🏆</div>
-            <div className="text-xs font-black mb-0.5" style={{ color: selectedTheme.title }}>شهادة تقدير</div>
-            <div className="text-base font-black" style={{ color: selectedTheme.name }}>{name || "اسمك"}</div>
-            <div className="text-[10px] mt-0.5 opacity-70" style={{ color: selectedTheme.body }}>مبادرة كلنا معاً – {points} نقطة</div>
-          </div>
-
-          <button onClick={certificate} disabled={generating}
-            className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
-            <Download className="h-4 w-4" /> {generating ? "جاري التحضير..." : "تحميل الشهادة PDF"}
-          </button>
-        </div>
-
-        {/* Quiz scores – compact scrollable */}
+        {/* ① درجات الاختبارات — أولاً */}
         {attempts.length > 0 && (
-          <div className="bg-card rounded-3xl border border-border p-5 shadow-[var(--shadow-card)] mt-6">
+          <div className="bg-card rounded-3xl border border-border p-5 shadow-[var(--shadow-card)] mb-6">
             <h3 className="font-bold mb-3 flex items-center gap-2"><Target className="h-5 w-5 text-rose-500" /> درجات اختباراتي <span className="text-xs font-normal text-muted-foreground">({attempts.length})</span></h3>
             <div className="overflow-y-auto max-h-64 space-y-1.5 pl-1 scrollbar-thin">
               {attempts.map((a) => {
@@ -674,9 +648,9 @@ function BadgesPage() {
           </div>
         )}
 
-        {/* Report card (كشف الدرجات) — printable for parents */}
+        {/* ② زر طباعة الدرجات — ثانياً */}
         {(attempts.length > 0 || gradedSubs.length > 0) && (
-          <div className="bg-card rounded-3xl border border-border p-5 shadow-[var(--shadow-card)] mt-6">
+          <div className="bg-card rounded-3xl border border-border p-5 shadow-[var(--shadow-card)] mb-6">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold flex items-center gap-2"><Target className="h-5 w-5 text-emerald-600" /> كشف الدرجات لولي الأمر</h3>
@@ -686,11 +660,77 @@ function BadgesPage() {
               </div>
               <button onClick={downloadReport} disabled={generatingReport}
                 className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-50 transition whitespace-nowrap">
-                <Download className="h-3.5 w-3.5" /> {generatingReport ? "جاري..." : "تحميل PDF"}
+                <Download className="h-3.5 w-3.5" /> {generatingReport ? "جاري..." : "طباعة PDF"}
               </button>
             </div>
           </div>
         )}
+
+        {/* ③ شهادة التقدير — قبل الشهادات — مع زر تعديل/طباعة */}
+        <div className="bg-card rounded-3xl border border-border p-5 mb-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="font-bold flex items-center gap-2"><Download className="h-4 w-4 text-[var(--brand)]" /> شهادة التقدير</div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCertCustomizer((v) => !v)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition ${showCertCustomizer ? "border-[var(--brand)] bg-[var(--brand)]/10 text-[var(--brand)]" : "border-border hover:bg-secondary"}`}
+              >
+                <Palette className="h-3.5 w-3.5" /> تعديل الشهادة
+              </button>
+              <button onClick={certificate} disabled={generating}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[image:var(--gradient-hero)] text-white text-xs font-bold disabled:opacity-50">
+                <Download className="h-3.5 w-3.5" /> {generating ? "جاري..." : "طباعة PDF"}
+              </button>
+            </div>
+          </div>
+
+          {showCertCustomizer && (
+            <div className="mt-4 space-y-4 border-t border-border pt-4">
+              <div>
+                <div className="text-xs font-bold mb-2 text-muted-foreground">اللون / الثيم</div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {CERT_THEMES.map((t) => (
+                    <button key={t.id} type="button" onClick={() => setSelectedTheme(t)}
+                      title={t.label}
+                      className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 transition ${selectedTheme.id === t.id ? "border-[var(--brand)] shadow-md" : "border-border hover:border-[var(--brand)]/50"}`}>
+                      <div className="w-8 h-8 rounded-lg shadow-sm border border-white/20"
+                        style={{ background: `linear-gradient(135deg, ${t.bg1}, ${t.border1})` }} />
+                      <span className="text-[9px] font-bold text-center leading-tight">{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-bold mb-2 text-muted-foreground flex items-center gap-1"><TypeIcon className="h-3.5 w-3.5" /> الخط</div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {CERT_FONTS.map((f) => (
+                    <button key={f.family} type="button" onClick={() => setSelectedFont(f)}
+                      style={{ fontFamily: `"${f.family}", Tajawal, sans-serif` }}
+                      className={`px-2 py-1.5 rounded-xl border-2 text-xs text-center transition ${selectedFont.family === f.family ? "border-[var(--brand)] bg-[var(--brand)]/10 font-bold" : "border-border hover:border-[var(--brand)]/40"}`}>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-2xl border-4 p-4 text-center"
+                style={{
+                  background: `linear-gradient(135deg, ${selectedTheme.bg1}, ${selectedTheme.bg2})`,
+                  borderColor: selectedTheme.border1,
+                  fontFamily: `"${selectedFont.family}", Tajawal, sans-serif`,
+                }}>
+                <div className="text-2xl mb-1">🏆</div>
+                <div className="text-xs font-black mb-0.5" style={{ color: selectedTheme.title }}>شهادة تقدير</div>
+                <div className="text-base font-black" style={{ color: selectedTheme.name }}>{name || "اسمك"}</div>
+                <div className="text-[10px] mt-0.5 opacity-70" style={{ color: selectedTheme.body }}>مبادرة كلنا معاً – {points} نقطة</div>
+              </div>
+              <button onClick={() => { certificate(); setShowCertCustomizer(false); }} disabled={generating}
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
+                <Download className="h-4 w-4" /> {generating ? "جاري التحضير..." : "طباعة الشهادة PDF"}
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* شهادات الموقع */}
         {uid && <MyCertificates uid={uid} />}
