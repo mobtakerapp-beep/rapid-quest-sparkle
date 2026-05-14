@@ -615,6 +615,16 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, isTeacher]);
 
+  // Tick sound — fires once per second while a question is active
+  const lastTickSec = useRef<number>(-1);
+  useEffect(() => {
+    if (isTeacher || !currentQ || alreadyDone || submittedResult) return;
+    if (remaining > 0 && remaining !== lastTickSec.current) {
+      lastTickSec.current = remaining;
+      playTick(remaining);
+    }
+  }, [remaining, isTeacher, currentQ, alreadyDone, submittedResult]);
+
   // Loading state until we know if teacher or not
   if (isTeacher === null) {
     return (
