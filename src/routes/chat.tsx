@@ -270,21 +270,6 @@ function ChatPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          {/* ===== زر فتح/قفل الشات ===== */}
-          {canControlChat && (
-            <button
-              onClick={toggleChatOpen}
-              disabled={togglingChat}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black border-2 transition-all disabled:opacity-60 shadow-sm ${
-                chatOpen
-                  ? "bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600"
-                  : "bg-red-500 text-white border-red-600 hover:bg-red-600"
-              }`}
-            >
-              {chatOpen ? <LockOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-              {chatOpen ? "الشات مفتوح — اضغط للقفل" : "الشات مغلق — اضغط للفتح"}
-            </button>
-          )}
           {/* ===== زر التحديد للحذف الجماعي ===== */}
           {isMod && (
             <button
@@ -354,8 +339,38 @@ function ChatPage() {
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 max-w-3xl w-full mx-auto">
+
+        {/* ===== نص المواعيد في الأعلى ===== */}
+        <div className="text-center py-3">
+          <p className="text-xs text-muted-foreground bg-secondary/50 rounded-2xl px-4 py-2.5 leading-relaxed inline-block">
+            📅 يفتح الشات يومياً الساعة <strong>5:00 مساءً</strong> حتى <strong>11:00 مساءً</strong> بتوقيت سلطنة عُمان
+            <br />كما يفتح أثناء الاجتماعات المجدولة بين المعلمين والطلبة وأولياء الأمور
+          </p>
+        </div>
+
+        {/* ===== زر فتح/قفل الشات — دايرة في المنتصف ===== */}
+        {canControlChat && (
+          <div className="flex justify-center py-2">
+            <button
+              onClick={toggleChatOpen}
+              disabled={togglingChat}
+              title={chatOpen ? "اضغط لقفل الشات" : "اضغط لفتح الشات"}
+              className={`flex flex-col items-center justify-center w-24 h-24 rounded-full text-white font-black shadow-lg border-4 transition-all disabled:opacity-60 active:scale-95 ${
+                chatOpen
+                  ? "bg-emerald-500 border-emerald-300 hover:bg-emerald-600 shadow-emerald-200"
+                  : "bg-red-500 border-red-300 hover:bg-red-600 shadow-red-200"
+              }`}
+            >
+              {chatOpen
+                ? <><LockOpen className="h-7 w-7 mb-1" /><span className="text-[11px] leading-tight text-center">مفتوح<br/>اضغط للقفل</span></>
+                : <><Lock className="h-7 w-7 mb-1" /><span className="text-[11px] leading-tight text-center">مغلق<br/>اضغط للفتح</span></>
+              }
+            </button>
+          </div>
+        )}
+
         {messages.length === 0 && (
-          <div className="text-center text-muted-foreground py-20 text-sm">لا توجد رسائل بعد. ابدأ الحوار! 👋</div>
+          <div className="text-center text-muted-foreground py-16 text-sm">لا توجد رسائل بعد. ابدأ الحوار! 👋</div>
         )}
         {messages.map((m) => {
           const isMe = m.user_id === user.id;
@@ -427,14 +442,6 @@ function ChatPage() {
             </div>
           );
         })}
-      </div>
-
-      {/* شريط المواعيد */}
-      <div className="max-w-3xl w-full mx-auto px-4 pb-1">
-        <p className="text-xs text-muted-foreground text-center bg-secondary/40 rounded-xl px-3 py-2 leading-relaxed">
-          📅 يفتح الشات يومياً الساعة <strong>5:00 مساءً</strong> حتى <strong>11:00 مساءً</strong> بتوقيت سلطنة عُمان —
-          كما يفتح أثناء الاجتماعات المجدولة بين المعلمين والطلبة وأولياء الأمور في وقت الاجتماع
-        </p>
       </div>
 
       {/* Composer */}
