@@ -412,6 +412,24 @@ function BadgesPage() {
           </div>
         )}
 
+        {/* Report card (كشف الدرجات) — printable for parents */}
+        {(attempts.length > 0 || gradedSubs.length > 0) && (
+          <div className="bg-card rounded-3xl border border-border p-5 shadow-[var(--shadow-card)] mt-6">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div>
+                <h3 className="font-bold flex items-center gap-2"><Target className="h-5 w-5 text-emerald-600" /> كشف الدرجات لولي الأمر</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  يحتوي على درجات الاختبارات ({attempts.length}) ودرجات الواجبات المُصحَّحة ({gradedSubs.length}) — يمكن طباعته أو حفظه كـ PDF لإرساله لولي الأمر
+                </p>
+              </div>
+            </div>
+            <button onClick={downloadReport} disabled={generatingReport}
+              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50 transition">
+              <Download className="h-4 w-4" /> {generatingReport ? "جاري التحضير..." : "تحميل كشف الدرجات PDF"}
+            </button>
+          </div>
+        )}
+
         {/* شهادات الموقع */}
         {uid && <MyCertificates uid={uid} />}
         {/* الشارات */}
