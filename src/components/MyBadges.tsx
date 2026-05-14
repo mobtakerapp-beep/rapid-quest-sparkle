@@ -49,7 +49,7 @@ export function MyBadges({ uid }: { uid: string }) {
 
   return (
     <div className="bg-card rounded-3xl border border-border p-6 shadow-[var(--shadow-card)] mt-6">
-      <h3 className="font-bold mb-4 flex items-center gap-2"><Sparkles className="h-5 w-5 text-violet-500" /> شاراتي ({list.length})</h3>
+      <h3 className="font-bold mb-4 flex items-center gap-2"><Sparkles className="h-5 w-5 text-violet-500" /> شاراتي وإنجازاتي ({list.length})</h3>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {list.map((b: any) => (
           <div key={b.id} className="rounded-2xl border-2 border-violet-200 bg-gradient-to-br from-violet-50 via-fuchsia-50 to-pink-50 p-4 text-center relative">

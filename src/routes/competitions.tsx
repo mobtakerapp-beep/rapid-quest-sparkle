@@ -7,6 +7,7 @@ import { Reactions } from "@/components/Reactions";
 import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
 import { ReportButton } from "@/components/ReportButton";
+import { playTick, playFanfare, fireworks, burstStars } from "@/lib/quizFx";
 
 export const Route = createFileRoute("/competitions")({ component: CompetitionsPage });
 
@@ -570,6 +571,11 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
       }));
     }
     toast.success(`انتهت المسابقة! أصبت ${correct} من ${total} 🎉`);
+    if (total > 0) {
+      const ratio = correct / total;
+      if (ratio >= 0.5) { playFanfare(); fireworks(Math.max(0.4, ratio)); }
+      else if (correct > 0) { burstStars(); }
+    }
   };
 
   const goNext = (storedAnswers: Record<string, string>) => {
@@ -608,6 +614,16 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, isTeacher]);
+
+  // Tick sound — fires once per second while a question is active
+  const lastTickSec = useRef<number>(-1);
+  useEffect(() => {
+    if (isTeacher || !currentQ || alreadyDone || submittedResult) return;
+    if (remaining > 0 && remaining !== lastTickSec.current) {
+      lastTickSec.current = remaining;
+      playTick(remaining);
+    }
+  }, [remaining, isTeacher, currentQ, alreadyDone, submittedResult]);
 
   // Loading state until we know if teacher or not
   if (isTeacher === null) {
