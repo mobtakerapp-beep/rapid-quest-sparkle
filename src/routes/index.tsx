@@ -310,13 +310,18 @@ function Index() {
       {/* Professional Footer */}
       <footer className="bg-card border-t border-border" dir="rtl">
         <div className="container mx-auto px-6 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             {/* Brand column */}
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <img src={logo} alt="شعار" className="h-12 w-12 rounded-xl object-cover shadow" />
                 <div>
-                  <div className="font-black text-lg leading-tight">مبادرة كلنا معاً</div>
+                  <div
+                    className="font-black text-lg leading-tight bg-[image:var(--gradient-hero)] bg-clip-text text-transparent"
+                    style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}
+                  >
+                    مبادرة كلنا معاً
+                  </div>
                   <div className="text-xs text-muted-foreground">محافظة الوسطى — سلطنة عُمان</div>
                 </div>
               </div>
@@ -331,7 +336,12 @@ function Index() {
 
             {/* Quick links */}
             <div>
-              <div className="font-black mb-4 text-sm">روابط سريعة</div>
+              <div
+                className="font-black mb-4 text-sm bg-[image:var(--gradient-hero)] bg-clip-text text-transparent"
+                style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}
+              >
+                روابط سريعة
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { label: "الرئيسية", to: "/" },
@@ -347,35 +357,6 @@ function Index() {
                     <Star className="h-2.5 w-2.5 text-amber-400" /> {l.label}
                   </Link>
                 ))}
-              </div>
-            </div>
-
-            {/* Info column */}
-            <div className="space-y-4">
-              <div className="font-black mb-4 text-sm">عن المبادرة</div>
-              <div className="space-y-3">
-                <div className="flex items-start gap-2 text-sm">
-                  <GraduationCap className="h-4 w-4 text-[var(--brand)] mt-0.5 flex-shrink-0" />
-                  <div>
-                    <div className="font-bold">منفّذ المبادرة</div>
-                    <div className="text-muted-foreground">الأستاذ محمد النعمان</div>
-                    <div className="text-xs text-muted-foreground">مشرف مادة الرياضيات</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2 text-sm">
-                  <Sparkles className="h-4 w-4 text-violet-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <div className="font-bold">تصميم الموقع</div>
-                    <div className="text-muted-foreground">الأستاذة مروة أبوبكر</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <div className="font-bold">محافظة الوسطى</div>
-                    <div className="text-muted-foreground">سلطنة عُمان</div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
