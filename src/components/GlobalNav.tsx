@@ -101,17 +101,41 @@ export function GlobalNav() {
             <MessageSquare className="h-4 w-4" />
           </Link>
         )}
+
+        {/* زر صورة الشخص مع التحية والاسم */}
         {uid && (
-          <Link to="/profile" className="p-1 rounded-xl hover:bg-secondary" aria-label="بياناتي">
+          <Link to="/profile" className="flex flex-col items-center gap-0.5 px-1 py-1 rounded-xl hover:bg-secondary group" aria-label="بياناتي" dir="rtl">
             {avatar ? (
-              <img src={avatar} alt="" className="h-8 w-8 rounded-lg object-cover" />
+              <img src={avatar} alt="" className="h-8 w-8 rounded-lg object-cover ring-2 ring-[var(--brand)]/40 group-hover:ring-[var(--brand)] transition" />
             ) : (
               <div className="h-8 w-8 rounded-lg bg-[image:var(--gradient-hero)] flex items-center justify-center text-white">
                 <UserIcon className="h-4 w-4" />
               </div>
             )}
+            {name && (
+              <div className="flex flex-col items-center max-w-[72px]">
+                {roleLabel && (
+                  <span className={`text-[9px] font-bold leading-tight truncate max-w-full opacity-80 ${nameColor}`}>
+                    {roleLabel}
+                  </span>
+                )}
+                <span className={`text-[10px] font-black leading-tight truncate max-w-full ${nameColor}`}
+                  style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}>
+                  {name}
+                </span>
+                {(roleType === "teacher" || roleType === "supervisor") && (
+                  <span className="text-[8px] text-emerald-600 font-bold">✓ معتمد</span>
+                )}
+                {isAdmin && (
+                  <span className="text-[8px] px-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-black">
+                    {adminBadgeFor(gender)}
+                  </span>
+                )}
+              </div>
+            )}
           </Link>
         )}
+
         {uid && (
           <button
             onClick={handleSignOut}
@@ -123,34 +147,6 @@ export function GlobalNav() {
           </button>
         )}
       </div>
-
-      {/* ── اسم المستخدم (يمين) ── */}
-      {uid && name && (
-        <div
-          className="fixed top-[62px] right-3 z-[190] flex flex-col items-end bg-card/95 backdrop-blur border border-border rounded-2xl px-3 py-2 shadow-xl max-w-[200px]"
-          dir="rtl"
-        >
-          <Link to="/profile" className="flex flex-col items-end gap-0.5 group">
-            <span
-              className={`text-[11px] font-black tracking-wide truncate max-w-[160px] transition-opacity group-hover:opacity-70 ${nameColor}`}
-              style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}
-            >
-              {roleLabel && <span className="opacity-70 font-medium ml-1">{roleLabel}</span>}
-              {name}
-            </span>
-            {(roleType === "teacher" || roleType === "supervisor") && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 font-bold">
-                <BadgeCheck className="h-3 w-3" /> معتمد
-              </span>
-            )}
-            {isAdmin && (
-              <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 text-[10px] font-black">
-                {adminBadgeFor(gender)}
-              </span>
-            )}
-          </Link>
-        </div>
-      )}
     </>
   );
 }
