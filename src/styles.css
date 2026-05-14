@@ -202,6 +202,92 @@
 }
 
 
+/* ── Aesthetic animations ─────────────────────────────────────────────── */
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--brand, oklch(0.62 0.19 265)); }
+  50%       { box-shadow: 0 0 22px 4px oklch(0.62 0.19 265 / 0.35); }
+}
+@keyframes sparkle-spin {
+  0%   { transform: rotate(0deg)   scale(1); }
+  50%  { transform: rotate(180deg) scale(1.2); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.animate-fade-in-up  { animation: fade-in-up  0.6s cubic-bezier(0.22,1,0.36,1) both; }
+.animate-fade-in     { animation: fade-in      0.5s ease both; }
+.animate-float       { animation: float        3.5s ease-in-out infinite; }
+.animate-pulse-ring  { animation: pulse-ring   2s ease-out infinite; }
+.animate-spin-slow   { animation: spin-slow    8s linear infinite; }
+.animate-shimmer     {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%),
+              var(--gradient-hero);
+  background-size: 200% auto, 100%;
+  animation: shimmer 2.8s linear infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Stagger delay helpers */
+.delay-100 { animation-delay: 0.10s; }
+.delay-200 { animation-delay: 0.20s; }
+.delay-300 { animation-delay: 0.30s; }
+.delay-400 { animation-delay: 0.40s; }
+.delay-500 { animation-delay: 0.50s; }
+.delay-600 { animation-delay: 0.60s; }
+
+/* Feature card glow on hover */
+.feature-card {
+  transition: transform 0.3s cubic-bezier(0.22,1,0.36,1),
+              box-shadow 0.3s cubic-bezier(0.22,1,0.36,1);
+}
+.feature-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 50px -12px var(--card-glow, oklch(0.62 0.19 265 / 0.35));
+}
+
+/* Animated gradient border for cards */
+@property --border-angle {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 0deg;
+}
+@keyframes border-spin {
+  to { --border-angle: 360deg; }
+}
+.animated-border {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    conic-gradient(from var(--border-angle), var(--brand), var(--brand-2), var(--brand-3), var(--brand)) border-box;
+  animation: border-spin 4s linear infinite;
+}
+
 /* Theme variants — change brand gradient AND background tint app-wide */
 [data-theme="ocean"] {
   --brand: oklch(0.62 0.18 230);

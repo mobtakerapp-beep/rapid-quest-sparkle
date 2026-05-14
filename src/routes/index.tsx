@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Image, BookOpen, Trophy, Users, MessageCircle, Sparkles, Zap, GraduationCap, Bot, Calendar as CalIcon, ClipboardList, Award, Target, Shield, Info, X, Mail, Phone, MapPin, Heart, Star } from "lucide-react";
+import { Image, BookOpen, Trophy, Users, MessageCircle, Sparkles, Zap, GraduationCap, Bot, Calendar as CalIcon, ClipboardList, Award, Target, Shield, Info, X, MapPin, Heart, Star, ArrowUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
 import { InstallPWA } from "@/components/InstallPWA";
@@ -52,6 +52,15 @@ function Index() {
   const [showAbout, setShowAbout] = useState(false);
   const [badges, setBadges] = useState<Record<string, number>>({});
   const [userId, setUserId] = useState<string | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const el = document.querySelector(".app-content-with-nav");
+    if (!el) return;
+    const onScroll = () => setShowScrollTop(el.scrollTop > 400);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     try {
@@ -148,26 +157,37 @@ function Index() {
 
       {/* Hero */}
       <section className="container mx-auto px-6 pt-6 pb-16 text-center">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 backdrop-blur border border-border mb-6 shadow-sm">
-          <Sparkles className="h-4 w-4 text-[var(--brand)]" />
-          <span className="text-sm font-medium">{isAr ? "منصة تعليمية تفاعلية" : "Interactive Learning Platform"}</span>
+        {/* Badge pill */}
+        <div className="animate-fade-in-up inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/70 dark:bg-card/80 backdrop-blur border border-border mb-8 shadow-sm">
+          <Sparkles className="h-4 w-4 text-[var(--brand)] animate-[sparkle-spin_3s_ease-in-out_infinite]" />
+          <span className="text-sm font-bold bg-[image:var(--gradient-hero)] bg-clip-text text-transparent">
+            {isAr ? "منصة تعليمية تفاعلية" : "Interactive Learning Platform"}
+          </span>
         </div>
 
-        <div className="mx-auto mb-4 h-40 w-40 md:h-52 md:w-52 rounded-full overflow-hidden flex items-center justify-center shadow-xl ring-4 ring-[var(--brand)]/20 bg-white">
-          <img src={logo} alt="شعار مبادرة كلنا معاً" className="h-full w-full object-cover" width={400} height={400} />
+        {/* Logo with animated pulse rings */}
+        <div className="animate-fade-in-up delay-100 relative mx-auto mb-8 h-40 w-40 md:h-52 md:w-52 flex items-center justify-center">
+          <span className="animate-pulse-ring absolute inset-0 rounded-full bg-[var(--brand)] opacity-30" />
+          <span className="animate-pulse-ring delay-300 absolute inset-0 rounded-full bg-[var(--brand-2)] opacity-20" />
+          <span className="animate-pulse-ring delay-600 absolute inset-0 rounded-full bg-[var(--brand-3)] opacity-15" />
+          <div className="relative h-40 w-40 md:h-52 md:w-52 rounded-full overflow-hidden shadow-2xl ring-4 ring-[var(--brand)]/30 bg-white animate-float">
+            <img src={logo} alt="شعار مبادرة كلنا معاً" className="h-full w-full object-cover" width={400} height={400} />
+          </div>
         </div>
 
-        <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-3 bg-[image:var(--gradient-hero)] bg-clip-text text-transparent leading-[1.2]">
+        {/* Shimmer title */}
+        <h1 className="animate-fade-in-up delay-200 animate-shimmer text-5xl md:text-7xl font-black tracking-tight mb-3 leading-[1.2]"
+          style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}>
           {isAr ? "مبادرة كلنا معاً" : "Kulluna Maaan Initiative"}
         </h1>
-        <p className="text-2xl md:text-3xl font-extrabold mb-2" style={{ fontFamily: "'Tajawal', sans-serif", letterSpacing: "0.05em" }}>
+        <p className="animate-fade-in-up delay-300 text-2xl md:text-3xl font-extrabold mb-2" style={{ fontFamily: "'Tajawal', sans-serif", letterSpacing: "0.05em" }}>
           <span className="bg-gradient-to-r from-amber-500 via-rose-500 to-violet-500 bg-clip-text text-transparent">
             {isAr ? "للصف الخامس" : "Grade 5"}
           </span>
         </p>
-        <p className="text-lg md:text-xl font-bold text-[var(--brand)] mb-6">{isAr ? "رياضيات" : "Mathematics"}</p>
+        <p className="animate-fade-in-up delay-400 text-lg md:text-xl font-bold text-[var(--brand)] mb-6">{isAr ? "رياضيات" : "Mathematics"}</p>
 
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+        <p className="animate-fade-in-up delay-500 text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
           {isAr ? (
             <>
               منصة تعليمية تفاعلية تجمع بين المعلمين والطلاب وأولياء الأمور
@@ -183,19 +203,19 @@ function Index() {
           )}
         </p>
 
-        {/* Welcome card */}
+        {/* Welcome card with animated gradient border */}
         {displayName && (
-          <div className="mx-auto mb-6 max-w-xl rounded-2xl border border-border bg-card px-5 py-4 shadow-[var(--shadow-card)]">
+          <div className="animated-border animate-fade-in-up delay-300 mx-auto mb-6 max-w-xl rounded-2xl px-5 py-4 shadow-[var(--shadow-soft)]">
             <div className="text-sm text-muted-foreground">{isAr ? "مرحباً بك 👋" : "Welcome 👋"}</div>
-            <div className="mt-1 text-xl font-black text-foreground flex items-center justify-center gap-2 flex-wrap">
-              <span>{roleLabel ? `${roleLabel} ` : ""}{displayName}</span>
+            <div className="mt-1 text-xl font-black text-foreground flex items-center justify-center gap-2 flex-wrap"
+              style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}>
+              <span className="bg-[image:var(--gradient-hero)] bg-clip-text text-transparent">{roleLabel ? `${roleLabel} ` : ""}{displayName}</span>
               {isAdmin && (
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
                   {adminBadgeFor(gender)}
                 </span>
               )}
             </div>
-            {/* School + grade for all roles */}
             <div className="mt-2 text-sm text-muted-foreground flex items-center justify-center gap-2 flex-wrap">
               {country && (
                 <span className="inline-flex items-center gap-1">
@@ -222,12 +242,12 @@ function Index() {
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-3 flex-wrap">
-          <Link to="/login" className="group inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-[image:var(--gradient-hero)] text-white font-bold text-lg shadow-[var(--shadow-soft)] hover:scale-105 transition-transform">
-            <MessageCircle className="h-5 w-5" />
+        <div className="animate-fade-in-up delay-600 flex items-center justify-center gap-3 flex-wrap">
+          <Link to="/login" className="group inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-[image:var(--gradient-hero)] text-white font-bold text-lg shadow-[var(--shadow-soft)] hover:scale-105 hover:shadow-2xl transition-all duration-300">
+            <MessageCircle className="h-5 w-5 group-hover:rotate-12 transition-transform" />
             {isAr ? "انضم إلى المجتمع" : "Join the Community"}
           </Link>
-          <button onClick={() => setShowAbout(true)} className="inline-flex items-center gap-2 px-6 py-4 rounded-2xl bg-white/80 backdrop-blur border border-border font-bold hover:scale-105 transition-transform">
+          <button onClick={() => setShowAbout(true)} className="inline-flex items-center gap-2 px-6 py-4 rounded-2xl bg-white/80 dark:bg-card/80 backdrop-blur border border-border font-bold hover:scale-105 hover:border-[var(--brand)] transition-all duration-300">
             <Info className="h-5 w-5 text-[var(--brand)]" /> {isAr ? "نبذة عن المبادرة" : "About"}
           </button>
           <InstallPWA />
@@ -271,17 +291,18 @@ function Index() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {features.map((f) => {
+          {features.map((f, i) => {
             const badgeCount = f.badgeKey ? (badges[f.badgeKey] || 0) : 0;
             return (
               <Link key={f.title} to={f.to}
-                className="group relative bg-card rounded-3xl p-7 border border-border shadow-[var(--shadow-card)] hover:-translate-y-2 hover:shadow-[var(--shadow-soft)] transition-all duration-300 text-right">
+                className="feature-card animate-fade-in-up group relative bg-card rounded-3xl p-7 border border-border shadow-[var(--shadow-card)] text-right"
+                style={{ animationDelay: `${0.05 * i}s`, "--card-glow": `color-mix(in oklch, ${f.color.includes("violet") ? "oklch(0.6 0.22 290)" : f.color.includes("emerald") ? "oklch(0.55 0.18 150)" : f.color.includes("rose") ? "oklch(0.65 0.2 10)" : f.color.includes("amber") ? "oklch(0.75 0.18 60)" : f.color.includes("cyan") ? "oklch(0.65 0.18 200)" : "oklch(0.62 0.19 265)"} 40%, transparent)` } as React.CSSProperties}>
                 {badgeCount > 0 && (
                   <span className="absolute top-3 left-3 min-w-[22px] h-[22px] rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center px-1 shadow-lg animate-pulse">
                     {badgeCount > 99 ? "99+" : badgeCount}
                   </span>
                 )}
-                <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform`}>
+                <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
                   <f.icon className="h-7 w-7 text-white" />
                 </div>
                 <h3 className="font-bold text-xl mb-2">{f.title}</h3>
@@ -374,6 +395,18 @@ function Index() {
           </div>
         </div>
       </footer>
+
+      {/* زر العودة للأعلى */}
+      {showScrollTop && (
+        <button
+          onClick={() => document.querySelector(".app-content-with-nav")?.scrollTo({ top: 0, behavior: "smooth" })}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[180] inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[image:var(--gradient-hero)] text-white font-bold shadow-[var(--shadow-soft)] hover:scale-110 transition-all duration-300 animate-fade-in"
+          aria-label="العودة للأعلى"
+        >
+          <ArrowUp className="h-4 w-4" />
+          <span className="text-sm">للأعلى</span>
+        </button>
+      )}
     </div>
   );
 }
