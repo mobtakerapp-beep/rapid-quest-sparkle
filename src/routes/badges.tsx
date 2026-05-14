@@ -51,10 +51,23 @@ function BadgesPage() {
       (ub || []).forEach((x: any) => { c[x.badge_id] = (c[x.badge_id] || 0) + 1; });
       setCounts(c);
       const qids = [...new Set((at || []).map((a: any) => a.quiz_id))];
-      const { data: quizzes } = qids.length ? await supabase.from("quizzes").select("id, title").in("id", qids) : { data: [] };
-      const qmap: Record<string, string> = {};
-      (quizzes || []).forEach((q: any) => { qmap[q.id] = q.title; });
-      setAttempts((at || []).map((a: any) => ({ ...a, quiz_title: qmap[a.quiz_id] || "اختبار" })));
+      const { data: quizzes } = qids.length ? await supabase.from("quizzes").select("id, title, subject").in("id", qids) : { data: [] };
+      const qmap: Record<string, { title: string; subject: string }> = {};
+      (quizzes || []).forEach((q: any) => { qmap[q.id] = { title: q.title, subject: q.subject }; });
+      setAttempts((at || []).map((a: any) => ({ ...a, quiz_title: qmap[a.quiz_id]?.title || "اختبار", subject: qmap[a.quiz_id]?.subject })));
+
+      // Load graded assignments
+      const { data: subs } = await supabase
+        .from("assignment_submissions")
+        .select("id, assignment_id, grade, feedback, graded_at")
+        .eq("student_id", id)
+        .not("grade", "is", null)
+        .order("graded_at", { ascending: false });
+      const aids = [...new Set((subs || []).map((s: any) => s.assignment_id))];
+      const { data: asgs } = aids.length ? await supabase.from("assignments").select("id, title, subject").in("id", aids) : { data: [] };
+      const amap: Record<string, { title: string; subject: string }> = {};
+      (asgs || []).forEach((a: any) => { amap[a.id] = { title: a.title, subject: a.subject }; });
+      setGradedSubs((subs || []).map((s: any) => ({ ...s, title: amap[s.assignment_id]?.title || "واجب", subject: amap[s.assignment_id]?.subject })));
     });
   }, [navigate]);
 
