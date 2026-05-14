@@ -571,6 +571,11 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
       }));
     }
     toast.success(`انتهت المسابقة! أصبت ${correct} من ${total} 🎉`);
+    if (total > 0) {
+      const ratio = correct / total;
+      if (ratio >= 0.5) { playFanfare(); fireworks(Math.max(0.4, ratio)); }
+      else if (correct > 0) { burstStars(); }
+    }
   };
 
   const goNext = (storedAnswers: Record<string, string>) => {
