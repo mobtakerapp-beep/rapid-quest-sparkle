@@ -24,6 +24,8 @@ function BadgesPage() {
   const [points, setPoints] = useState(0);
   const [audience, setAudience] = useState<"student" | "teacher">("student");
   const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [gradedSubs, setGradedSubs] = useState<GradedSub[]>([]);
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   const [selectedTheme, setSelectedTheme] = useState(CERT_THEMES[0]);
   const [selectedFont, setSelectedFont] = useState(CERT_FONTS[0]);
