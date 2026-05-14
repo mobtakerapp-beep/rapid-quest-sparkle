@@ -342,29 +342,29 @@ function ChatPage() {
                 onClick={toggleChatOpen}
                 disabled={togglingChat}
                 title={chatOpen ? "اضغط لقفل الشات" : "اضغط لفتح الشات"}
-                className={`flex flex-col items-center justify-center w-24 h-24 rounded-full text-white font-black shadow-lg border-4 transition-all disabled:opacity-60 active:scale-95 ${
+                className={`flex flex-col items-center justify-center w-14 h-14 rounded-full text-white font-black shadow border-2 transition-all disabled:opacity-60 active:scale-95 ${
                   chatOpen
                     ? "bg-emerald-500 border-emerald-300 hover:bg-emerald-600 shadow-emerald-200"
                     : "bg-red-500 border-red-300 hover:bg-red-600 shadow-red-200"
                 }`}
               >
                 {chatOpen
-                  ? <><LockOpen className="h-7 w-7 mb-1" /><span className="text-[11px] leading-tight text-center">مفتوح<br/>اضغط للقفل</span></>
-                  : <><Lock className="h-7 w-7 mb-1" /><span className="text-[11px] leading-tight text-center">مغلق<br/>اضغط للفتح</span></>
+                  ? <><LockOpen className="h-4 w-4 mb-0.5" /><span className="text-[8px] leading-tight text-center">مفتوح</span></>
+                  : <><Lock className="h-4 w-4 mb-0.5" /><span className="text-[8px] leading-tight text-center">مغلق</span></>
                 }
               </button>
             )}
             {isMod && (
               <button
                 onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
-                className={`flex flex-col items-center justify-center w-24 h-24 rounded-full font-black shadow-lg border-4 transition-all active:scale-95 ${
+                className={`flex flex-col items-center justify-center w-14 h-14 rounded-full font-black shadow border-2 transition-all active:scale-95 ${
                   selectMode
                     ? "bg-rose-500 border-rose-300 text-white hover:bg-rose-600"
                     : "bg-secondary border-border text-foreground hover:bg-secondary/80"
                 }`}
               >
-                <ShieldAlert className="h-7 w-7 mb-1" />
-                <span className="text-[11px] leading-tight text-center">{selectMode ? "إلغاء\nالتحديد" : "تحديد\nللحذف"}</span>
+                <ShieldAlert className="h-4 w-4 mb-0.5" />
+                <span className="text-[8px] leading-tight text-center">{selectMode ? "إلغاء" : "تحديد"}</span>
               </button>
             )}
           </div>
