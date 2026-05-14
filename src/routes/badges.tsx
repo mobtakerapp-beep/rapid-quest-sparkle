@@ -11,7 +11,8 @@ import type { CertTheme, CertFont } from "@/lib/certThemes";
 export const Route = createFileRoute("/badges")({ component: BadgesPage });
 
 type B = { id: string; name: string; description: string | null; icon: string; color: string; audience: string };
-type Attempt = { id: string; quiz_id: string; score: number; total: number; created_at: string; quiz_title?: string };
+type Attempt = { id: string; quiz_id: string; score: number; total: number; created_at: string; quiz_title?: string; subject?: string };
+type GradedSub = { id: string; assignment_id: string; grade: number | null; feedback: string | null; graded_at: string | null; title?: string; subject?: string };
 
 function BadgesPage() {
   const navigate = useNavigate();
