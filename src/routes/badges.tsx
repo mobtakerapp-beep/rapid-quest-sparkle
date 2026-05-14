@@ -175,6 +175,140 @@ function BadgesPage() {
     }
   };
 
+  // ── Report card (كشف الدرجات) for parents ──────────────────────────────
+  const downloadReport = async () => {
+    setGeneratingReport(true);
+    try {
+      await loadGoogleFont(selectedFont.family);
+      const theme = selectedTheme;
+      const af = `"${selectedFont.family}", Tajawal, Cairo, Arial`;
+
+      const W = 1240, H = 1754; // A4 portrait at ~150dpi
+      const c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      const ctx = c.getContext("2d")!;
+      ctx.direction = "rtl";
+
+      // Background
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, theme.bg1); g.addColorStop(1, theme.bg2);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+      // Borders
+      ctx.strokeStyle = theme.border1; ctx.lineWidth = 18;
+      ctx.strokeRect(40, 40, W - 80, H - 80);
+      ctx.strokeStyle = theme.border2; ctx.lineWidth = 4;
+      ctx.strokeRect(80, 80, W - 160, H - 160);
+
+      // Title
+      ctx.textAlign = "center";
+      ctx.fillStyle = theme.title; ctx.font = `bold 56px ${af}`;
+      ctx.fillText("كشف درجات الطالب", W / 2, 170);
+      ctx.fillStyle = theme.body + "bb"; ctx.font = `26px ${af}`;
+      ctx.fillText("مبادرة « كلنا معاً » – محافظة الوسطى", W / 2, 215);
+
+      ctx.strokeStyle = theme.accent; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(140, 240); ctx.lineTo(W - 140, 240); ctx.stroke();
+
+      // Student info
+      ctx.fillStyle = theme.body; ctx.font = `28px ${af}`;
+      ctx.textAlign = "right";
+      const date = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+      ctx.fillText(`اسم الطالب: ${name || "—"}`, W - 110, 290);
+      ctx.fillText(`النقاط: ${points}`, W - 110, 330);
+      ctx.textAlign = "left";
+      ctx.fillText(`التاريخ: ${date}`, 110, 290);
+      ctx.fillText(`عدد الشارات: ${Object.keys(counts).length}`, 110, 330);
+
+      // Helper: draw a section
+      let y = 380;
+      const drawSection = (title: string, rows: string[][], headers: string[]) => {
+        if (y > H - 220) return; // page guard
+        ctx.textAlign = "right";
+        ctx.fillStyle = theme.title; ctx.font = `bold 32px ${af}`;
+        ctx.fillText(title, W - 110, y);
+        y += 20;
+        // Header row
+        ctx.fillStyle = theme.accent + "40";
+        ctx.fillRect(110, y, W - 220, 44);
+        ctx.fillStyle = theme.title; ctx.font = `bold 22px ${af}`;
+        const colCount = headers.length;
+        const colW = (W - 220) / colCount;
+        headers.forEach((h, i) => {
+          // Right-aligned columns from right
+          const cx = W - 110 - colW * i - colW / 2;
+          ctx.textAlign = "center";
+          ctx.fillText(h, cx, y + 30);
+        });
+        y += 44;
+        ctx.font = `22px ${af}`; ctx.fillStyle = theme.body;
+        rows.forEach((r, ri) => {
+          if (y > H - 200) return;
+          if (ri % 2 === 0) {
+            ctx.fillStyle = theme.bg2 + "80";
+            ctx.fillRect(110, y, W - 220, 40);
+          }
+          ctx.fillStyle = theme.body;
+          r.forEach((cell, i) => {
+            const cx = W - 110 - colW * i - colW / 2;
+            ctx.textAlign = "center";
+            ctx.fillText(cell.length > 30 ? cell.slice(0, 28) + "…" : cell, cx, y + 28);
+          });
+          y += 40;
+        });
+        y += 30;
+      };
+
+      // Quizzes section
+      if (attempts.length) {
+        const rows = attempts.slice(0, 12).map((a) => {
+          const pct = a.total > 0 ? Math.round((a.score / a.total) * 100) : 0;
+          return [
+            new Date(a.created_at).toLocaleDateString("ar-EG"),
+            `${pct}%`,
+            `${a.score}/${a.total}`,
+            a.subject || "عام",
+            a.quiz_title || "اختبار",
+          ];
+        });
+        drawSection(`📝 درجات الاختبارات (${attempts.length})`, rows,
+          ["الاختبار", "المادة", "الدرجة", "النسبة", "التاريخ"]);
+      }
+
+      // Assignments section
+      if (gradedSubs.length) {
+        const rows = gradedSubs.slice(0, 12).map((s) => [
+          s.graded_at ? new Date(s.graded_at).toLocaleDateString("ar-EG") : "—",
+          String(s.grade ?? "—"),
+          s.subject || "عام",
+          s.title || "واجب",
+        ]);
+        drawSection(`📚 درجات الواجبات (${gradedSubs.length})`, rows,
+          ["الواجب", "المادة", "الدرجة", "التاريخ"]);
+      }
+
+      if (!attempts.length && !gradedSubs.length) {
+        ctx.fillStyle = theme.body; ctx.font = `28px ${af}`;
+        ctx.textAlign = "center";
+        ctx.fillText("لا توجد درجات مسجّلة بعد", W / 2, y + 40);
+      }
+
+      // Footer
+      ctx.fillStyle = theme.accent; ctx.font = "26px serif";
+      ctx.textAlign = "center";
+      ctx.fillText("✦  كلنا معاً  ✦", W / 2, H - 110);
+      ctx.fillStyle = theme.body + "99"; ctx.font = `20px ${af}`;
+      ctx.fillText("توقيع ولي الأمر: ____________________", W / 2, H - 60);
+
+      const img = c.toDataURL("image/jpeg", 0.95);
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      doc.addImage(img, "JPEG", 0, 0, 210, 297);
+      doc.save(`كشف-درجات-${name || "طالب"}.pdf`);
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
   const colors: Record<string, string> = {
     amber: "from-amber-400 to-orange-500", emerald: "from-emerald-400 to-teal-500",
     rose: "from-rose-400 to-pink-500", violet: "from-violet-400 to-purple-500",
