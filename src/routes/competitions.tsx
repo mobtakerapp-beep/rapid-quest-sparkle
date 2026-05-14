@@ -7,6 +7,7 @@ import { Reactions } from "@/components/Reactions";
 import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
 import { ReportButton } from "@/components/ReportButton";
+import { playTick, playFanfare, fireworks, burstStars } from "@/lib/quizFx";
 
 export const Route = createFileRoute("/competitions")({ component: CompetitionsPage });
 
