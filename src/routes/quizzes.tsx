@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { MathToolbar } from "@/components/MathToolbar";
 import { useRef } from "react";
 import { MathText } from "@/components/MathText";
+import { playCorrect, playWrong, fireworks, burstStars, playFanfare } from "@/lib/quizFx";
 
 export const Route = createFileRoute("/quizzes")({ component: QuizzesPage });
 
