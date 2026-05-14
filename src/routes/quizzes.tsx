@@ -384,7 +384,16 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
                 const sel = answers[i] === oi;
                 return (
                   <button key={oi} disabled={isTeacher}
-                    onClick={() => setAnswers({ ...answers, [i]: oi })}
+                    onClick={(e) => {
+                      setAnswers({ ...answers, [i]: oi });
+                      if (oi === q.correct) {
+                        playCorrect();
+                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        burstStars({ x: (r.left + r.width / 2) / window.innerWidth, y: (r.top + r.height / 2) / window.innerHeight });
+                      } else {
+                        playWrong();
+                      }
+                    }}
                     className={`text-right px-4 py-3 rounded-xl border-2 transition ${
                       sel ? "border-[var(--brand)] bg-[var(--brand)]/10" : "border-border"
                     }`}><MathText text={o} /></button>
