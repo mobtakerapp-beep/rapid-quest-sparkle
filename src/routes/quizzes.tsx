@@ -315,6 +315,11 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
     const det = (row?.details as any[]) || [];
     setScore(s); setDone(true); setPreviousDetails(det);
     toast.success(`نتيجتك: ${s}/${mcCount} 🎉`);
+    if (mcCount > 0) {
+      const ratio = s / mcCount;
+      if (ratio >= 0.5) { playFanfare(); fireworks(Math.max(0.4, ratio)); }
+      else if (s > 0) { burstStars(); }
+    }
   };
 
   if (!loaded) return <FullPageLoader />;
