@@ -383,6 +383,31 @@ function Index() {
           </div>
         </div>
 
+        {/* Names bar */}
+        <div className="border-t border-border/60">
+          <div className="container mx-auto px-6 py-5 flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-12">
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-semibold">منفّذ المبادرة</span>
+              <span
+                className="text-base font-black bg-[image:var(--gradient-hero)] bg-clip-text text-transparent"
+                style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif", letterSpacing: "0.06em" }}
+              >
+                ✦ الأستاذ محمد النعمان ✦
+              </span>
+            </div>
+            <div className="hidden sm:block w-px h-8 bg-border/60" />
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-semibold">تصميم الموقع</span>
+              <span
+                className="text-base font-black bg-gradient-to-r from-violet-500 via-pink-500 to-rose-500 bg-clip-text text-transparent"
+                style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif", letterSpacing: "0.06em" }}
+              >
+                ✦ الأستاذة مروة أبوبكر ✦
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Bottom bar */}
         <div className="border-t border-border">
           <div className="container mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
