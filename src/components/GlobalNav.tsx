@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { User as UserIcon, Moon, Sun, BadgeCheck, MessageSquare, Home, LogOut } from "lucide-react";
+import { User as UserIcon, Moon, Sun, MessageSquare, Home, LogOut, BadgeCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "./NotificationBell";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
 
 export function GlobalNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const isHome = pathname === "/";
   const [uid, setUid] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
@@ -70,7 +69,7 @@ export function GlobalNav() {
     window.location.href = "/";
   };
 
-  const roleLabel = roleLabelFor(roleType, gender).replace("أيها ", "").replace("أيتها ", "");
+  const roleLabel = roleLabelFor(roleType, gender);
 
   const roleColor: Record<string, string> = {
     admin: "text-amber-600 dark:text-amber-400",
@@ -82,71 +81,101 @@ export function GlobalNav() {
   const nameColor = roleColor[roleType || ""] || "text-foreground";
 
   return (
-    <>
-      {/* ── شريط الأيقونات (يسار) ── */}
-      <div
-        className="fixed top-[62px] left-3 z-[190] flex flex-col items-center gap-1 bg-card/95 backdrop-blur border border-border rounded-2xl px-1 py-2 shadow-xl"
-        dir="rtl"
-      >
-        <Link to="/" className="flex items-center gap-1 px-2 py-1.5 rounded-xl hover:bg-secondary text-[var(--brand)] font-bold text-xs" aria-label="الرئيسية">
-          <Home className="h-4 w-4" />
-          <span className="hidden sm:inline text-[11px]">الرئيسية</span>
-        </Link>
-        <button onClick={toggleDark} className="p-2 rounded-xl hover:bg-secondary" aria-label="الوضع الليلي">
-          {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </button>
-        {uid && <NotificationBell userId={uid} />}
-        {uid && (
-          <Link to={"/messages" as any} className="p-2 rounded-xl hover:bg-secondary" aria-label="الرسائل الخاصة">
-            <MessageSquare className="h-4 w-4" />
-          </Link>
-        )}
+    <div
+      className="fixed top-[60px] left-0 right-0 z-[190] bg-card/97 backdrop-blur border-b border-border shadow-sm"
+      dir="rtl"
+    >
+      <div className="flex items-center justify-between px-3 py-1.5 gap-2">
 
-        {/* زر صورة الشخص مع التحية والاسم */}
-        {uid && (
-          <Link to="/profile" className="flex flex-col items-center gap-0.5 px-1 py-1 rounded-xl hover:bg-secondary group" aria-label="بياناتي" dir="rtl">
+        {/* يمين: التحية + الاسم مع صورة البروفايل */}
+        {uid ? (
+          <Link to="/profile" className="flex items-center gap-2 min-w-0 group flex-1">
             {avatar ? (
-              <img src={avatar} alt="" className="h-8 w-8 rounded-lg object-cover ring-2 ring-[var(--brand)]/40 group-hover:ring-[var(--brand)] transition" />
+              <img
+                src={avatar}
+                alt=""
+                className="h-8 w-8 rounded-xl object-cover ring-2 ring-[var(--brand)]/40 group-hover:ring-[var(--brand)] transition shrink-0"
+              />
             ) : (
-              <div className="h-8 w-8 rounded-lg bg-[image:var(--gradient-hero)] flex items-center justify-center text-white">
+              <div className="h-8 w-8 rounded-xl bg-[image:var(--gradient-hero)] flex items-center justify-center text-white shrink-0">
                 <UserIcon className="h-4 w-4" />
               </div>
             )}
-            {name && (
-              <div className="flex flex-col items-center max-w-[72px]">
-                {roleLabel && (
-                  <span className={`text-[9px] font-bold leading-tight truncate max-w-full opacity-80 ${nameColor}`}>
-                    {roleLabel}
-                  </span>
-                )}
-                <span className={`text-[10px] font-black leading-tight truncate max-w-full ${nameColor}`}
-                  style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}>
-                  {name}
+            <div className="flex flex-col min-w-0">
+              <span className="text-[10px] text-muted-foreground leading-none">مرحباً 👋</span>
+              <span
+                className={`text-xs font-black leading-snug truncate ${nameColor}`}
+                style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}
+              >
+                {roleLabel ? `${roleLabel} ` : ""}
+                {name || "..."}
+              </span>
+              {isAdmin && (
+                <span className="text-[9px] px-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-black w-fit">
+                  {adminBadgeFor(gender)}
                 </span>
-                {(roleType === "teacher" || roleType === "supervisor") && (
-                  <span className="text-[8px] text-emerald-600 font-bold">✓ معتمد</span>
-                )}
-                {isAdmin && (
-                  <span className="text-[8px] px-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-black">
-                    {adminBadgeFor(gender)}
-                  </span>
-                )}
-              </div>
-            )}
+              )}
+              {(roleType === "teacher" || roleType === "supervisor") && !isAdmin && (
+                <span className="text-[9px] text-emerald-600 font-bold flex items-center gap-0.5">
+                  <BadgeCheck className="h-2.5 w-2.5" /> معتمد
+                </span>
+              )}
+            </div>
+          </Link>
+        ) : (
+          <Link to="/login" className="flex items-center gap-2 text-xs font-bold text-[var(--brand)] flex-1">
+            <div className="h-8 w-8 rounded-xl bg-secondary flex items-center justify-center">
+              <UserIcon className="h-4 w-4" />
+            </div>
+            <span>تسجيل الدخول</span>
           </Link>
         )}
 
-        {uid && (
-          <button
-            onClick={handleSignOut}
-            className="p-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 hover:text-rose-600 transition"
-            aria-label="تسجيل خروج"
-            title="تسجيل خروج"
+        {/* يسار: الأيقونات */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Link
+            to="/"
+            className={`p-2 rounded-xl hover:bg-secondary transition ${pathname === "/" ? "text-[var(--brand)]" : "text-muted-foreground"}`}
+            aria-label="الرئيسية"
+            title="الرئيسية"
           >
-            <LogOut className="h-4 w-4" />
+            <Home className="h-4 w-4" />
+          </Link>
+
+          <button
+            onClick={toggleDark}
+            className="p-2 rounded-xl hover:bg-secondary text-muted-foreground transition"
+            aria-label="الوضع الليلي"
+            title="الوضع الليلي"
+          >
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-        )}
+
+          {uid && <NotificationBell userId={uid} />}
+
+          {uid && (
+            <Link
+              to={"/messages" as any}
+              className="p-2 rounded-xl hover:bg-secondary text-muted-foreground transition"
+              aria-label="الرسائل"
+              title="الرسائل الخاصة"
+            >
+              <MessageSquare className="h-4 w-4" />
+            </Link>
+          )}
+
+          {uid && (
+            <button
+              onClick={handleSignOut}
+              className="p-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 hover:text-rose-600 transition"
+              aria-label="تسجيل خروج"
+              title="تسجيل خروج"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
-    </>
+    </div>
   );
 }
