@@ -341,7 +341,7 @@ function Index() {
                   { label: "المسابقات", to: "/competitions" },
                   { label: "الواجبات", to: "/assignments" },
                   { label: "الاختبارات", to: "/quizzes" },
-                  { label: "شاراتي", to: "/badges" },
+                  { label: "شاراتي وإنجازاتي", to: "/badges" },
                 ].map((l) => (
                   <Link key={l.to} to={l.to as any} className="text-sm text-muted-foreground hover:text-foreground hover:font-medium transition flex items-center gap-1">
                     <Star className="h-2.5 w-2.5 text-amber-400" /> {l.label}
