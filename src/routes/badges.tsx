@@ -677,18 +677,18 @@ function BadgesPage() {
         {/* Report card (كشف الدرجات) — printable for parents */}
         {(attempts.length > 0 || gradedSubs.length > 0) && (
           <div className="bg-card rounded-3xl border border-border p-5 shadow-[var(--shadow-card)] mt-6">
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
                 <h3 className="font-bold flex items-center gap-2"><Target className="h-5 w-5 text-emerald-600" /> كشف الدرجات لولي الأمر</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  يحتوي على درجات الاختبارات ({attempts.length}) ودرجات الواجبات المُصحَّحة ({gradedSubs.length}) — يمكن طباعته أو حفظه كـ PDF لإرساله لولي الأمر
+                  درجات الاختبارات ({attempts.length}) والواجبات ({gradedSubs.length})
                 </p>
               </div>
+              <button onClick={downloadReport} disabled={generatingReport}
+                className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-50 transition whitespace-nowrap">
+                <Download className="h-3.5 w-3.5" /> {generatingReport ? "جاري..." : "تحميل PDF"}
+              </button>
             </div>
-            <button onClick={downloadReport} disabled={generatingReport}
-              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50 transition">
-              <Download className="h-4 w-4" /> {generatingReport ? "جاري التحضير..." : "تحميل كشف الدرجات PDF"}
-            </button>
           </div>
         )}
 
