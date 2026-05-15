@@ -33,7 +33,7 @@ const features = [
   { icon: BookOpen, title: "بنك الأنشطة", desc: "أنشطة وأوراق عمل متنوعة للصف الخامس", color: "from-blue-500 to-cyan-500", to: "/activities" as const, badgeKey: null },
   { icon: ClipboardList, title: "الواجبات", desc: "حل واجباتك واحصل على تقييم المعلم", color: "from-blue-500 to-indigo-500", to: "/assignments" as const, badgeKey: "assignments" },
   { icon: Target, title: "اختبارات تفاعلية", desc: "اختبر معلوماتك واكسب نقاطاً", color: "from-rose-500 to-pink-500", to: "/quizzes" as const, badgeKey: null },
-  { icon: CalIcon, title: "التقويم", desc: "مواعيد المسابقات والفعاليات", color: "from-cyan-500 to-blue-500", to: "/calendar" as const, badgeKey: null },
+  { icon: CalIcon, title: "الفاعليات", desc: "مواعيد المسابقات والفعاليات", color: "from-cyan-500 to-blue-500", to: "/calendar" as const, badgeKey: null },
   { icon: Trophy, title: "لوحة المتصدرين", desc: "أعلى معلم وأعلى طالب مشارك", color: "from-amber-500 to-orange-500", to: "/leaderboard" as const, badgeKey: null },
   { icon: Award, title: "شاراتي وإنجازاتي", desc: "شاراتك وشهادة التقدير وكشف درجاتك", color: "from-amber-500 to-yellow-500", to: "/badges" as const, badgeKey: null },
   { icon: GraduationCap, title: "لوحة المعلم", desc: "متابعة إحصائيات الطلاب", color: "from-emerald-600 to-teal-600", to: "/teacher" as const, badgeKey: null },
