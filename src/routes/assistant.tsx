@@ -166,10 +166,7 @@ function AssistantPage() {
         token = refreshed.session?.access_token;
       }
       if (!token) { toast.error("سجّل الدخول لاستخدام المساعد"); setLoading(false); return; }
-      // Always force Arabic text inside the generated image
-      const arabicHint = containsArabic(text)
-        ? `Educational illustration for: "${text}". Write ALL text, numbers, and labels inside the image in Arabic calligraphy only — no English or Latin characters anywhere. Colorful, child-friendly, 5th grade math style.`
-        : `Educational illustration for: "${text}". Write all labels, numbers, and captions inside the image in Arabic language only. Use Arabic numerals (٠١٢٣٤٥٦٧٨٩). Colorful, child-friendly, 5th grade math style.`;
+      const arabicHint = `Pure visual educational illustration for: "${text}". Absolutely NO text, NO words, NO numbers, NO letters, NO labels, NO captions, NO writing of any kind anywhere on the image. Only shapes, colors, and visual imagery. Colorful, child-friendly, 5th grade math style.`;
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },

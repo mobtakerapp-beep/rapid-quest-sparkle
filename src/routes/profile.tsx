@@ -7,6 +7,7 @@ import { FullPageLoader } from "@/components/LoadingSpinner";
 import { playLogoutSound } from "@/lib/sounds";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
 import { getCountryFlag, ARAB_COUNTRIES } from "@/lib/countryFlag";
+import { fetchMyWinnerTitle, WINNER_LABELS, type WinnerTitle } from "@/lib/winnerTitles";
 // MyCertificates and MyBadges now live on the /badges page
 
 export const Route = createFileRoute("/profile")({
@@ -39,6 +40,7 @@ function ProfilePage() {
   const [joining, setJoining] = useState(false);
   const [warnings, setWarnings] = useState<{ id: string; title: string; body: string | null; type: string; created_at: string }[]>([]);
   const [showWarnings, setShowWarnings] = useState(false);
+  const [winnerTitle, setWinnerTitle] = useState<WinnerTitle | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -77,6 +79,9 @@ function ProfilePage() {
         const { data: t } = await supabase.from("profiles").select("display_name").eq("id", tid).maybeSingle();
         setMyTeacherName(t?.display_name || "—");
       }
+      // Load winner title
+      const wt = await fetchMyWinnerTitle(id);
+      setWinnerTitle(wt);
       setLoading(false);
     });
   }, [navigate]);
@@ -239,6 +244,11 @@ function ProfilePage() {
             <div className="text-xl font-black mt-1 flex items-center justify-center gap-2 flex-wrap">
               <span>{roleLabelFor(roleType, gender)} {displayName}</span>
               {isAdmin && <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/20">{adminBadgeFor(gender)}</span>}
+              {winnerTitle && (
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/25 font-bold">
+                  {WINNER_LABELS[winnerTitle].icon} {WINNER_LABELS[winnerTitle].label}
+                </span>
+              )}
             </div>
           </div>
         )}

@@ -82,8 +82,10 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
   try {
     const now = new Date().toISOString();
     const twoDaysFromNow = new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString();
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayStartISO = todayStart.toISOString();
 
-    // ── فعاليات قادمة (في غضون 7 أيام) ──
+    // ── فعاليات قادمة (في غضون 7 أيام) — تبقى حتى يجي وقتها ──
     const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
     const { data: upcomingEvents } = await supabase
       .from("events")
@@ -113,7 +115,23 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       });
     }
 
-    // ── تنبيه انتهاء المسابقات (خلال يومين) ──
+    // ── مسابقات سريعة أُنشئت اليوم ──
+    const { data: newComps } = await supabase
+      .from("competitions")
+      .select("id, title, created_at")
+      .gte("created_at", todayStartISO)
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    for (const comp of (newComps || [])) {
+      items.push({
+        id: `comp-new-${comp.id}`,
+        text: `⚡ مسابقة سريعة جديدة: "${comp.title}" — شارك الآن وأثبت نفسك! 🏆`,
+        type: "auto",
+      });
+    }
+
+    // ── تنبيه انتهاء المسابقات السريعة (خلال يومين) ──
     const { data: endingSoonComps } = await supabase
       .from("competitions")
       .select("id, title, ends_at")
@@ -143,7 +161,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       });
     }
 
-    // ── مسابقات منتهية: الفائز النهائي ──
+    // ── مسابقات سريعة منتهية: الفائز بلقب "بطل السرعة ⚡" ──
     const { data: endedComps } = await supabase
       .from("competitions")
       .select("id, title, ends_at")
@@ -156,7 +174,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       if (!top || !top.isCorrect) continue;
       items.push({
         id: `comp-${comp.id}`,
-        text: `🏆 الفائز في مسابقة "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — النتيجة: ${top.score}` : ""} — الوقت: ${top.time}`,
+        text: `🏆 بطل السرعة ⚡ في مسابقة "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — النتيجة: ${top.score}` : ""} — الوقت: ${top.time}`,
         type: "auto",
       });
     }
@@ -197,7 +215,53 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       });
     }
 
-    // ── معارض منتهية: الفائز النهائي ──
+    // ── معارض أُنشئت اليوم ──
+    const { data: newGallery } = await supabase
+      .from("gallery_contests")
+      .select("id, title, created_at, ends_at")
+      .gte("created_at", todayStartISO)
+      .order("created_at", { ascending: false })
+      .limit(3);
+
+    for (const gc of (newGallery || [])) {
+      items.push({
+        id: `gallery-new-${gc.id}`,
+        text: `🎨 مسابقة معرض جديدة: "${gc.title}" — شارك بإبداعك الآن وفز بلقب نجم المعرض 🌟`,
+        type: "auto",
+      });
+    }
+
+    // ── تذكير انتهاء معارض (خلال يومين) ──
+    const { data: endingSoonGallery } = await supabase
+      .from("gallery_contests")
+      .select("id, title, ends_at")
+      .gt("ends_at", now)
+      .lte("ends_at", twoDaysFromNow)
+      .order("ends_at", { ascending: true })
+      .limit(3);
+
+    for (const gc of (endingSoonGallery || [])) {
+      const endsDate = new Date(gc.ends_at);
+      const diffMs = endsDate.getTime() - Date.now();
+      const diffHours = Math.floor(diffMs / (1000 * 3600));
+      const diffMins = Math.floor((diffMs % (1000 * 3600)) / 60000);
+      let remaining = "";
+      if (diffHours >= 24) {
+        const days = Math.floor(diffHours / 24);
+        remaining = `فاضل ${days} يوم`;
+      } else if (diffHours > 0) {
+        remaining = `فاضل ${diffHours} ساعة و${diffMins} دقيقة`;
+      } else {
+        remaining = `فاضل ${diffMins} دقيقة فقط`;
+      }
+      items.push({
+        id: `gallery-ending-${gc.id}`,
+        text: `⏰ تذكير: مسابقة معرض "${gc.title}" تنتهي قريباً — ${remaining}! صوّت لأفضل عمل الآن 🎨`,
+        type: "auto",
+      });
+    }
+
+    // ── معارض منتهية: الفائز بلقب "نجم المعرض 🌟" ──
     const { data: endedGallery } = await supabase
       .from("gallery_contests")
       .select("id, title, ends_at")
@@ -210,7 +274,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       if (!leader) continue;
       items.push({
         id: `gallery-${gc.id}`,
-        text: `🎨 الفائز في معرض "${gc.title}": ${leader.roleLabel} ${leader.name} — ${leader.votes} ❤`,
+        text: `🌟 نجم المعرض في مسابقة "${gc.title}": ${leader.roleLabel} ${leader.name} — ${leader.votes} ❤`,
         type: "auto",
       });
     }
@@ -219,7 +283,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
     const { data: activeGallery } = await supabase
       .from("gallery_contests")
       .select("id, title, ends_at")
-      .gt("ends_at", now)
+      .gt("ends_at", twoDaysFromNow)
       .order("ends_at", { ascending: true })
       .limit(3);
 

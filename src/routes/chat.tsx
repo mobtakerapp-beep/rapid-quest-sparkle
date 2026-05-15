@@ -11,6 +11,7 @@ import {
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { playLogoutSound } from "@/lib/sounds";
 import { ReportButton } from "@/components/ReportButton";
+import { fetchWinnerTitles, WINNER_LABELS, type WinnerTitle } from "@/lib/winnerTitles";
 
 export const Route = createFileRoute("/chat")({
   component: ChatPage,
@@ -73,6 +74,7 @@ function ChatPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [deleting, setDeleting] = useState(false);
+  const [winnerTitles, setWinnerTitles] = useState<Record<string, WinnerTitle>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const chatOpen = chatOverride === 'open' ? true : chatOverride === 'closed' ? false : isChatOpenByTime();
@@ -116,10 +118,14 @@ function ChatPage() {
       setMessages(msgs || []);
       const ids = Array.from(new Set((msgs || []).map((m) => m.user_id)));
       if (ids.length) {
-        const { data: profs } = await supabase.from("profiles").select("*").in("id", ids);
+        const [{ data: profs }, titles] = await Promise.all([
+          supabase.from("profiles").select("*").in("id", ids),
+          fetchWinnerTitles(ids),
+        ]);
         const map: Record<string, Profile> = {};
         profs?.forEach((p) => (map[p.id] = p));
         setProfiles(map);
+        setWinnerTitles(titles);
       }
     };
     load();
@@ -406,7 +412,7 @@ function ChatPage() {
                 {name.charAt(0)}
               </div>
               <div className={`group max-w-[75%] ${isMe ? "items-end" : "items-start"} flex flex-col`}>
-                <div className="text-xs text-muted-foreground mb-1 px-1 flex items-center gap-1.5">
+                <div className="text-xs text-muted-foreground mb-1 px-1 flex items-center gap-1.5 flex-wrap">
                   <span>{name}</span>
                   {(() => {
                     const b = roleBadge(p?.role_type);
@@ -415,6 +421,14 @@ function ChatPage() {
                         <b.icon className="h-2.5 w-2.5" /> {b.label}
                       </span>
                     ) : null;
+                  })()}
+                  {winnerTitles[m.user_id] && (() => {
+                    const wl = WINNER_LABELS[winnerTitles[m.user_id]];
+                    return (
+                      <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${wl.cls}`}>
+                        {wl.icon} {wl.label}
+                      </span>
+                    );
                   })()}
                   {p?.is_banned && <span className="text-destructive">(محظور)</span>}
                 </div>
