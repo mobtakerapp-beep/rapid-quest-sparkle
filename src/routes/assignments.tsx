@@ -1,15 +1,35 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, ClipboardList, Plus, X, Clock, Paperclip, FileText, MessageSquare, Check, ShieldAlert, CheckSquare, Square, Trash2 } from "lucide-react";
+import { ArrowLeft, ClipboardList, Plus, X, Clock, Paperclip, FileText, MessageSquare, Check, ShieldAlert, CheckSquare, Square, Trash2, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
 import { DateTimePicker } from "@/components/DateTimePicker";
+import { SCHOOLS } from "@/lib/schools";
 
 export const Route = createFileRoute("/assignments")({ component: AssignmentsPage });
 
-type A = { id: string; teacher_id: string; title: string; description: string | null; subject: string; due_at: string | null; created_at: string };
+type A = { id: string; teacher_id: string; title: string; description: string | null; subject: string; due_at: string | null; created_at: string; teacher_name?: string };
+
+function printAssignment(a: A) {
+  const school = a.subject || "";
+  const teacher = a.teacher_name || "";
+  const dueStr = a.due_at ? new Date(a.due_at).toLocaleString("ar-EG") : "";
+  const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>${a.title}</title>
+  <style>body{font-family:Arial,sans-serif;margin:20mm;color:#000;direction:rtl}.hdr{text-align:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:16px}.hdr h1{font-size:17px;margin:0 0 4px}.info{font-size:12px;color:#444}.atitle{font-size:15px;font-weight:bold;margin-bottom:12px}.desc{line-height:1.8;font-size:13px;margin-bottom:20px}.ans{border:1px solid #ccc;height:200px;border-radius:8px}@media print{body{margin:10mm}}</style>
+  </head><body>
+  <div class="hdr"><h1>مبادرة كلنا معاً — محافظة الوسطى</h1>
+  <div class="info">${school ? `مدرسة: ${school}` : ""}${teacher ? ` ◦ المعلم: ${teacher}` : ""}${dueStr ? ` ◦ موعد التسليم: ${dueStr}` : ""}</div></div>
+  <div class="atitle">📋 واجب: ${a.title}</div>
+  ${a.description ? `<div class="desc">${a.description}</div>` : ""}
+  <div class="ans"></div>
+  </body></html>`;
+  const w = window.open("", "_blank");
+  if (!w) { alert("يرجى السماح بفتح نوافذ جديدة"); return; }
+  w.document.write(html); w.document.close(); w.focus();
+  setTimeout(() => { w.print(); }, 600);
+}
 type S = { id: string; assignment_id: string; student_id: string; content: string | null; file_url: string | null; grade: number | null; feedback: string | null; created_at: string };
 
 function AssignmentsPage() {
@@ -20,8 +40,7 @@ function AssignmentsPage() {
   const [list, setList] = useState<A[]>([]);
   const [active, setActive] = useState<A | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState(""); const [desc, setDesc] = useState(""); const [due, setDue] = useState(""); const [subject, setSubject] = useState("الرياضيات");
-  const SUBJECTS = ["الرياضيات", "اللغة العربية", "العلوم", "الدراسات الاجتماعية", "اللغة الإنجليزية", "التربية الإسلامية", "أخرى"];
+  const [title, setTitle] = useState(""); const [desc, setDesc] = useState(""); const [due, setDue] = useState(""); const [subject, setSubject] = useState(SCHOOLS[0]);
   const descRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -55,7 +74,14 @@ function AssignmentsPage() {
       supabase.from("assignments").select("*").order("created_at", { ascending: false }),
       id ? supabase.from("assignment_submissions").select("assignment_id").eq("student_id", id) : Promise.resolve({ data: [] }),
     ]);
-    setList((data || []) as A[]);
+    const assignments = (data || []) as A[];
+    const tids = [...new Set(assignments.map((a) => a.teacher_id).filter(Boolean))];
+    const { data: profs } = tids.length
+      ? await supabase.from("profiles").select("id, display_name").in("id", tids)
+      : { data: [] };
+    const nameMap: Record<string, string> = {};
+    (profs || []).forEach((p: any) => { nameMap[p.id] = p.display_name || ""; });
+    setList(assignments.map((a) => ({ ...a, teacher_name: nameMap[a.teacher_id] || "" })));
     setMySubIds(new Set(((mySubs as any[]) || []).map((s) => s.assignment_id)));
   };
 
@@ -149,7 +175,7 @@ function AssignmentsPage() {
                 <div className="flex items-center justify-between"><h3 className="font-bold">واجب جديد</h3><button onClick={() => setShowForm(false)}><X className="h-4 w-4" /></button></div>
                 <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان الواجب" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
                 <select value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background">
-                  {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  {SCHOOLS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <textarea ref={descRef} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="الوصف والتعليمات (يدعم الكسور [٢/٣] والجذور √(٩))" rows={3} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background resize-none" />
                 <MathToolbar targetRef={descRef} onChange={setDesc} />
@@ -190,18 +216,26 @@ function AssignmentsPage() {
                           ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 font-bold flex items-center gap-0.5"><Check className="h-2.5 w-2.5" /> شاركت</span>
                           : <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 font-bold">● نشطة</span>
                       )}
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] font-bold">{a.subject || "عام"}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] font-bold">🏫 {a.subject || SCHOOLS[0]}</span>
                     </div>
                   </div>
+                  {(a as any).teacher_name && <div className="text-[11px] text-muted-foreground mt-0.5">المعلم: {(a as any).teacher_name}</div>}
                   {a.description && <div className="text-xs text-muted-foreground mt-1 line-clamp-2"><MathText text={a.description} /></div>}
                   {a.due_at && <div className="text-xs text-amber-600 mt-2 inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {new Date(a.due_at).toLocaleString("ar-EG")}</div>}
                   {!isTeacher && <div className="mt-3 text-xs font-bold text-[var(--brand)]">اضغطي هنا لكتابة الحل أو رفع ملف ←</div>}
                 </button>
-                {canDelete && (
-                  <button onClick={onDelete} className="absolute top-2 left-2 p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
+                <div className="absolute top-2 left-2 flex gap-1">
+                  {isTeacher && (
+                    <button onClick={(e) => { e.stopPropagation(); printAssignment(a); }} className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80" title="طباعة">
+                      <Printer className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button onClick={onDelete} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
               );
             })}

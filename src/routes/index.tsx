@@ -267,7 +267,7 @@ function Index() {
                 </p>
                 <div className="rounded-2xl bg-secondary/50 p-4 text-right space-y-2">
                   <div className="text-xs text-muted-foreground">منفّذ المبادرة</div>
-                  <div className="font-black">الأستاذ محمد النعمان</div>
+                  <div className="font-black">الأستاذ محمد نعمان السقطي</div>
                   <div className="text-xs text-muted-foreground">مشرف مادة الرياضيات بمحافظة الوسطى</div>
                 </div>
               </div>
@@ -392,7 +392,7 @@ function Index() {
                 className="text-base font-black bg-[image:var(--gradient-hero)] bg-clip-text text-transparent"
                 style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif", letterSpacing: "0.06em" }}
               >
-                ✦ الأستاذ محمد النعمان ✦
+                ✦ الأستاذ محمد نعمان السقطي ✦
               </span>
             </div>
             <div className="hidden sm:block w-px h-8 bg-border/60" />

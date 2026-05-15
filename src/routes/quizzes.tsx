@@ -1,18 +1,49 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Target, Plus, X, Check, ShieldAlert, CheckSquare, Square, Trash2 } from "lucide-react";
+import { ArrowLeft, Target, Plus, X, Check, ShieldAlert, CheckSquare, Square, Trash2, Printer } from "lucide-react";
 import { FullPageLoader } from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { MathToolbar } from "@/components/MathToolbar";
 import { useRef } from "react";
 import { MathText } from "@/components/MathText";
 import { playCorrect, playWrong, fireworks, burstStars, playFanfare } from "@/lib/quizFx";
+import { SCHOOLS } from "@/lib/schools";
 
 export const Route = createFileRoute("/quizzes")({ component: QuizzesPage });
 
 type Q = { question: string; options: string[]; correct: number; image_url?: string | null; type?: "mc" | "essay" };
-type Quiz = { id: string; title: string; subject: string; questions: Q[]; created_by: string };
+type Quiz = { id: string; title: string; subject: string; questions: Q[]; created_by: string; teacher_name?: string };
+
+function printQuiz(quiz: Quiz) {
+  const school = quiz.subject || "";
+  const teacher = quiz.teacher_name || "";
+  const qs = Array.isArray(quiz.questions) ? quiz.questions : [];
+  const opts = ["أ", "ب", "ج", "د", "هـ"];
+  const questionsHtml = qs.map((q, i) => {
+    const isMC = (q.type || "mc") === "mc";
+    const optsHtml = isMC
+      ? q.options.map((o, oi) => `<div style="margin:2px 20px">${opts[oi] || oi + 1}. ${o}</div>`).join("")
+      : `<div style="border:1px solid #ccc;height:60px;border-radius:6px;margin-top:6px"></div>`;
+    return `<div style="margin-bottom:18px;page-break-inside:avoid">
+      <div style="font-weight:bold;margin-bottom:6px">${i + 1}. ${q.question}</div>
+      ${q.image_url ? `<img src="${q.image_url}" style="max-width:180px;height:auto;margin-bottom:6px;display:block" />` : ""}
+      ${optsHtml}
+    </div>`;
+  }).join("");
+  const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>${quiz.title}</title>
+  <style>body{font-family:Arial,sans-serif;margin:20mm;color:#000;direction:rtl}.hdr{text-align:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:16px}.hdr h1{font-size:17px;margin:0 0 4px}.info{font-size:12px;color:#444}.qtitle{font-size:15px;font-weight:bold;text-align:center;margin-bottom:18px}@media print{body{margin:10mm}}</style>
+  </head><body>
+  <div class="hdr"><h1>مبادرة كلنا معاً — محافظة الوسطى</h1>
+  <div class="info">${school ? `مدرسة: ${school}` : ""}${teacher ? ` ◦ المعلم: ${teacher}` : ""}</div></div>
+  <div class="qtitle">اختبار: ${quiz.title}</div>
+  ${questionsHtml}
+  </body></html>`;
+  const w = window.open("", "_blank");
+  if (!w) { alert("يرجى السماح بفتح نوافذ جديدة"); return; }
+  w.document.write(html); w.document.close(); w.focus();
+  setTimeout(() => { w.print(); }, 600);
+}
 
 function QuizzesPage() {
   const navigate = useNavigate();
@@ -23,7 +54,7 @@ function QuizzesPage() {
   const [active, setActive] = useState<Quiz | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
-  const [subject, setSubject] = useState("عام");
+  const [subject, setSubject] = useState(SCHOOLS[0]);
   const [filter, setFilter] = useState("الكل");
   const [questions, setQuestions] = useState<Q[]>([{ question: "", options: ["", "", "", ""], correct: 0, type: "mc" }]);
   const [attemptedIds, setAttemptedIds] = useState<Set<string>>(new Set());
@@ -32,7 +63,7 @@ function QuizzesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  const subjects = ["الكل", "رياضيات", "علوم", "لغة عربية", "إنجليزي", "دراسات", "إسلامية", "عام"];
+  const subjects = ["الكل", ...SCHOOLS];
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -64,19 +95,24 @@ function QuizzesPage() {
 
   const load = async (userId?: string) => {
     const currentUid = userId ?? uid;
-    // Use RPC so students get list without correct answers; teachers/admins still see everything via RLS
     const [{ data }, { data: attempts }] = await Promise.all([
       supabase.rpc("list_quizzes" as any),
       currentUid
         ? supabase.from("quiz_attempts").select("quiz_id").eq("user_id", currentUid)
         : Promise.resolve({ data: [] }),
     ]);
-    // Map shape: list_quizzes returns question_count, no `questions` array
     const mapped = (data || []).map((r: any) => ({
       id: r.id, title: r.title, subject: r.subject, created_by: r.created_by,
-      questions: new Array(r.question_count || 0).fill(null), // placeholder for count display
+      questions: new Array(r.question_count || 0).fill(null),
     }));
-    setList(mapped as any);
+    // Fetch teacher names
+    const creatorIds = [...new Set(mapped.map((q: any) => q.created_by).filter(Boolean))];
+    const { data: profs } = creatorIds.length
+      ? await supabase.from("profiles").select("id, display_name").in("id", creatorIds)
+      : { data: [] };
+    const nameMap: Record<string, string> = {};
+    (profs || []).forEach((p: any) => { nameMap[p.id] = p.display_name || ""; });
+    setList(mapped.map((q: any) => ({ ...q, teacher_name: nameMap[q.created_by] || "" })) as any);
     setAttemptedIds(new Set(((attempts as any[]) || []).map((a: any) => a.quiz_id)));
   };
 
@@ -98,20 +134,19 @@ function QuizzesPage() {
     const { error } = await supabase.from("quizzes").insert({ title: title.trim(), subject, questions: questions as any, created_by: uid });
     if (error) return toast.error(error.message);
     toast.success("تم إضافة الاختبار للبنك 🎯");
-    // Notify all students about the new quiz
     const { data: students } = await supabase.from("profiles").select("id").eq("role_type", "student");
     if (students?.length) {
       await supabase.from("notifications").insert(
         students.map((s) => ({
           user_id: s.id,
           title: `اختبار جديد 🎯`,
-          body: `تم إضافة اختبار جديد: "${title.trim()}" — مادة: ${subject}`,
+          body: `تم إضافة اختبار جديد: "${title.trim()}" — مدرسة: ${subject}`,
           type: "quiz",
           link: "/quizzes",
         }))
       );
     }
-    setTitle(""); setSubject("عام"); setQuestions([{ question: "", options: ["", "", "", ""], correct: 0, type: "mc" }]); setShowForm(false); load(uid ?? undefined);
+    setTitle(""); setSubject(SCHOOLS[0]); setQuestions([{ question: "", options: ["", "", "", ""], correct: 0, type: "mc" }]); setShowForm(false); load(uid ?? undefined);
   };
 
   const toggleSelect = (id: string) => {
@@ -192,7 +227,7 @@ function QuizzesPage() {
                 <div className="flex items-center justify-between"><h3 className="font-bold">اختبار جديد</h3><button onClick={() => setShowForm(false)}><X className="h-4 w-4" /></button></div>
                 <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان الاختبار" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
                 <select value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background">
-                  {subjects.filter(s => s !== "الكل").map((s) => <option key={s} value={s}>{s}</option>)}
+                  {SCHOOLS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
                 {questions.map((q, qi) => (
                   <QuestionEditor key={qi} q={q} qi={qi} onChange={(nq) => { const n = [...questions]; n[qi] = nq; setQuestions(n); }} />
@@ -235,16 +270,24 @@ function QuizzesPage() {
                           ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 font-bold flex items-center gap-0.5"><Check className="h-2.5 w-2.5" /> شاركت</span>
                           : <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 font-bold">● نشطة</span>
                       )}
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] font-bold">{q.subject || "عام"}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] font-bold">🏫 {q.subject || SCHOOLS[0]}</span>
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">{Array.isArray(q.questions) ? q.questions.length : 0} أسئلة</div>
+                  {(q as any).teacher_name && <div className="text-[11px] text-muted-foreground mt-0.5">المعلم: {(q as any).teacher_name}</div>}
                 </button>
-                {canDelete && (
-                  <button onClick={onDelete} className="absolute top-2 left-2 p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
+                <div className="absolute top-2 left-2 flex gap-1">
+                  {isTeacher && (
+                    <button onClick={(e) => { e.stopPropagation(); printQuiz(q); }} className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80" title="طباعة">
+                      <Printer className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button onClick={onDelete} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
               );
             })}

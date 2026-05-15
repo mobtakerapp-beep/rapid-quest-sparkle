@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Megaphone, Plus, X, Star } from "lucide-react";
 import { toast } from "sonner";
 
-type TickerItem = { id: string; text: string; type: "auto" | "custom" };
+type TickerItem = { id: string; text: string; type: "auto" | "custom"; expires_at?: string };
 
 const TICKER_CHANNEL = "ticker_broadcast_v1";
 const STORAGE_KEY = "ticker_custom_items_v1";
@@ -11,12 +11,19 @@ const STORAGE_KEY = "ticker_custom_items_v1";
 function loadCustomItems(): TickerItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const all: TickerItem[] = raw ? JSON.parse(raw) : [];
+    const now = Date.now();
+    // Filter out expired items
+    return all.filter((it) => !it.expires_at || new Date(it.expires_at).getTime() > now);
   } catch { return []; }
 }
 
 function saveCustomItems(items: TickerItem[]) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
+}
+
+function daysFromNow(days: number): string {
+  return new Date(Date.now() + days * 24 * 3600 * 1000).toISOString();
 }
 
 function getRoleLabel(roleType?: string): string {
@@ -253,16 +260,48 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
   return items;
 }
 
+const DURATION_OPTIONS = [
+  { label: "يوم واحد", days: 1 },
+  { label: "3 أيام", days: 3 },
+  { label: "أسبوع", days: 7 },
+  { label: "بلا انتهاء", days: 0 },
+];
+
 export function NewsTicker({ userId, canManage }: { userId: string | null; canManage: boolean }) {
   const [items, setItems] = useState<TickerItem[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [newText, setNewText] = useState("");
+  const [durationDays, setDurationDays] = useState(3);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const refresh = async () => {
     const auto = await fetchAutoItems();
     const custom = loadCustomItems();
     setItems([...custom, ...auto]);
+  };
+
+  // Broadcast a badge award into the ticker (1-day expiry)
+  const broadcastBadgeAward = async (badgeRecord: any) => {
+    try {
+      const [{ data: prof }, { data: badge }] = await Promise.all([
+        supabase.from("profiles").select("display_name").eq("id", badgeRecord.user_id).maybeSingle(),
+        supabase.from("badges").select("name").eq("id", badgeRecord.badge_id).maybeSingle(),
+      ]);
+      const studentName = (prof as any)?.display_name || "طالب";
+      const badgeName = (badge as any)?.name || "شارة";
+      const item: TickerItem = {
+        id: `badge-${badgeRecord.id}-${Date.now()}`,
+        text: `🏅 تهانينا! ${studentName} حصل على شارة "${badgeName}"`,
+        type: "custom",
+        expires_at: daysFromNow(1),
+      };
+      const existing = loadCustomItems();
+      if (!existing.some((x) => x.id === item.id)) {
+        saveCustomItems([item, ...existing]);
+        setItems((prev) => prev.some((x) => x.id === item.id) ? prev : [item, ...prev]);
+        channelRef.current?.send({ type: "broadcast", event: "new_item", payload: item });
+      }
+    } catch {}
   };
 
   useEffect(() => {
@@ -275,14 +314,13 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
         const incoming = payload as TickerItem;
         setItems((prev) => {
           if (prev.some((x) => x.id === incoming.id)) return prev;
-          const updated = [incoming, ...prev];
           if (incoming.type === "custom") {
             const existing = loadCustomItems();
             if (!existing.some((x) => x.id === incoming.id)) {
               saveCustomItems([incoming, ...existing]);
             }
           }
-          return updated;
+          return [incoming, ...prev];
         });
       })
       .on("broadcast", { event: "remove_item" }, ({ payload }: any) => {
@@ -293,12 +331,16 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       .subscribe();
 
     // Auto-refresh ticker when new submissions, votes, or events land
+    // Also listen for new badge awards → auto-announce for 1 day
     const subsCh = supabase
       .channel("ticker-subs-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "competition_submissions" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "gallery_contest_votes" }, () => refresh())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "events" }, () => refresh())
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "events" }, () => refresh())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "user_badges" }, (p: any) => {
+        broadcastBadgeAward(p.new);
+      })
       .subscribe();
 
     return () => {
@@ -306,6 +348,7 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       if (channelRef.current) supabase.removeChannel(channelRef.current);
       supabase.removeChannel(subsCh);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const addItem = () => {
@@ -315,12 +358,14 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       id: `custom-${Date.now()}`,
       text,
       type: "custom",
+      expires_at: durationDays > 0 ? daysFromNow(durationDays) : undefined,
     };
     const updated = [item, ...loadCustomItems()];
     saveCustomItems(updated);
     setItems((prev) => [item, ...prev]);
     channelRef.current?.send({ type: "broadcast", event: "new_item", payload: item });
-    toast.success("تمت إضافة الإعلان للشريط ✅");
+    const durationLabel = DURATION_OPTIONS.find((d) => d.days === durationDays)?.label || "";
+    toast.success(`تمت إضافة الإعلان للشريط${durationLabel ? ` (${durationLabel})` : ""} ✅`);
     setNewText("");
     setShowAdd(false);
   };
@@ -426,6 +471,25 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
               className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm resize-none mb-3 focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
 
+            <div className="mb-3">
+              <div className="text-xs text-muted-foreground font-bold mb-1.5">مدة الظهور:</div>
+              <div className="flex gap-1.5 flex-wrap">
+                {DURATION_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.days}
+                    onClick={() => setDurationDays(opt.days)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition ${
+                      durationDays === opt.days
+                        ? "bg-amber-500 text-white border-amber-500"
+                        : "bg-secondary border-border hover:border-amber-400"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
               onClick={addItem}
               disabled={!newText.trim()}
@@ -444,7 +508,14 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
                     key={it.id}
                     className="flex items-center gap-2 text-xs bg-secondary/60 rounded-xl px-3 py-2"
                   >
-                    <span className="flex-1 truncate">{it.text}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate">{it.text}</div>
+                      {it.expires_at && (
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                          ينتهي: {new Date(it.expires_at).toLocaleDateString("ar-EG")}
+                        </div>
+                      )}
+                    </div>
                     <button
                       onClick={() => removeItem(it.id)}
                       className="text-destructive shrink-0 hover:opacity-70"

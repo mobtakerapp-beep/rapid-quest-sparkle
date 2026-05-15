@@ -6,6 +6,7 @@ import { ArrowLeft, BookOpen, Upload, FileText, Download, Trash2, Video, Image a
 import { Reactions } from "@/components/Reactions";
 import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
+import { SCHOOLS } from "@/lib/schools";
 
 export const Route = createFileRoute("/activities")({ component: ActivitiesPage });
 
@@ -20,9 +21,8 @@ type Activity = {
   file_name: string | null;
   created_at: string;
   status: string;
+  teacher_name?: string;
 };
-
-const SUBJECTS = ["اللغة العربية", "الرياضيات", "العلوم", "الدراسات الاجتماعية", "اللغة الإنجليزية", "التربية الإسلامية", "التربية الفنية", "أخرى"];
 
 const fileIcon = (type: string) => {
   if (type.startsWith("image/")) return ImageIcon;
@@ -39,7 +39,7 @@ function ActivitiesPage() {
   const [items, setItems] = useState<Activity[]>([]);
   const [activeSubject, setActiveSubject] = useState<string>("الكل");
   const [showForm, setShowForm] = useState(false);
-  const [subject, setSubject] = useState(SUBJECTS[0]);
+  const [subject, setSubject] = useState(SCHOOLS[0]);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -70,7 +70,14 @@ function ActivitiesPage() {
 
   const load = async () => {
     const { data } = await supabase.from("activities").select("*").order("created_at", { ascending: false }).limit(200);
-    setItems((data || []) as Activity[]);
+    const acts = (data || []) as Activity[];
+    const uids = [...new Set(acts.map((a) => a.user_id))];
+    const { data: profs } = uids.length
+      ? await supabase.from("profiles").select("id, display_name").in("id", uids)
+      : { data: [] };
+    const nameMap: Record<string, string> = {};
+    (profs || []).forEach((p: any) => { nameMap[p.id] = p.display_name || ""; });
+    setItems(acts.map((a) => ({ ...a, teacher_name: nameMap[a.user_id] || "" })));
   };
 
   // ── Realtime subscription ──
@@ -229,7 +236,7 @@ function ActivitiesPage() {
                 <div className="grid gap-3">
                   <select value={subject} onChange={(e) => setSubject(e.target.value)}
                     className="px-4 py-2.5 rounded-xl border border-border bg-background">
-                    {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+                    {SCHOOLS.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان النشاط *" maxLength={120}
                     className="px-4 py-2.5 rounded-xl border border-border bg-background" />
@@ -251,9 +258,9 @@ function ActivitiesPage() {
           </div>
         )}
 
-        {/* Subject filter */}
+        {/* School filter */}
         <div className="flex gap-2 overflow-x-auto pb-3 mb-4">
-          {["الكل", ...SUBJECTS].map((s) => (
+          {["الكل", ...SCHOOLS].map((s) => (
             <button key={s} onClick={() => setActiveSubject(s)}
               className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition ${
                 activeSubject === s ? "bg-[image:var(--gradient-hero)] text-white" : "bg-secondary hover:bg-secondary/80"
@@ -343,7 +350,9 @@ function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onAppro
                     </div>
                   )}
                   <div className="p-4 flex-1 flex flex-col">
-                    <div className="text-xs text-[var(--brand)] font-semibold mb-1">{it.subject}</div>
+                    <div className="text-xs text-[var(--brand)] font-semibold mb-1 flex items-center gap-1.5">
+                    🏫 {it.subject || "—"}{it.teacher_name ? <span className="text-muted-foreground font-normal">• {it.teacher_name}</span> : null}
+                  </div>
                     <h3 className="font-bold mb-1 line-clamp-2">{it.title}</h3>
                     {it.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-3"><MathText text={it.description} /></p>}
                     {it.status !== "approved" && (
