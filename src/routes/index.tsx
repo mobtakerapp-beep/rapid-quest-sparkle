@@ -402,7 +402,7 @@ function Index() {
                 className="text-base font-black bg-gradient-to-r from-violet-500 via-pink-500 to-rose-500 bg-clip-text text-transparent"
                 style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif", letterSpacing: "0.06em" }}
               >
-                ✦ الأستاذة مروة أبوبكر ✦
+                ✦ الأستاذة مروه أبوبكر ✦
               </span>
             </div>
           </div>
