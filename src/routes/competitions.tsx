@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Trophy, Plus, Clock, Send, X, Crown, MessageCircle, Image as ImageIcon, Link2, Trash2, ShieldAlert, CheckSquare, Square } from "lucide-react";
+import { ArrowLeft, Trophy, Plus, Clock, Send, X, Crown, MessageCircle, Image as ImageIcon, Link2, Trash2, ShieldAlert, CheckSquare, Square, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Reactions } from "@/components/Reactions";
 import { MathToolbar } from "@/components/MathToolbar";
@@ -10,6 +10,315 @@ import { ReportButton } from "@/components/ReportButton";
 import { playTick, playCorrect, playFanfare, fireworks, burstStars } from "@/lib/quizFx";
 
 export const Route = createFileRoute("/competitions")({ component: CompetitionsPage });
+
+function printCompetition(c: Comp) {
+  const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+  const arabicOpts = ["أ", "ب", "ج", "د", "هـ"];
+
+  const qs: MQ[] = Array.isArray(c.questions) && c.questions.length > 0
+    ? c.questions
+    : [{ question: c.question, is_multiple_choice: !!c.is_multiple_choice, options: c.options ?? [], correct_index: 0, correct_answer: "", duration_seconds: c.duration_seconds }];
+
+  const totalTime = qs.reduce((s, q) => s + (q.duration_seconds || 0), 0);
+  const mcCount = qs.filter(q => q.is_multiple_choice).length;
+  const textCount = qs.filter(q => !q.is_multiple_choice).length;
+
+  const questionsHtml = qs.map((q, i) => {
+    const isMC = q.is_multiple_choice;
+    // Shuffle display order without revealing which is correct
+    const displayOpts = isMC && Array.isArray(q.options) && q.options.length > 0
+      ? [...q.options].sort(() => Math.random() - 0.5)
+      : [];
+    const optsHtml = isMC && displayOpts.length > 0
+      ? `<div class="options-grid">${displayOpts.map((o, oi) =>
+          `<div class="option"><span class="opt-circle">${arabicOpts[oi] || String(oi + 1)}</span><span class="opt-text">${o}</span></div>`
+        ).join("")}</div>`
+      : `<div class="essay-lines">${Array.from({ length: 3 }, () => `<div class="essay-line"></div>`).join("")}</div>`;
+    return `<div class="question-block">
+      <div class="q-header">
+        <span class="q-num">${i + 1}</span>
+        <span class="q-text">${q.question}</span>
+        <span class="q-timer">⏱ ${q.duration_seconds}ث</span>
+      </div>
+      ${optsHtml}
+    </div>`;
+  }).join("");
+
+  const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>مسابقة — ${c.title}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 13px;
+    color: #111;
+    direction: rtl;
+    background: #fff;
+    padding: 14mm 18mm 12mm 18mm;
+  }
+  .stripe {
+    height: 8px;
+    background: repeating-linear-gradient(90deg,#d97706 0 40px,#fff 40px 44px,#c8102e 44px 84px,#fff 84px 88px);
+    margin-bottom: 10px;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 2px solid #d97706;
+    border-radius: 8px;
+    padding: 8px 14px;
+    margin-bottom: 8px;
+    background: #fffbef;
+  }
+  .header-center { text-align: center; flex: 1; }
+  .header-center .initiative { font-size: 16px; font-weight: 900; color: #d97706; }
+  .header-center .gov { font-size: 11px; color: #666; margin-top: 2px; }
+  .header-badge {
+    border-radius: 6px; padding: 6px 10px;
+    font-size: 11px; font-weight: 700; text-align: center; line-height: 1.5;
+    min-width: 72px; color: #fff;
+  }
+  .info-row {
+    display: flex;
+    border: 1.5px solid #999;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .info-cell {
+    flex: 1;
+    padding: 5px 10px;
+    border-left: 1.5px solid #ccc;
+    background: #fafafa;
+  }
+  .info-cell:last-child { border-left: none; }
+  .info-label { font-size: 10px; color: #888; margin-bottom: 1px; }
+  .info-value { font-weight: 700; }
+  .student-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .student-field {
+    flex: 1;
+    border: 1.5px solid #555;
+    border-radius: 5px;
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .student-field .lbl { color: #444; font-size: 11px; white-space: nowrap; }
+  .student-field .line { flex: 1; border-bottom: 1px dashed #aaa; height: 14px; }
+  .score-box {
+    border: 2px solid #d97706;
+    border-radius: 6px;
+    padding: 5px 14px;
+    font-size: 11px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .score-box .lbl { color: #d97706; font-weight: 700; white-space: nowrap; }
+  .score-box .sbox { width: 32px; height: 22px; border: 1.5px solid #d97706; border-radius: 3px; }
+  .title-banner {
+    background: linear-gradient(135deg, #d97706, #f59e0b);
+    color: #fff;
+    text-align: center;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 900;
+    margin-bottom: 6px;
+    letter-spacing: .3px;
+  }
+  .stats-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    font-size: 11px;
+  }
+  .stat-pill {
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-weight: 700;
+  }
+  .instructions {
+    border: 1.5px solid #d97706;
+    border-radius: 6px;
+    padding: 7px 12px;
+    margin-bottom: 12px;
+    background: #fffbef;
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  .instructions strong { color: #b45309; }
+  .question-block {
+    border: 1.5px solid #ddd;
+    border-radius: 7px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    page-break-inside: avoid;
+  }
+  .q-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .q-num {
+    background: linear-gradient(135deg,#d97706,#f59e0b);
+    color: #fff;
+    border-radius: 50%;
+    min-width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+  .q-text { flex: 1; font-weight: 700; font-size: 13px; line-height: 1.6; }
+  .q-timer {
+    font-size: 10px;
+    color: #d97706;
+    border: 1px solid #f59e0b;
+    border-radius: 4px;
+    padding: 2px 7px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    background: #fffbef;
+    font-weight: 700;
+  }
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding-right: 8px;
+  }
+  .option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1.5px solid #e5c97a;
+    border-radius: 6px;
+    padding: 5px 8px;
+    background: #fffdf5;
+  }
+  .opt-circle {
+    width: 22px; height: 22px;
+    border: 2px solid #d97706;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 900;
+    color: #d97706;
+    flex-shrink: 0;
+  }
+  .opt-text { font-size: 12px; line-height: 1.4; }
+  .essay-lines { padding-right: 8px; }
+  .essay-line { border-bottom: 1px solid #ccc; height: 26px; }
+  .footer {
+    margin-top: 14px;
+    border-top: 1.5px solid #bbb;
+    padding-top: 6px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #777;
+  }
+  @media print {
+    body { padding: 8mm 12mm 6mm 12mm; }
+    .stripe,.header,.title-banner,.q-num,.opt-circle {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="stripe"></div>
+
+<div class="header">
+  <div class="header-badge" style="background:linear-gradient(135deg,#d97706,#f59e0b);">مسابقة<br>سريعة</div>
+  <div class="header-center">
+    <div class="initiative">🏆 مبادرة كلنا معاً</div>
+    <div class="gov">محافظة الوسطى — سلطنة عُمان</div>
+  </div>
+  <div class="header-badge" style="background:#c8102e;">وزارة<br>التربية</div>
+</div>
+
+<div class="info-row">
+  <div class="info-cell">
+    <div class="info-label">عدد الأسئلة</div>
+    <div class="info-value">${qs.length} ${qs.length === 1 ? "سؤال" : "أسئلة"}</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-label">الزمن الكلي</div>
+    <div class="info-value">${totalTime} ثانية</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-label">نوع الأسئلة</div>
+    <div class="info-value">${mcCount > 0 && textCount > 0 ? "مختلطة" : mcCount > 0 ? "اختيارية" : "مقالية"}</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-label">التاريخ</div>
+    <div class="info-value">${today}</div>
+  </div>
+</div>
+
+<div class="student-row">
+  <div class="student-field" style="flex:2">
+    <span class="lbl">اسم الطالب / الطالبة:</span>
+    <span class="line"></span>
+  </div>
+  <div class="student-field">
+    <span class="lbl">الصف والشعبة:</span>
+    <span class="line"></span>
+  </div>
+  <div class="score-box">
+    <span class="lbl">الدرجة:</span>
+    <div style="display:flex;gap:4px;"><div class="sbox"></div><div class="sbox"></div></div>
+    <span style="color:#d97706;font-weight:700;">/ ${qs.length}</span>
+  </div>
+</div>
+
+<div class="title-banner">🏆 ${c.title}</div>
+
+<div class="stats-bar">
+  ${mcCount > 0 ? `<span class="stat-pill" style="background:#fffbef;color:#d97706;border:1px solid #f59e0b;">✏️ اختيارية: ${mcCount}</span>` : ""}
+  ${textCount > 0 ? `<span class="stat-pill" style="background:#fef2f2;color:#c8102e;border:1px solid #fca5a5;">📝 مقالية: ${textCount}</span>` : ""}
+  <span class="stat-pill" style="background:#f0fdf4;color:#15803d;border:1px solid #86efac;">⏱ مجموع الوقت: ${totalTime} ثانية</span>
+</div>
+
+<div class="instructions">
+  <strong>📌 تعليمات المسابقة:</strong> اقرأ كل سؤال بتأنٍّ — للأسئلة الاختيارية ظلّل الدائرة أمام الإجابة الصحيحة — للأسئلة المقالية اكتب إجابتك في المساحة المحددة — الغش محرّم.
+</div>
+
+${questionsHtml}
+
+<div class="footer">
+  <span>مبادرة كلنا معاً — محافظة الوسطى</span>
+  <span>${c.title}</span>
+  <span>${today}</span>
+</div>
+
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank");
+  if (!w) { alert("يرجى السماح بفتح نوافذ جديدة في المتصفح"); URL.revokeObjectURL(url); return; }
+  setTimeout(() => { w.print(); setTimeout(() => URL.revokeObjectURL(url), 60000); }, 800);
+}
 
 type MQ = {
   question: string;
@@ -382,9 +691,14 @@ function CompetitionsPage() {
                     </div>
                   </button>
                   {!selectMode && canCreate && (
-                    <button onClick={onDelete} className="absolute top-2 left-2 p-1.5 rounded-lg bg-destructive/90 text-white hover:bg-destructive shadow" title="حذف">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="absolute top-2 left-2 flex flex-col gap-1">
+                      <button onClick={(e) => { e.stopPropagation(); printCompetition(c); }} className="p-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 shadow" title="طباعة">
+                        <Printer className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={onDelete} className="p-1.5 rounded-lg bg-destructive/90 text-white hover:bg-destructive shadow" title="حذف">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
               );
