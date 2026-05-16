@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { toAr } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -272,7 +273,7 @@ function ProfilePage() {
                   إنذاراتي وسجل المخالفات
                 </span>
                 <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-500 text-white text-xs font-black">
-                  {warnings.length}
+                  {toAr(warnings.length)}
                 </span>
               </div>
               {showWarnings

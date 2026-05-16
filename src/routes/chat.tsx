@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { toAr } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -222,7 +223,7 @@ function ChatPage() {
       setMessages((prev) => prev.filter((m) => !selected.has(m.id)));
       setSelected(new Set());
       setSelectMode(false);
-      toast.success(`تم حذف ${ids.length} رسالة`);
+      toast.success(`تم حذف ${toAr(ids.length)} رسالة`);
     } catch { toast.error("فشل حذف الرسائل"); }
     finally { setDeleting(false); }
   };
@@ -288,7 +289,7 @@ function ChatPage() {
       {/* شريط التحديد الجماعي */}
       {selectMode && isMod && (
         <div className="sticky top-[73px] z-10 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex flex-wrap items-center gap-2" dir="rtl">
-          <span className="text-sm font-black text-rose-700">{selected.size} محدد</span>
+          <span className="text-sm font-black text-rose-700">{toAr(selected.size)} محدد</span>
           {/* فلتر حسب الدور */}
           <div className="flex gap-1 flex-wrap">
             {([
@@ -323,7 +324,7 @@ function ChatPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60 mr-auto"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              حذف {selected.size} رسالة
+              حذف {toAr(selected.size)} رسالة
             </button>
           )}
         </div>

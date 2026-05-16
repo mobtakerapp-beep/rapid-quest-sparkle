@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { toAr } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Award, Download, User as UserIcon, Target, Palette, Type as TypeIcon, Copy, Check, Users, Search } from "lucide-react";
@@ -512,7 +513,7 @@ function BadgesPage() {
             <div className="bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 rounded-3xl p-6 text-center">
               <div className="text-4xl mb-2">✅</div>
               <h3 className="text-2xl font-black">{linkedStudent.name}</h3>
-              <div className="text-5xl font-black bg-[image:var(--gradient-hero)] bg-clip-text text-transparent mt-2">{linkedStudent.points}</div>
+              <div className="text-5xl font-black bg-[image:var(--gradient-hero)] bg-clip-text text-transparent mt-2">{toAr(linkedStudent.points)}</div>
               <div className="text-sm text-muted-foreground">نقطة • {Object.keys(linkedStudent.counts).length} شارة</div>
             </div>
 
@@ -531,7 +532,7 @@ function BadgesPage() {
                           <div className="font-bold text-xs truncate">{a.quiz_title}</div>
                           <div className="text-[10px] text-muted-foreground">{new Date(a.created_at).toLocaleDateString("ar-EG")}</div>
                         </div>
-                        <div className={`text-sm font-black ${txt} shrink-0`}>{a.score}/{a.total}</div>
+                        <div className={`text-sm font-black ${txt} shrink-0`}>{toAr(a.score)}/{toAr(a.total)}</div>
                       </div>
                     );
                   })}
@@ -598,7 +599,7 @@ function BadgesPage() {
             {avatar ? <img src={avatar} alt="avatar" className="h-full w-full object-cover" /> : <UserIcon className="h-10 w-10" />}
           </div>
           <div className="font-black text-xl mb-1">{name || "—"}</div>
-          <div className="text-5xl font-black bg-[image:var(--gradient-hero)] bg-clip-text text-transparent mb-1">{points}</div>
+          <div className="text-5xl font-black bg-[image:var(--gradient-hero)] bg-clip-text text-transparent mb-1">{toAr(points)}</div>
           <div className="text-sm text-muted-foreground mb-4">نقطة</div>
           <div className="text-sm mb-4">حصلت على <strong>{Object.keys(counts).length}</strong> من أصل <strong>{all.filter(b => b.audience === audience).length}</strong> شارة</div>
         </div>
@@ -627,7 +628,7 @@ function BadgesPage() {
         {/* ① درجات الاختبارات — أولاً */}
         {attempts.length > 0 && (
           <div className="bg-card rounded-3xl border border-border p-5 shadow-[var(--shadow-card)] mb-6">
-            <h3 className="font-bold mb-3 flex items-center gap-2"><Target className="h-5 w-5 text-rose-500" /> درجات اختباراتي <span className="text-xs font-normal text-muted-foreground">({attempts.length})</span></h3>
+            <h3 className="font-bold mb-3 flex items-center gap-2"><Target className="h-5 w-5 text-rose-500" /> درجات اختباراتي <span className="text-xs font-normal text-muted-foreground">({toAr(attempts.length)})</span></h3>
             <div className="overflow-y-auto max-h-64 space-y-1.5 pl-1 scrollbar-thin">
               {attempts.map((a) => {
                 const pct = a.total > 0 ? Math.round((a.score / a.total) * 100) : 0;
@@ -640,7 +641,7 @@ function BadgesPage() {
                       <div className="font-bold text-xs truncate">{a.quiz_title}</div>
                       <div className="text-[10px] text-muted-foreground">{new Date(a.created_at).toLocaleDateString("ar-EG")}</div>
                     </div>
-                    <div className={`text-sm font-black ${txt} shrink-0`}>{a.score}/{a.total}</div>
+                    <div className={`text-sm font-black ${txt} shrink-0`}>{toAr(a.score)}/{toAr(a.total)}</div>
                   </div>
                 );
               })}
@@ -655,7 +656,7 @@ function BadgesPage() {
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold flex items-center gap-2"><Target className="h-5 w-5 text-emerald-600" /> كشف الدرجات لولي الأمر</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  درجات الاختبارات ({attempts.length}) والواجبات ({gradedSubs.length})
+                  درجات الاختبارات ({toAr(attempts.length)}) والواجبات ({toAr(gradedSubs.length)})
                 </p>
               </div>
               <button onClick={downloadReport} disabled={generatingReport}

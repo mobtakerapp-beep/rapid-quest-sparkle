@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { toAr } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -176,7 +177,7 @@ function GalleryPage() {
     const { error } = await supabase.from("messages").delete().in("id", ids);
     setBulkDeleting(false);
     if (error) return toast.error("فشل الحذف: " + error.message);
-    toast.success(`تم حذف ${ids.length} عنصر وتحرير المساحة ✨`);
+    toast.success(`تم حذف ${toAr(ids.length)} عنصر وتحرير المساحة ✨`);
     setItems((p) => p.filter((i) => !ids.includes(i.id)));
     setSelected(new Set());
     setSelectMode(false);
@@ -215,12 +216,12 @@ function GalleryPage() {
       {/* Bulk delete bar */}
       {selectMode && isMod && (
         <div className="sticky top-[57px] z-20 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center gap-3" dir="rtl">
-          <span className="text-sm font-bold text-rose-700">{selected.size} محدد</span>
-          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({items.length})</button>
+          <span className="text-sm font-bold text-rose-700">{toAr(selected.size)} محدد</span>
+          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({toAr(items.length)})</button>
           <button onClick={clearSelect} className="text-xs px-3 py-1 rounded-lg bg-secondary font-bold hover:bg-secondary/70">إلغاء التحديد</button>
           <button onClick={bulkDelete} disabled={selected.size === 0 || bulkDeleting}
             className="mr-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600 text-white text-sm font-bold disabled:opacity-50">
-            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${selected.size})`}
+            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${toAr(selected.size)})`}
           </button>
         </div>
       )}

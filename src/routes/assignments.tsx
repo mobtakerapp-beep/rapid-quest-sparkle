@@ -7,6 +7,7 @@ import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
 import { DateTimePicker } from "@/components/DateTimePicker";
 import { SCHOOLS } from "@/lib/schools";
+import { toAr } from "@/lib/utils";
 
 export const Route = createFileRoute("/assignments")({ component: AssignmentsPage });
 
@@ -303,13 +304,13 @@ function AssignmentsPage() {
 
   const bulkDelete = async () => {
     if (selected.size === 0) return;
-    if (!confirm(`حذف ${selected.size} واجب نهائياً؟`)) return;
+    if (!confirm(`حذف ${toAr(selected.size)} واجب نهائياً؟`)) return;
     setBulkDeleting(true);
     const ids = Array.from(selected);
     const { error } = await supabase.from("assignments").delete().in("id", ids);
     setBulkDeleting(false);
     if (error) return toast.error("فشل الحذف: " + error.message);
-    toast.success(`تم حذف ${ids.length} واجب ✨`);
+    toast.success(`تم حذف ${toAr(ids.length)} واجب ✨`);
     setList((p) => p.filter((i) => !ids.includes(i.id)));
     setSelected(new Set()); setSelectMode(false);
   };
@@ -356,12 +357,12 @@ function AssignmentsPage() {
       </header>
       {selectMode && isAdmin && (
         <div className="sticky top-[57px] z-20 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center gap-3" dir="rtl">
-          <span className="text-sm font-bold text-rose-700">{selected.size} محدد</span>
-          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({list.length})</button>
+          <span className="text-sm font-bold text-rose-700">{toAr(selected.size)} محدد</span>
+          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({toAr(list.length)})</button>
           <button onClick={clearSelect} className="text-xs px-3 py-1 rounded-lg bg-secondary font-bold hover:bg-secondary/70">إلغاء</button>
           <button onClick={bulkDelete} disabled={selected.size === 0 || bulkDeleting}
             className="mr-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600 text-white text-sm font-bold disabled:opacity-50">
-            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${selected.size})`}
+            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${toAr(selected.size)})`}
           </button>
         </div>
       )}
@@ -577,7 +578,7 @@ function AssignmentView({ a, uid, isTeacher, onBack }: { a: A; uid: string; isTe
 
         {showSubmissionsList && (
           <div className="bg-card rounded-3xl border border-border p-6">
-            <h3 className="font-bold mb-3">تسليمات الطلاب ({subs.length})</h3>
+            <h3 className="font-bold mb-3">تسليمات الطلاب ({toAr(subs.length)})</h3>
             {subs.length === 0
               ? <div className="text-sm text-muted-foreground">لا توجد تسليمات بعد</div>
               : <div className="space-y-4">

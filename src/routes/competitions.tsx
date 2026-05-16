@@ -8,6 +8,7 @@ import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
 import { ReportButton } from "@/components/ReportButton";
 import { playTick, playCorrect, playFanfare, fireworks, burstStars } from "@/lib/quizFx";
+import { toAr } from "@/lib/utils";
 
 export const Route = createFileRoute("/competitions")({ component: CompetitionsPage });
 
@@ -36,7 +37,7 @@ function printCompetition(c: Comp) {
       : `<div class="essay-lines">${Array.from({ length: 3 }, () => `<div class="essay-line"></div>`).join("")}</div>`;
     return `<div class="question-block">
       <div class="q-header">
-        <span class="q-num">${i + 1}</span>
+        <span class="q-num">${toAr(i + 1)}</span>
         <span class="q-text">${q.question}</span>
         <span class="q-timer">⏱ ${q.duration_seconds}ث</span>
       </div>
@@ -258,7 +259,7 @@ function printCompetition(c: Comp) {
 <div class="info-row">
   <div class="info-cell">
     <div class="info-label">عدد الأسئلة</div>
-    <div class="info-value">${qs.length} ${qs.length === 1 ? "سؤال" : "أسئلة"}</div>
+    <div class="info-value">${toAr(qs.length)} ${qs.length === 1 ? "سؤال" : "أسئلة"}</div>
   </div>
   <div class="info-cell">
     <div class="info-label">الزمن الكلي</div>
@@ -286,7 +287,7 @@ function printCompetition(c: Comp) {
   <div class="score-box">
     <span class="lbl">الدرجة:</span>
     <div style="display:flex;gap:4px;"><div class="sbox"></div><div class="sbox"></div></div>
-    <span style="color:#d97706;font-weight:700;">/ ${qs.length}</span>
+    <span style="color:#d97706;font-weight:700;">/ ${toAr(qs.length)}</span>
   </div>
 </div>
 
@@ -438,7 +439,7 @@ function CompetitionsPage() {
     const { error } = await supabase.from("competitions").delete().in("id", ids);
     setBulkDeleting(false);
     if (error) return toast.error("فشل الحذف: " + error.message);
-    toast.success(`تم حذف ${ids.length} مسابقة ✨`);
+    toast.success(`تم حذف ${toAr(ids.length)} مسابقة ✨`);
     setComps((p) => p.filter((c) => !ids.includes(c.id)));
     setSelected(new Set()); setSelectMode(false);
   };
@@ -481,15 +482,15 @@ function CompetitionsPage() {
     if (!uid || !title.trim()) { toast.error("أدخل عنوان المسابقة"); return; }
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
-      if (!q.question.trim()) { toast.error(`السؤال ${i + 1}: اكتب نص السؤال`); return; }
+      if (!q.question.trim()) { toast.error(`السؤال ${toAr(i + 1)}: اكتب نص السؤال`); return; }
       if (q.is_multiple_choice) {
         const filled = (q.options || []).map((o) => o.trim()).filter(Boolean);
-        if (filled.length < 2) { toast.error(`السؤال ${i + 1}: أضف خيارين على الأقل`); return; }
-        if (!q.options?.[q.correct_index ?? 0]?.trim()) { toast.error(`السؤال ${i + 1}: حدد الإجابة الصحيحة`); return; }
+        if (filled.length < 2) { toast.error(`السؤال ${toAr(i + 1)}: أضف خيارين على الأقل`); return; }
+        if (!q.options?.[q.correct_index ?? 0]?.trim()) { toast.error(`السؤال ${toAr(i + 1)}: حدد الإجابة الصحيحة`); return; }
       } else if (!q.correct_answer?.trim()) {
-        toast.error(`السؤال ${i + 1}: أدخل الإجابة الصحيحة`); return;
+        toast.error(`السؤال ${toAr(i + 1)}: أدخل الإجابة الصحيحة`); return;
       }
-      if (!q.duration_seconds || q.duration_seconds < 3) { toast.error(`السؤال ${i + 1}: المؤقت 3 ثوانٍ على الأقل`); return; }
+      if (!q.duration_seconds || q.duration_seconds < 3) { toast.error(`السؤال ${toAr(i + 1)}: المؤقت ٣ ثوانٍ على الأقل`); return; }
     }
     setUploading(true);
     let image_url: string | null = null;
@@ -598,12 +599,12 @@ function CompetitionsPage() {
 
       {selectMode && canCreate && (
         <div className="sticky top-[57px] z-20 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center gap-3" dir="rtl">
-          <span className="text-sm font-bold text-rose-700">{selected.size} محدد</span>
-          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({comps.length})</button>
+          <span className="text-sm font-bold text-rose-700">{toAr(selected.size)} محدد</span>
+          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({toAr(comps.length)})</button>
           <button onClick={clearSelect} className="text-xs px-3 py-1 rounded-lg bg-secondary font-bold hover:bg-secondary/70">إلغاء</button>
           <button onClick={bulkDelete} disabled={selected.size === 0 || bulkDeleting}
             className="mr-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600 text-white text-sm font-bold disabled:opacity-50">
-            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${selected.size})`}
+            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${toAr(selected.size)})`}
           </button>
         </div>
       )}
@@ -634,7 +635,7 @@ function CompetitionsPage() {
                   <Plus className="h-4 w-4" /> إضافة سؤال آخر
                 </button>
                 <button onClick={create} disabled={uploading} className="px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold w-full disabled:opacity-50">
-                  {uploading ? "جاري الإنشاء..." : `إطلاق المسابقة (${questions.length} ${questions.length === 1 ? "سؤال" : "أسئلة"})`}
+                  {uploading ? "جاري الإنشاء..." : `إطلاق المسابقة (${toAr(questions.length)} ${questions.length === 1 ? "سؤال" : "أسئلة"})`}
                 </button>
               </div>
             )}
@@ -686,7 +687,7 @@ function CompetitionsPage() {
                           {userDone ? "شاركت ✓" : "● نشطة"}
                         </span>
                       </div>
-                      <div className="text-[11px] text-muted-foreground mt-2">{qCount} {qCount === 1 ? "سؤال" : "أسئلة"}</div>
+                      <div className="text-[11px] text-muted-foreground mt-2">{toAr(qCount)} {qCount === 1 ? "سؤال" : "أسئلة"}</div>
                       {showWinner && <CompetitionWinner competitionId={c.id} />}
                     </div>
                   </button>
@@ -731,7 +732,7 @@ function QuestionEditor({ index, q, onChange, onRemove, canRemove }: { index: nu
   return (
     <div className="rounded-2xl border-2 border-border bg-secondary/30 p-4 space-y-2">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-black">السؤال {index + 1}</div>
+        <div className="text-sm font-black">السؤال {toAr(index + 1)}</div>
         {canRemove && (
           <button onClick={onRemove} className="text-destructive p-1 rounded-lg hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></button>
         )}
@@ -759,7 +760,7 @@ function QuestionEditor({ index, q, onChange, onRemove, canRemove }: { index: nu
             <div key={wi} className="flex items-center gap-2">
               <span className="text-rose-500 text-lg">❌</span>
               <input value={w} onChange={(e) => setWrong(wi, e.target.value)}
-                placeholder={`إجابة خاطئة ${wi + 1}`}
+                placeholder={`إجابة خاطئة ${toAr(wi + 1)}`}
                 className="flex-1 px-3 py-2 rounded-xl border border-border bg-background" />
             </div>
           ))}
@@ -884,7 +885,7 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
         return { question: q.question, userAnswer: display, options: q.options };
       }));
     }
-    toast.success(`انتهت المسابقة! أصبت ${correct} من ${total} 🎉`);
+    toast.success(`انتهت المسابقة! أصبت ${toAr(correct)} من ${toAr(total)} 🎉`);
     if (total > 0) {
       const ratio = correct / total;
       if (ratio >= 0.5) { playFanfare(); fireworks(Math.max(0.4, ratio)); }
@@ -990,7 +991,7 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
               {submittedResult && (
                 <>
                   <div className="text-2xl font-black mt-2 mb-1">
-                    {submittedResult.correct} / {submittedResult.total}
+                    {toAr(submittedResult.correct)} / {toAr(submittedResult.total)}
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {submittedResult.correct === submittedResult.total
@@ -1013,7 +1014,7 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
                 {reviewData.map((rd, qi) => (
                   <div key={qi} className="rounded-2xl border border-border bg-secondary/30 p-4">
                     <p className="font-bold text-sm leading-relaxed mb-2">
-                      <span className="text-muted-foreground text-xs me-1">{qi + 1}.</span>
+                      <span className="text-muted-foreground text-xs me-1">{toAr(qi + 1)}.</span>
                       <MathText text={rd.question} />
                     </p>
                     <div className="flex items-center gap-2 text-sm">
@@ -1032,9 +1033,9 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
         ) : currentQ ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-bold text-muted-foreground">السؤال {idx + 1} من {questions.length}</div>
+              <div className="text-sm font-bold text-muted-foreground">السؤال {toAr(idx + 1)} من {toAr(questions.length)}</div>
               <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-black ${remaining <= 3 ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}`}>
-                <Clock className="h-4 w-4" /> {remaining}ث
+                <Clock className="h-4 w-4" /> {toAr(remaining)}ث
               </div>
             </div>
             <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
@@ -1203,7 +1204,7 @@ function SingleCompetitionView({ comp, uid, onBack }: { comp: Comp; uid: string;
         {!isTeacher && (
           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold mb-4 ${ended ? "bg-secondary" : "bg-amber-100 text-amber-700"}`}>
             <Clock className="h-4 w-4" />
-            {ended ? "انتهت المسابقة" : !comp.ends_at ? "مفتوحة" : `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`}
+            {ended ? "انتهت المسابقة" : !comp.ends_at ? "مفتوحة" : `${toAr(String(mins).padStart(2, "0"))}:${toAr(String(secs).padStart(2, "0"))}`}
           </div>
         )}
 
@@ -1311,7 +1312,7 @@ function SubmissionsList({ comp, uid, isTeacher }: { comp: Comp; uid: string; is
   return (
     <div className="bg-card rounded-3xl border border-border p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold flex items-center gap-2"><Crown className="h-5 w-5 text-amber-500" /> المتسابقون ({subs.length})</h3>
+        <h3 className="font-bold flex items-center gap-2"><Crown className="h-5 w-5 text-amber-500" /> المتسابقون ({toAr(subs.length)})</h3>
         <button onClick={loadSubs} className="text-xs px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/70 font-bold">↻ تحديث</button>
       </div>
       {subs.length === 0 ? (
@@ -1420,7 +1421,7 @@ function CompetitionComments({ competitionId, uid }: { competitionId: string; ui
 
   return (
     <div className="bg-card rounded-3xl border border-border p-6">
-      <h3 className="font-bold mb-3 flex items-center gap-2"><MessageCircle className="h-5 w-5" /> التعليقات ({list.length})</h3>
+      <h3 className="font-bold mb-3 flex items-center gap-2"><MessageCircle className="h-5 w-5" /> التعليقات ({toAr(list.length)})</h3>
       <div className="space-y-2 max-h-72 overflow-y-auto mb-3">
         {list.length === 0 ? (
           <div className="text-sm text-muted-foreground text-center py-4">لا توجد تعليقات</div>
@@ -1479,7 +1480,7 @@ function CompetitionWinner({ competitionId }: { competitionId: string }) {
       </div>
       {winner.score && (
         <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold">
-          🏆 {winner.score}
+          🏆 {toAr(winner.score)}
         </div>
       )}
       {winner.time != null && (

@@ -8,6 +8,7 @@ import { MathToolbar } from "@/components/MathToolbar";
 import { useRef } from "react";
 import { MathText } from "@/components/MathText";
 import { playCorrect, playWrong, fireworks, burstStars, playFanfare } from "@/lib/quizFx";
+import { toAr } from "@/lib/utils";
 import { SCHOOLS } from "@/lib/schools";
 
 export const Route = createFileRoute("/quizzes")({ component: QuizzesPage });
@@ -41,7 +42,7 @@ async function printQuiz(quiz: Quiz) {
           `<div class="essay-line"></div>`).join("")}</div>`;
     return `<div class="question-block">
       <div class="q-header">
-        <span class="q-num">${i + 1}</span>
+        <span class="q-num">${toAr(i + 1)}</span>
         <span class="q-text">${q.question}</span>
         ${isMC ? `<span class="q-score">درجة</span>` : `<span class="q-score">درجات</span>`}
       </div>
@@ -467,7 +468,7 @@ function QuizzesPage() {
     const { error } = await supabase.from("quizzes").delete().in("id", ids);
     setBulkDeleting(false);
     if (error) return toast.error("فشل الحذف: " + error.message);
-    toast.success(`تم حذف ${ids.length} اختبار ✨`);
+    toast.success(`تم حذف ${toAr(ids.length)} اختبار ✨`);
     setList((p) => p.filter((q) => !ids.includes(q.id)));
     setSelected(new Set()); setSelectMode(false);
   };
@@ -504,12 +505,12 @@ function QuizzesPage() {
       </header>
       {selectMode && isAdmin && (
         <div className="sticky top-[57px] z-20 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center gap-3" dir="rtl">
-          <span className="text-sm font-bold text-rose-700">{selected.size} محدد</span>
-          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({filtered.length})</button>
+          <span className="text-sm font-bold text-rose-700">{toAr(selected.size)} محدد</span>
+          <button onClick={selectAll} className="text-xs px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold hover:bg-rose-200">تحديد الكل ({toAr(filtered.length)})</button>
           <button onClick={clearSelect} className="text-xs px-3 py-1 rounded-lg bg-secondary font-bold hover:bg-secondary/70">إلغاء</button>
           <button onClick={bulkDelete} disabled={selected.size === 0 || bulkDeleting}
             className="mr-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600 text-white text-sm font-bold disabled:opacity-50">
-            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${selected.size})`}
+            <Trash2 className="h-4 w-4" /> {bulkDeleting ? "جاري الحذف..." : `حذف (${toAr(selected.size)})`}
           </button>
         </div>
       )}
@@ -577,7 +578,7 @@ function QuizzesPage() {
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--brand)]/10 text-[var(--brand)] font-bold">🏫 {q.subject || SCHOOLS[0]}</span>
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">{Array.isArray(q.questions) ? q.questions.length : 0} أسئلة</div>
+                  <div className="text-xs text-muted-foreground mt-1">{toAr(Array.isArray(q.questions) ? q.questions.length : 0)} أسئلة</div>
                   {(q as any).teacher_name && <div className="text-[11px] text-muted-foreground mt-0.5">المعلم: {(q as any).teacher_name}</div>}
                 </button>
                 {isTeacher && !selectMode && (
@@ -661,7 +662,7 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
     const s = row?.score ?? 0;
     const det = (row?.details as any[]) || [];
     setScore(s); setDone(true); setPreviousDetails(det);
-    toast.success(`نتيجتك: ${s}/${mcCount} 🎉`);
+    toast.success(`نتيجتك: ${toAr(s)}/${toAr(mcCount)} 🎉`);
     if (mcCount > 0) {
       const ratio = s / mcCount;
       if (ratio >= 0.5) { playFanfare(); fireworks(Math.max(0.4, ratio)); }
@@ -687,12 +688,12 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
             {mcCount > 0 && (
               <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-5">
                 <div className="text-xs text-emerald-700 dark:text-emerald-400 font-bold mb-1">درجة الأسئلة الاختيارية</div>
-                <div className="text-4xl font-black text-emerald-700 dark:text-emerald-400">{score} / {mcCount}</div>
+                <div className="text-4xl font-black text-emerald-700 dark:text-emerald-400">{toAr(score)} / {toAr(mcCount)}</div>
               </div>
             )}
             {essayCount > 0 && (
               <div className="bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 rounded-2xl p-4">
-                <div className="text-sm font-bold text-violet-700 dark:text-violet-400">📝 الأسئلة المقالية ({essayCount})</div>
+                <div className="text-sm font-bold text-violet-700 dark:text-violet-400">📝 الأسئلة المقالية ({toAr(essayCount)})</div>
                 <div className="text-xs text-violet-600 dark:text-violet-500 mt-1">تم الإرسال للمعلم — بانتظار التصحيح</div>
               </div>
             )}
@@ -714,7 +715,7 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
         {qs.map((q, i) => (
           <div key={i} className="bg-card rounded-2xl border border-border p-5">
             <div className="font-bold mb-3 flex gap-1 items-start justify-between">
-              <div className="flex gap-1"><span>{i + 1}.</span><MathText text={q.question} /></div>
+              <div className="flex gap-1"><span>{toAr(i + 1)}.</span><MathText text={q.question} /></div>
             </div>
             {q.image_url && <img src={q.image_url} alt="" className="w-full max-h-72 object-contain rounded-xl mb-3 bg-secondary/30" />}
             {(q.type || "mc") === "essay" ? (
@@ -809,7 +810,7 @@ function QuestionEditor({ q, qi, onChange }: { q: Q; qi: number; onChange: (q: Q
         ref={qRef}
         value={q.question}
         onChange={(e) => onChange({ ...q, question: e.target.value })}
-        placeholder={`السؤال ${qi + 1}`}
+        placeholder={`السؤال ${toAr(qi + 1)}`}
         className="w-full px-3 py-2 rounded-lg border border-border bg-background"
       />
       <MathToolbar targetRef={qRef} onChange={(v) => onChange({ ...q, question: v })} />
@@ -846,7 +847,7 @@ function QuestionEditor({ q, qi, onChange }: { q: Q; qi: number; onChange: (q: Q
               <input
                 value={w}
                 onChange={(e) => setWrongAnswer(wi, e.target.value)}
-                placeholder={`إجابة خاطئة ${wi + 1}`}
+                placeholder={`إجابة خاطئة ${toAr(wi + 1)}`}
                 className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm"
               />
             </div>

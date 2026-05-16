@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { toAr } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar as CalIcon, Plus, X, Trash2, CheckSquare, Square } from "lucide-react";
@@ -127,7 +128,7 @@ function CalendarPage() {
       setEvents((prev) => prev.filter((e) => !selected.has(e.id)));
       setSelected(new Set());
       setSelectMode(false);
-      toast.success(`تم حذف ${ids.length} فعالية`);
+      toast.success(`تم حذف ${toAr(ids.length)} فعالية`);
     } catch { toast.error("فشل الحذف"); }
     finally { setDeleting(false); }
   };

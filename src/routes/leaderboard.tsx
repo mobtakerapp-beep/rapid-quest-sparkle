@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { toAr } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Trophy, Crown, Medal, GraduationCap, BookOpen } from "lucide-react";
@@ -86,7 +87,7 @@ function LeaderboardPage() {
                       <div className="font-bold text-sm text-center mb-2 line-clamp-1">{r.display_name || "—"}</div>
                       <div className={`w-full ${heights[idx]} rounded-t-2xl bg-gradient-to-b ${colors[idx]} flex flex-col items-center justify-center text-white shadow-lg`}>
                         <Crown className="h-6 w-6 mb-1" />
-                        <div className="text-2xl font-black">{r.points}</div>
+                        <div className="text-2xl font-black">{toAr(r.points)}</div>
                         <div className="text-xs opacity-90">نقطة</div>
                       </div>
                     </div>
@@ -108,7 +109,7 @@ function LeaderboardPage() {
                     <div className="text-xs text-muted-foreground">{r.role_type === "teacher" ? "معلم" : r.role_type === "supervisor" ? "مشرف" : r.role_type === "admin" ? "أدمن" : "طالب"}</div>
                   </div>
                   <div className="flex items-center gap-1 font-black text-[var(--brand)]">
-                    <Medal className="h-4 w-4" /> {r.points}
+                    <Medal className="h-4 w-4" /> {toAr(r.points)}
                   </div>
                 </div>
               ))}

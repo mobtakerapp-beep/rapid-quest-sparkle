@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { toAr } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -210,7 +211,7 @@ function AdminPage() {
                         {u.is_banned && <span className="text-red-500 text-xs"> (محظور)</span>}
                       </td>
                       <td className="p-2 text-center text-xs">{u.is_admin ? "مشرف عام" : u.role_type || "طالب"}</td>
-                      <td className="p-2 text-center font-bold">{u.points}</td>
+                      <td className="p-2 text-center font-bold">{toAr(u.points)}</td>
                       <td className="p-2 text-center">{u.warning_count}</td>
                       <td className="p-2 text-center">
                         {u.is_admin ? (

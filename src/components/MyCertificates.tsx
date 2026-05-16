@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toAr } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Award, Download } from "lucide-react";
 import jsPDF from "jspdf";
@@ -205,7 +206,7 @@ export function MyCertificates({ uid }: { uid: string }) {
 
   return (
     <div className="bg-card rounded-3xl border border-border p-6 shadow-[var(--shadow-card)] mt-6">
-      <h3 className="font-bold mb-4 flex items-center gap-2"><Award className="h-5 w-5 text-amber-500" /> شهاداتي ({list.length})</h3>
+      <h3 className="font-bold mb-4 flex items-center gap-2"><Award className="h-5 w-5 text-amber-500" /> شهاداتي ({toAr(list.length)})</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {list.map((c) => {
           const { theme, font } = parseBg(c.bg);

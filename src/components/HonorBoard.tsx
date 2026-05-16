@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toAr } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Crown, Star } from "lucide-react";
 
@@ -50,7 +51,7 @@ export function HonorBoard() {
           <div className="font-black text-sm truncate flex items-center gap-2 flex-wrap">
             <span className="truncate">{p.display_name || "—"}</span>
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold">
-              <Star className="h-3 w-3" /> {p.points}
+              <Star className="h-3 w-3" /> {toAr(p.points)}
             </span>
           </div>
           {p.school && <div className="text-[10px] text-muted-foreground truncate">{p.school}</div>}

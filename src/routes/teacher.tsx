@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { toAr } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search, Palette, Type as TypeIcon } from "lucide-react";
@@ -131,9 +132,9 @@ function TeacherDashboard() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <StatCard icon={Users} label="طلاب فصلي" value={stats.length} color="from-blue-500 to-cyan-500" />
-          <StatCard icon={FileText} label="إجمالي النقاط" value={totalPoints} color="from-amber-500 to-orange-500" />
-          <StatCard icon={MessageSquare} label="إجمالي التعليقات" value={totalComments} color="from-pink-500 to-rose-500" />
+          <StatCard icon={Users} label="طلاب فصلي" value={toAr(stats.length)} color="from-blue-500 to-cyan-500" />
+          <StatCard icon={FileText} label="إجمالي النقاط" value={toAr(totalPoints)} color="from-amber-500 to-orange-500" />
+          <StatCard icon={MessageSquare} label="إجمالي التعليقات" value={toAr(totalComments)} color="from-pink-500 to-rose-500" />
         </div>
 
         {stats.length > 0 && (
@@ -166,14 +167,14 @@ function TeacherDashboard() {
         <div className="bg-card rounded-3xl border border-border overflow-hidden">
           <div className="p-4 font-bold border-b border-border flex items-center gap-2">
             <span>قائمة الطلاب</span>
-            <span className="text-xs text-muted-foreground font-normal">({stats.length} طالب)</span>
+            <span className="text-xs text-muted-foreground font-normal">({toAr(stats.length)} طالب)</span>
           </div>
           {stats.length === 0 ? (
             <div className="text-center text-sm text-muted-foreground p-8">لا يوجد طلاب مسجلين بعد</div>
           ) : stats.map((s, i) => (
             <div key={s.id} className="flex items-center gap-3 p-4 border-b border-border last:border-0 hover:bg-secondary/30 transition">
               <div className="w-7 text-center font-black text-muted-foreground text-sm">
-                {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+                {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${toAr(i + 1)}`}
               </div>
               <div className="h-11 w-11 rounded-full flex items-center justify-center text-white font-black text-lg shrink-0"
                 style={{ background: `hsl(${(i * 47) % 360} 70% 50%)` }}>
@@ -184,7 +185,7 @@ function TeacherDashboard() {
                 <div className="text-xs text-muted-foreground">{s.grade || "—"} • {s.comments} تعليق</div>
               </div>
               <div className="flex flex-col items-end gap-0.5">
-                <div className="font-black text-[var(--brand)] text-base">{s.points}</div>
+                <div className="font-black text-[var(--brand)] text-base">{toAr(s.points)}</div>
                 <div className="text-[10px] text-muted-foreground">نقطة</div>
               </div>
               <Link to="/messages" search={{ with: s.id }} className="text-xs px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 shrink-0">رسالة</Link>
@@ -284,12 +285,12 @@ function EssayGradingPanel({ teacherId }: { teacherId: string }) {
               <div key={a.id} className="border border-border rounded-2xl p-4">
                 <div className="flex justify-between items-center mb-2">
                   <div className="font-semibold text-sm">{a.student} — {a.quizTitle}</div>
-                  <div className="text-xs text-muted-foreground">الدرجة الحالية: {a.score}/{a.total}</div>
+                  <div className="text-xs text-muted-foreground">الدرجة الحالية: {toAr(a.score)}/{toAr(a.total)}</div>
                 </div>
                 <div className="space-y-2">
                   {(a.details as any[]).filter((d: any) => d?.type === "essay").map((d: any) => (
                     <div key={d.i} className="bg-secondary/30 rounded-xl p-3">
-                      <div className="text-sm font-bold mb-1">{d.i + 1}. {d.question}</div>
+                      <div className="text-sm font-bold mb-1">{toAr(d.i + 1)}. {d.question}</div>
                       <div className="text-sm bg-background p-2 rounded mb-2 whitespace-pre-wrap">{d.essay || <span className="text-muted-foreground">لا توجد إجابة</span>}</div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">الدرجة (0 أو 1):</span>

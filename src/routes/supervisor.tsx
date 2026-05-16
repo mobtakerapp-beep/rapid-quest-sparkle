@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { toAr } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -140,8 +141,8 @@ function SupervisorPage() {
                         {u.is_banned && <span className="text-red-500 text-xs"> (محظور)</span>}
                       </td>
                       <td className="p-2 text-center text-xs">{u.role_type || "طالب"}</td>
-                      <td className="p-2 text-center font-bold">{u.points}</td>
-                      <td className="p-2 text-center">{u.warning_count}</td>
+                      <td className="p-2 text-center font-bold">{toAr(u.points)}</td>
+                      <td className="p-2 text-center">{toAr(u.warning_count)}</td>
                       <td className="p-2 text-center">
                         <button onClick={() => toggleBan(u)} className={`px-3 py-1 rounded-lg text-xs font-bold ${u.is_banned ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}>
                           {u.is_banned ? <CheckCircle2 className="h-3 w-3 inline" /> : <Ban className="h-3 w-3 inline" />}

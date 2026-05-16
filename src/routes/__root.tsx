@@ -96,6 +96,49 @@ function RootComponent() {
     };
   }, [queryClient]);
 
+  useEffect(() => {
+    const AR = "٠١٢٣٤٥٦٧٨٩";
+    const SKIP = new Set([
+      "email", "password", "number", "tel", "url",
+      "date", "time", "datetime-local", "month", "week",
+      "color", "range", "file", "hidden",
+    ]);
+    const nativeInputSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype, "value"
+    )?.set;
+    const nativeTextareaSetter = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype, "value"
+    )?.set;
+
+    let busy = false;
+    const handler = (e: Event) => {
+      if (busy) return;
+      const el = e.target as HTMLInputElement | HTMLTextAreaElement;
+      if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
+      if (el instanceof HTMLInputElement && SKIP.has(el.type)) return;
+      const val = el.value;
+      const converted = val.replace(/[0-9]/g, (d) => AR[Number(d)]);
+      if (converted === val) return;
+      const pos = el.selectionStart;
+      busy = true;
+      if (el instanceof HTMLTextAreaElement) {
+        nativeTextareaSetter?.call(el, converted);
+      } else {
+        nativeInputSetter?.call(el, converted);
+      }
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      busy = false;
+      if (pos !== null) {
+        requestAnimationFrame(() => {
+          try { el.setSelectionRange(pos, pos); } catch {}
+        });
+      }
+    };
+
+    document.addEventListener("input", handler, true);
+    return () => document.removeEventListener("input", handler, true);
+  }, []);
+
   return (
     <LanguageProvider>
       <ThemeProvider />

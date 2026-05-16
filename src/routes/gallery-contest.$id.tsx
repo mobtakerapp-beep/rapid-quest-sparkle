@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { toAr } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Trophy, Heart, Upload, Trash2, MessageCircle, Send, Crown, Type } from "lucide-react";
@@ -208,7 +209,7 @@ function ContestPage() {
                   )}
                   {idx < 3 && e.approved !== false && (
                     <div className="absolute top-2 right-2 bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full z-10 shadow-lg">
-                      #{idx + 1}
+                      #{toAr(idx + 1)}
                     </div>
                   )}
                   {v ? (

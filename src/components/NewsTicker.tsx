@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { toAr } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Megaphone, Plus, X, Star } from "lucide-react";
 import { toast } from "sonner";
@@ -174,7 +175,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       if (!top || !top.isCorrect) continue;
       items.push({
         id: `comp-${comp.id}`,
-        text: `🏆 بطل السرعة ⚡ في مسابقة "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — النتيجة: ${top.score}` : ""} — الوقت: ${top.time}`,
+        text: `🏆 بطل السرعة ⚡ في مسابقة "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — النتيجة: ${toAr(top.score)}` : ""} — الوقت: ${top.time}`,
         type: "auto",
       });
     }
@@ -192,7 +193,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       if (!top) continue;
       items.push({
         id: `comp-open-${comp.id}`,
-        text: `🏆 متصدر مسابقة "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — النتيجة: ${top.score}` : ""}`,
+        text: `🏆 متصدر مسابقة "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — النتيجة: ${toAr(top.score)}` : ""}`,
         type: "auto",
       });
     }
@@ -210,7 +211,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       if (!top) continue;
       items.push({
         id: `comp-active-${comp.id}`,
-        text: `⚡ المتصدر حالياً في مسابقة "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — ${top.score}` : ""} — المسابقة لا تزال نشطة!`,
+        text: `⚡ المتصدر حالياً في مسابقة "${comp.title}": ${top.roleLabel} ${top.name}${top.score ? ` — ${toAr(top.score)}` : ""} — المسابقة لا تزال نشطة!`,
         type: "auto",
       });
     }
@@ -565,7 +566,7 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
             {customItems.length > 0 && (
               <div className="mt-3 space-y-1">
                 <div className="text-xs text-muted-foreground font-bold mb-1">
-                  الإعلانات الحالية ({customItems.length}):
+                  الإعلانات الحالية ({toAr(customItems.length)}):
                 </div>
                 {customItems.map((it) => (
                   <div
