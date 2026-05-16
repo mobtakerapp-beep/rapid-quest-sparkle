@@ -315,7 +315,7 @@ function GalleryPage() {
                     </div>
                   )}
                   {!selectMode && (
-                    <div className="absolute top-2 left-2 flex flex-col gap-1">
+                    <div className={`absolute ${isMod && it.approved === false ? "top-8" : "top-2"} left-2 flex flex-col gap-1`}>
                       {isMod && it.approved === false && (
                         <button onClick={(e) => { e.stopPropagation(); approveItem(it.id); }}
                           className="bg-emerald-500 text-white px-2 py-1 rounded-lg text-[10px] font-bold leading-tight">

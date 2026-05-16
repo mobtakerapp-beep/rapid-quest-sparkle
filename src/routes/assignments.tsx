@@ -25,10 +25,11 @@ function printAssignment(a: A) {
   ${a.description ? `<div class="desc">${a.description}</div>` : ""}
   <div class="ans"></div>
   </body></html>`;
-  const w = window.open("", "_blank");
-  if (!w) { alert("يرجى السماح بفتح نوافذ جديدة"); return; }
-  w.document.write(html); w.document.close(); w.focus();
-  setTimeout(() => { w.print(); }, 600);
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank");
+  if (!w) { alert("يرجى السماح بفتح نوافذ جديدة في المتصفح"); URL.revokeObjectURL(url); return; }
+  setTimeout(() => { w.print(); setTimeout(() => URL.revokeObjectURL(url), 60000); }, 800);
 }
 type S = { id: string; assignment_id: string; student_id: string; content: string | null; file_url: string | null; grade: number | null; feedback: string | null; created_at: string };
 
@@ -200,14 +201,13 @@ function AssignmentsPage() {
                 setList((p) => p.filter((x) => x.id !== a.id));
               };
               return (
-              <div key={a.id} className={`relative ${isSelected && selectMode ? "ring-2 ring-rose-400 rounded-2xl" : ""}`}>
+              <div key={a.id} className={`flex items-stretch gap-2 ${isSelected && selectMode ? "ring-2 ring-rose-400 rounded-2xl" : ""}`}>
                 {selectMode && isAdmin && (
-                  <button onClick={() => toggleSelect(a.id)}
-                    className="absolute top-3 right-3 z-10">
+                  <button onClick={() => toggleSelect(a.id)} className="flex items-center shrink-0 pr-1">
                     {isSelected ? <CheckSquare className="h-5 w-5 text-rose-500" /> : <Square className="h-5 w-5 text-muted-foreground" />}
                   </button>
                 )}
-                <button onClick={() => selectMode ? toggleSelect(a.id) : setActive(a)} className="w-full text-right bg-card rounded-2xl border border-border p-4 hover:shadow-lg transition">
+                <button onClick={() => selectMode ? toggleSelect(a.id) : setActive(a)} className="flex-1 text-right bg-card rounded-2xl border border-border p-4 hover:shadow-lg transition min-w-0">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="font-bold">{a.title}</div>
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -224,18 +224,18 @@ function AssignmentsPage() {
                   {a.due_at && <div className="text-xs text-amber-600 mt-2 inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {new Date(a.due_at).toLocaleString("ar-EG")}</div>}
                   {!isTeacher && <div className="mt-3 text-xs font-bold text-[var(--brand)]">اضغطي هنا لكتابة الحل أو رفع ملف ←</div>}
                 </button>
-                <div className="absolute top-2 left-2 flex gap-1">
-                  {isTeacher && (
+                {isTeacher && !selectMode && (
+                  <div className="flex flex-col gap-1 justify-center shrink-0">
                     <button onClick={(e) => { e.stopPropagation(); printAssignment(a); }} className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80" title="طباعة">
                       <Printer className="h-3.5 w-3.5" />
                     </button>
-                  )}
-                  {canDelete && (
-                    <button onClick={onDelete} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
+                    {canDelete && (
+                      <button onClick={onDelete} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               );
             })}

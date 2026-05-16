@@ -15,11 +15,18 @@ export const Route = createFileRoute("/quizzes")({ component: QuizzesPage });
 type Q = { question: string; options: string[]; correct: number; image_url?: string | null; type?: "mc" | "essay" };
 type Quiz = { id: string; title: string; subject: string; questions: Q[]; created_by: string; teacher_name?: string };
 
-function printQuiz(quiz: Quiz) {
+async function printQuiz(quiz: Quiz) {
   const school = quiz.subject || "";
   const teacher = quiz.teacher_name || "";
-  const qs = Array.isArray(quiz.questions) ? quiz.questions : [];
   const opts = ["أ", "ب", "ج", "د", "هـ"];
+
+  // If questions are not loaded yet (list view), fetch them first
+  let qs: Q[] = Array.isArray(quiz.questions) ? quiz.questions.filter(Boolean) as Q[] : [];
+  if (qs.length === 0) {
+    const { data } = await supabase.rpc("get_quiz_for_attempt" as any, { _quiz_id: quiz.id });
+    if (data && data[0]) qs = (data[0].questions || []) as Q[];
+  }
+
   const questionsHtml = qs.map((q, i) => {
     const isMC = (q.type || "mc") === "mc";
     const optsHtml = isMC
@@ -31,6 +38,7 @@ function printQuiz(quiz: Quiz) {
       ${optsHtml}
     </div>`;
   }).join("");
+
   const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>${quiz.title}</title>
   <style>body{font-family:Arial,sans-serif;margin:20mm;color:#000;direction:rtl}.hdr{text-align:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:16px}.hdr h1{font-size:17px;margin:0 0 4px}.info{font-size:12px;color:#444}.qtitle{font-size:15px;font-weight:bold;text-align:center;margin-bottom:18px}@media print{body{margin:10mm}}</style>
   </head><body>
@@ -39,10 +47,12 @@ function printQuiz(quiz: Quiz) {
   <div class="qtitle">اختبار: ${quiz.title}</div>
   ${questionsHtml}
   </body></html>`;
-  const w = window.open("", "_blank");
-  if (!w) { alert("يرجى السماح بفتح نوافذ جديدة"); return; }
-  w.document.write(html); w.document.close(); w.focus();
-  setTimeout(() => { w.print(); }, 600);
+
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank");
+  if (!w) { alert("يرجى السماح بفتح نوافذ جديدة في المتصفح"); URL.revokeObjectURL(url); return; }
+  setTimeout(() => { w.print(); setTimeout(() => URL.revokeObjectURL(url), 60000); }, 800);
 }
 
 function QuizzesPage() {
@@ -255,13 +265,13 @@ function QuizzesPage() {
               };
               const isSelected = selected.has(q.id);
               return (
-              <div key={q.id} className={`relative ${isSelected && selectMode ? "ring-2 ring-rose-400 rounded-2xl" : ""}`}>
+              <div key={q.id} className={`flex items-stretch gap-2 ${isSelected && selectMode ? "ring-2 ring-rose-400 rounded-2xl" : ""}`}>
                 {selectMode && isAdmin && (
-                  <button onClick={() => toggleSelect(q.id)} className="absolute top-3 right-3 z-10">
+                  <button onClick={() => toggleSelect(q.id)} className="flex items-center shrink-0 pr-1">
                     {isSelected ? <CheckSquare className="h-5 w-5 text-rose-500" /> : <Square className="h-5 w-5 text-muted-foreground" />}
                   </button>
                 )}
-                <button onClick={() => selectMode ? toggleSelect(q.id) : openQuiz(q.id)} className="w-full text-right bg-card rounded-2xl border border-border p-4 hover:shadow-lg transition">
+                <button onClick={() => selectMode ? toggleSelect(q.id) : openQuiz(q.id)} className="flex-1 text-right bg-card rounded-2xl border border-border p-4 hover:shadow-lg transition min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-bold">{q.title}</div>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -276,18 +286,18 @@ function QuizzesPage() {
                   <div className="text-xs text-muted-foreground mt-1">{Array.isArray(q.questions) ? q.questions.length : 0} أسئلة</div>
                   {(q as any).teacher_name && <div className="text-[11px] text-muted-foreground mt-0.5">المعلم: {(q as any).teacher_name}</div>}
                 </button>
-                <div className="absolute top-2 left-2 flex gap-1">
-                  {isTeacher && (
+                {isTeacher && !selectMode && (
+                  <div className="flex flex-col gap-1 justify-center shrink-0">
                     <button onClick={(e) => { e.stopPropagation(); printQuiz(q); }} className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80" title="طباعة">
                       <Printer className="h-3.5 w-3.5" />
                     </button>
-                  )}
-                  {canDelete && (
-                    <button onClick={onDelete} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
+                    {canDelete && (
+                      <button onClick={onDelete} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               );
             })}
