@@ -18,7 +18,8 @@ type Quiz = { id: string; title: string; subject: string; questions: Q[]; create
 async function printQuiz(quiz: Quiz) {
   const school = quiz.subject || "";
   const teacher = quiz.teacher_name || "";
-  const opts = ["أ", "ب", "ج", "د", "هـ"];
+  const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+  const arabicOpts = ["أ", "ب", "ج", "د", "هـ"];
 
   // If questions are not loaded yet (list view), fetch them first
   let qs: Q[] = Array.isArray(quiz.questions) ? quiz.questions.filter(Boolean) as Q[] : [];
@@ -27,26 +28,319 @@ async function printQuiz(quiz: Quiz) {
     if (data && data[0]) qs = (data[0].questions || []) as Q[];
   }
 
+  const mcCount = qs.filter(q => (q.type || "mc") === "mc").length;
+  const essayCount = qs.filter(q => q.type === "essay").length;
+
   const questionsHtml = qs.map((q, i) => {
     const isMC = (q.type || "mc") === "mc";
     const optsHtml = isMC
-      ? q.options.map((o, oi) => `<div style="margin:2px 20px">${opts[oi] || oi + 1}. ${o}</div>`).join("")
-      : `<div style="border:1px solid #ccc;height:60px;border-radius:6px;margin-top:6px"></div>`;
-    return `<div style="margin-bottom:18px;page-break-inside:avoid">
-      <div style="font-weight:bold;margin-bottom:6px">${i + 1}. ${q.question}</div>
-      ${q.image_url ? `<img src="${q.image_url}" style="max-width:180px;height:auto;margin-bottom:6px;display:block" />` : ""}
+      ? `<div class="options-grid">${q.options.map((o, oi) =>
+          `<div class="option"><span class="opt-circle">${arabicOpts[oi] || String(oi + 1)}</span><span class="opt-text">${o}</span></div>`
+        ).join("")}</div>`
+      : `<div class="essay-lines">${Array.from({ length: 5 }, () =>
+          `<div class="essay-line"></div>`).join("")}</div>`;
+    return `<div class="question-block">
+      <div class="q-header">
+        <span class="q-num">${i + 1}</span>
+        <span class="q-text">${q.question}</span>
+        ${isMC ? `<span class="q-score">درجة</span>` : `<span class="q-score">درجات</span>`}
+      </div>
+      ${q.image_url ? `<img src="${q.image_url}" class="q-img" />` : ""}
       ${optsHtml}
     </div>`;
   }).join("");
 
-  const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>${quiz.title}</title>
-  <style>body{font-family:Arial,sans-serif;margin:20mm;color:#000;direction:rtl}.hdr{text-align:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:16px}.hdr h1{font-size:17px;margin:0 0 4px}.info{font-size:12px;color:#444}.qtitle{font-size:15px;font-weight:bold;text-align:center;margin-bottom:18px}@media print{body{margin:10mm}}</style>
-  </head><body>
-  <div class="hdr"><h1>مبادرة كلنا معاً — محافظة الوسطى</h1>
-  <div class="info">${school ? `مدرسة: ${school}` : ""}${teacher ? ` ◦ المعلم: ${teacher}` : ""}</div></div>
-  <div class="qtitle">اختبار: ${quiz.title}</div>
-  ${questionsHtml}
-  </body></html>`;
+  const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>اختبار — ${quiz.title}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 13px;
+    color: #111;
+    direction: rtl;
+    background: #fff;
+    padding: 14mm 18mm 12mm 18mm;
+  }
+  /* ── TOP STRIPE ── */
+  .stripe {
+    height: 8px;
+    background: repeating-linear-gradient(90deg,#7b2d8b 0 40px,#fff 40px 44px,#1d6fa4 44px 84px,#fff 84px 88px);
+    margin-bottom: 10px;
+  }
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 2px solid #7b2d8b;
+    border-radius: 8px;
+    padding: 8px 14px;
+    margin-bottom: 8px;
+    background: #fdf6ff;
+  }
+  .header-center { text-align: center; flex: 1; }
+  .header-center .initiative { font-size: 16px; font-weight: 900; color: #7b2d8b; }
+  .header-center .gov { font-size: 11px; color: #666; margin-top: 2px; }
+  .header-badge {
+    border-radius: 6px; padding: 6px 10px;
+    font-size: 11px; font-weight: 700; text-align: center; line-height: 1.5;
+    min-width: 72px; color: #fff;
+  }
+  /* ── INFO ROW ── */
+  .info-row {
+    display: flex;
+    border: 1.5px solid #999;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .info-cell {
+    flex: 1;
+    padding: 5px 10px;
+    border-left: 1.5px solid #ccc;
+    background: #fafafa;
+  }
+  .info-cell:last-child { border-left: none; }
+  .info-label { font-size: 10px; color: #888; margin-bottom: 1px; }
+  .info-value { font-weight: 700; }
+  /* ── STUDENT ROW ── */
+  .student-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .student-field {
+    flex: 1;
+    border: 1.5px solid #555;
+    border-radius: 5px;
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .student-field .lbl { color: #444; font-size: 11px; white-space: nowrap; }
+  .student-field .line { flex: 1; border-bottom: 1px dashed #aaa; height: 14px; }
+  .score-box {
+    border: 2px solid #7b2d8b;
+    border-radius: 6px;
+    padding: 5px 14px;
+    font-size: 11px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .score-box .lbl { color: #7b2d8b; font-weight: 700; white-space: nowrap; }
+  .score-box .boxes { display: flex; gap: 4px; }
+  .score-box .sbox { width: 32px; height: 22px; border: 1.5px solid #7b2d8b; border-radius: 3px; }
+  /* ── TITLE BANNER ── */
+  .title-banner {
+    background: #7b2d8b;
+    color: #fff;
+    text-align: center;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 900;
+    margin-bottom: 6px;
+  }
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    font-size: 11px;
+  }
+  .stat-pill {
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-weight: 700;
+  }
+  /* ── INSTRUCTIONS ── */
+  .instructions {
+    border: 1.5px solid #e0a000;
+    border-radius: 6px;
+    padding: 7px 12px;
+    margin-bottom: 12px;
+    background: #fffbef;
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  .instructions strong { color: #b07800; }
+  /* ── QUESTION BLOCK ── */
+  .question-block {
+    border: 1.5px solid #ddd;
+    border-radius: 7px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    page-break-inside: avoid;
+    background: #fff;
+  }
+  .q-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .q-num {
+    background: #7b2d8b;
+    color: #fff;
+    border-radius: 50%;
+    min-width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+  .q-text { flex: 1; font-weight: 700; font-size: 13px; line-height: 1.6; }
+  .q-score {
+    font-size: 10px;
+    color: #888;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 1px 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  /* ── MC OPTIONS ── */
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding-right: 8px;
+  }
+  .option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1.5px solid #ddd;
+    border-radius: 6px;
+    padding: 5px 8px;
+    background: #fafafa;
+  }
+  .opt-circle {
+    width: 22px; height: 22px;
+    border: 2px solid #7b2d8b;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 900;
+    color: #7b2d8b;
+    flex-shrink: 0;
+  }
+  .opt-text { font-size: 12px; line-height: 1.4; }
+  /* ── ESSAY LINES ── */
+  .essay-lines { padding-right: 8px; }
+  .essay-line {
+    border-bottom: 1px solid #ccc;
+    height: 26px;
+    margin-bottom: 0;
+  }
+  /* ── Q IMAGE ── */
+  .q-img {
+    max-width: 200px;
+    height: auto;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    display: block;
+    border: 1px solid #ddd;
+  }
+  /* ── FOOTER ── */
+  .footer {
+    margin-top: 14px;
+    border-top: 1.5px solid #bbb;
+    padding-top: 6px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #777;
+  }
+  @media print {
+    body { padding: 8mm 12mm 6mm 12mm; }
+    .stripe,.header,.title-banner,.q-num,.opt-circle,.score-box {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="stripe"></div>
+
+<div class="header">
+  <div class="header-badge" style="background:#7b2d8b;">اختبار<br>رسمي</div>
+  <div class="header-center">
+    <div class="initiative">مبادرة كلنا معاً</div>
+    <div class="gov">محافظة الوسطى — سلطنة عُمان</div>
+  </div>
+  <div class="header-badge" style="background:#1d6fa4;">وزارة<br>التربية</div>
+</div>
+
+<div class="info-row">
+  <div class="info-cell">
+    <div class="info-label">المادة / المدرسة</div>
+    <div class="info-value">${school || "—"}</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-label">المعلم / المعلمة</div>
+    <div class="info-value">${teacher || "—"}</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-label">التاريخ</div>
+    <div class="info-value">${today}</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-label">الزمن المحدد</div>
+    <div class="info-value">______ دقيقة</div>
+  </div>
+</div>
+
+<div class="student-row">
+  <div class="student-field" style="flex:2">
+    <span class="lbl">اسم الطالب / الطالبة:</span>
+    <span class="line"></span>
+  </div>
+  <div class="student-field">
+    <span class="lbl">الصف والشعبة:</span>
+    <span class="line"></span>
+  </div>
+  <div class="score-box">
+    <span class="lbl">الدرجة:</span>
+    <div class="boxes"><div class="sbox"></div><div class="sbox"></div></div>
+    <span style="color:#7b2d8b;font-weight:700;">/ ${mcCount + essayCount}</span>
+  </div>
+</div>
+
+<div class="title-banner">🎯 ${quiz.title}</div>
+
+<div class="stats-bar">
+  ${mcCount > 0 ? `<span class="stat-pill" style="background:#e8f4fd;color:#1d6fa4;border:1px solid #1d6fa4;">✏️ أسئلة اختيارية: ${mcCount}</span>` : ""}
+  ${essayCount > 0 ? `<span class="stat-pill" style="background:#f3e8ff;color:#7b2d8b;border:1px solid #7b2d8b;">📝 أسئلة مقالية: ${essayCount}</span>` : ""}
+  <span class="stat-pill" style="background:#fff8e0;color:#9a6000;border:1px solid #e0a000;">📊 المجموع: ${mcCount + essayCount} سؤال</span>
+</div>
+
+<div class="instructions">
+  <strong>📌 تعليمات عامة:</strong> اقرأ الأسئلة بتمعن قبل الإجابة — للأسئلة الاختيارية: اختر الإجابة الصحيحة الواحدة — للأسئلة المقالية: اكتب إجابتك بوضوح في المساحة المخصصة — الغش محرّم.
+</div>
+
+${questionsHtml}
+
+<div class="footer">
+  <span>مبادرة كلنا معاً — محافظة الوسطى</span>
+  <span>${quiz.title}</span>
+  <span>${today}</span>
+</div>
+
+</body>
+</html>`;
 
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);

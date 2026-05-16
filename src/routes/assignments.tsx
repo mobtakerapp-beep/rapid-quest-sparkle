@@ -16,15 +16,214 @@ function printAssignment(a: A) {
   const school = a.subject || "";
   const teacher = a.teacher_name || "";
   const dueStr = a.due_at ? new Date(a.due_at).toLocaleString("ar-EG") : "";
-  const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>${a.title}</title>
-  <style>body{font-family:Arial,sans-serif;margin:20mm;color:#000;direction:rtl}.hdr{text-align:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:16px}.hdr h1{font-size:17px;margin:0 0 4px}.info{font-size:12px;color:#444}.atitle{font-size:15px;font-weight:bold;margin-bottom:12px}.desc{line-height:1.8;font-size:13px;margin-bottom:20px}.ans{border:1px solid #ccc;height:200px;border-radius:8px}@media print{body{margin:10mm}}</style>
-  </head><body>
-  <div class="hdr"><h1>مبادرة كلنا معاً — محافظة الوسطى</h1>
-  <div class="info">${school ? `مدرسة: ${school}` : ""}${teacher ? ` ◦ المعلم: ${teacher}` : ""}${dueStr ? ` ◦ موعد التسليم: ${dueStr}` : ""}</div></div>
-  <div class="atitle">📋 واجب: ${a.title}</div>
-  ${a.description ? `<div class="desc">${a.description}</div>` : ""}
-  <div class="ans"></div>
-  </body></html>`;
+  const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+
+  // Build answer lines (lined paper effect)
+  const lines = Array.from({ length: 12 }, () =>
+    `<div style="border-bottom:1px solid #bbb;height:28px;margin-bottom:0;"></div>`
+  ).join("");
+
+  const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>واجب — ${a.title}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    font-size: 13px;
+    color: #111;
+    direction: rtl;
+    background: #fff;
+    padding: 18mm 20mm 14mm 20mm;
+  }
+  /* ── TOP BORDER STRIPE ── */
+  .stripe {
+    height: 8px;
+    background: repeating-linear-gradient(90deg,#1d6fa4 0 40px,#fff 40px 44px,#c8102e 44px 84px,#fff 84px 88px);
+    margin-bottom: 10px;
+  }
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 2px solid #1d6fa4;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    background: #f0f7ff;
+  }
+  .header-center { text-align: center; flex: 1; }
+  .header-center .initiative { font-size: 16px; font-weight: 900; color: #1d6fa4; letter-spacing: .5px; }
+  .header-center .gov { font-size: 11px; color: #555; margin-top: 2px; }
+  .header-badge {
+    background: #1d6fa4; color: #fff;
+    border-radius: 6px; padding: 6px 10px;
+    font-size: 11px; font-weight: 700; text-align: center; line-height: 1.5;
+    min-width: 70px;
+  }
+  /* ── INFO ROW ── */
+  .info-row {
+    display: flex;
+    gap: 0;
+    border: 1.5px solid #999;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .info-cell {
+    flex: 1;
+    padding: 6px 10px;
+    border-left: 1.5px solid #999;
+    background: #fafafa;
+  }
+  .info-cell:last-child { border-left: none; }
+  .info-label { font-size: 10px; color: #777; margin-bottom: 2px; }
+  .info-value { font-weight: 700; color: #111; }
+  /* ── STUDENT ROW ── */
+  .student-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 12px;
+  }
+  .student-field {
+    flex: 1;
+    border: 1.5px solid #555;
+    border-radius: 5px;
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+  }
+  .student-field .lbl { color: #444; font-size: 11px; white-space: nowrap; }
+  .student-field .line { flex: 1; border-bottom: 1px dashed #999; height: 14px; }
+  /* ── TITLE BANNER ── */
+  .title-banner {
+    background: #1d6fa4;
+    color: #fff;
+    text-align: center;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 900;
+    margin-bottom: 10px;
+    letter-spacing: .3px;
+  }
+  /* ── INSTRUCTIONS BOX ── */
+  .instructions {
+    border: 1.5px solid #c8102e;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 14px;
+    background: #fff8f8;
+    font-size: 12px;
+    line-height: 1.9;
+  }
+  .instructions-title { font-weight: 900; color: #c8102e; margin-bottom: 4px; font-size: 12px; }
+  /* ── ANSWER AREA ── */
+  .answer-label {
+    font-weight: 700;
+    font-size: 12px;
+    margin-bottom: 6px;
+    color: #1d6fa4;
+    border-bottom: 1.5px solid #1d6fa4;
+    padding-bottom: 3px;
+  }
+  .answer-lines { margin-bottom: 12px; }
+  /* ── FOOTER ── */
+  .footer {
+    margin-top: 16px;
+    border-top: 1.5px solid #bbb;
+    padding-top: 6px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #777;
+  }
+  @media print {
+    body { padding: 10mm 14mm 8mm 14mm; }
+    .stripe { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .title-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .header-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .instructions { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stripe"></div>
+
+<div class="header">
+  <div class="header-badge">واجب<br>منزلي</div>
+  <div class="header-center">
+    <div class="initiative">مبادرة كلنا معاً</div>
+    <div class="gov">محافظة الوسطى — سلطنة عُمان</div>
+  </div>
+  <div class="header-badge" style="background:#c8102e;">وزارة<br>التربية</div>
+</div>
+
+<div class="info-row">
+  <div class="info-cell">
+    <div class="info-label">المادة / المدرسة</div>
+    <div class="info-value">${school || "—"}</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-label">المعلم / المعلمة</div>
+    <div class="info-value">${teacher || "—"}</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-label">موعد التسليم</div>
+    <div class="info-value">${dueStr || "—"}</div>
+  </div>
+  <div class="info-cell">
+    <div class="info-label">تاريخ الإصدار</div>
+    <div class="info-value">${today}</div>
+  </div>
+</div>
+
+<div class="student-row">
+  <div class="student-field" style="flex:2">
+    <span class="lbl">اسم الطالب / الطالبة:</span>
+    <span class="line"></span>
+  </div>
+  <div class="student-field">
+    <span class="lbl">الصف:</span>
+    <span class="line"></span>
+  </div>
+  <div class="student-field">
+    <span class="lbl">الدرجة:</span>
+    <span class="line"></span>
+  </div>
+</div>
+
+<div class="title-banner">📋 ${a.title}</div>
+
+${a.description ? `
+<div class="instructions">
+  <div class="instructions-title">📌 تعليمات الواجب:</div>
+  ${a.description.replace(/\n/g, "<br>")}
+</div>
+` : ""}
+
+<div class="answer-label">✏️ مساحة الإجابة</div>
+<div class="answer-lines">${lines}</div>
+<div class="answer-lines">${lines}</div>
+
+<div class="footer">
+  <span>مبادرة كلنا معاً — محافظة الوسطى</span>
+  <span>${a.title}</span>
+  <span>${today}</span>
+</div>
+
+</body>
+</html>`;
+
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const w = window.open(url, "_blank");
