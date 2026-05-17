@@ -96,8 +96,15 @@ function AdminPage() {
 
   const runWeekly = async () => {
     const { error } = await supabase.rpc("award_weekly_top" as any);
-    if (error) return toast.error(error.message);
-    toast.success("تم تنفيذ منح أوسمة الأسبوع");
+    if (error) {
+      if (error.code === "23505" || error.message?.includes("duplicate key")) {
+        toast.success("✅ تم تحديث أوسمة الأسبوع (الفائز محدّث)");
+      } else {
+        toast.error(error.message);
+      }
+      return;
+    }
+    toast.success("✅ تم منح أوسمة الأسبوع بنجاح");
   };
 
   if (loading) return <FullPageLoader />;

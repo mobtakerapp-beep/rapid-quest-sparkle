@@ -20,8 +20,6 @@ export function HonorBoard() {
     ]);
     setTopStudent((students?.[0] as any) || null);
     setTopTeacher((teachers?.[0] as any) || null);
-    // Update weekly winners (best-effort; no error toast)
-    supabase.rpc("award_weekly_top").then(() => {});
   };
 
   useEffect(() => {
