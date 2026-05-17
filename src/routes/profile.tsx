@@ -36,7 +36,7 @@ function ProfilePage() {
   const [school, setSchool] = useState("");
   const [gender, setGender] = useState<"male" | "female" | "">("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [classCodeInput, setClassCodeInput] = useState("");
+  const classCodeInputRef = useRef<HTMLInputElement>(null);
   const [myTeacherName, setMyTeacherName] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
   const [warnings, setWarnings] = useState<{ id: string; title: string; body: string | null; type: string; created_at: string }[]>([]);
@@ -157,13 +157,14 @@ function ProfilePage() {
   };
 
   const joinClass = async () => {
-    if (!classCodeInput.trim()) { toast.error("اكتبي كود الفصل"); return; }
+    const code = (classCodeInputRef.current?.value ?? "").trim();
+    if (!code) { toast.error("اكتبي كود الفصل"); return; }
     setJoining(true);
-    const { data, error } = await supabase.rpc("join_teacher_by_code", { _code: classCodeInput.trim() });
+    const { data, error } = await supabase.rpc("join_teacher_by_code", { _code: code });
     setJoining(false);
     if (error || !data) { toast.error("الكود غير صحيح"); return; }
     toast.success("تم الانضمام لفصل المعلم 🎉");
-    setClassCodeInput("");
+    if (classCodeInputRef.current) classCodeInputRef.current.value = "";
     // refresh teacher name
     const { data: prof } = await supabase.from("profiles").select("teacher_id").eq("id", uid!).maybeSingle();
     const tid = (prof as any)?.teacher_id;
@@ -461,11 +462,33 @@ function ProfilePage() {
                 ) : (
                   <p className="text-xs text-muted-foreground mb-2">اطلبي من معلمك كود الفصل (6 أحرف) وأدخليه هنا</p>
                 )}
-                <div className="flex gap-2">
-                  <input value={classCodeInput} onChange={(e) => setClassCodeInput(e.target.value.replace(/[^\x20-\x7E]/g, "").toUpperCase())}
-                    placeholder="ABC123" maxLength={6}
-                    dir="ltr" lang="en" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
-                    className="flex-1 px-3 py-2 rounded-xl border border-border bg-background tracking-widest font-bold uppercase" />
+                <div className="flex gap-2" dir="ltr">
+                  <input
+                    ref={classCodeInputRef}
+                    type="text"
+                    onInput={(e) => {
+                      const el = e.currentTarget;
+                      const pos = el.selectionStart ?? el.value.length;
+                      const cleaned = el.value
+                        .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+                        .replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0))
+                        .replace(/[^A-Za-z0-9]/g, "")
+                        .toUpperCase()
+                        .slice(0, 6);
+                      if (cleaned !== el.value) {
+                        el.value = cleaned;
+                        const newPos = Math.min(pos, cleaned.length);
+                        el.setSelectionRange(newPos, newPos);
+                      }
+                    }}
+                    placeholder="ABC123"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    className="flex-1 px-3 py-2 rounded-xl border border-border bg-background tracking-widest font-bold"
+                    style={{ direction: "ltr", textAlign: "left" }}
+                  />
                   <button type="button" onClick={joinClass} disabled={joining}
                     className="px-4 py-2 rounded-xl bg-[var(--brand)] text-white font-bold disabled:opacity-50">
                     {joining ? "..." : myTeacherName ? "تغيير" : "انضمام"}
