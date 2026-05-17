@@ -12,14 +12,23 @@ function InlineClock() {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
-  const locale = navigator.language || "ar-OM";
-  const timeStr = time.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const city = timezone.split("/").pop()?.replace(/_/g, " ") ?? "";
+
+  const timeStr = time.toLocaleTimeString("ar-OM", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+  const gregorian = time.toLocaleDateString("ar-OM", { day: "numeric", month: "short", year: "numeric" });
+
+  let hijri = "";
+  try {
+    hijri = time.toLocaleDateString("ar-SA-u-ca-islamic", { day: "numeric", month: "short", year: "numeric" });
+  } catch {
+    hijri = "";
+  }
+
   return (
-    <div className="flex flex-col items-center leading-none select-none" dir="ltr">
+    <div className="flex flex-col items-center leading-none select-none gap-px" dir="rtl">
       <span className="text-[11px] font-black tabular-nums text-foreground">{timeStr}</span>
-      <span className="text-[9px] text-muted-foreground opacity-70">{city}</span>
+      <span className="text-[9px] text-muted-foreground opacity-80 whitespace-nowrap">{gregorian}</span>
+      {hijri && <span className="text-[8px] text-amber-600 dark:text-amber-400 opacity-90 whitespace-nowrap">{hijri}</span>}
     </div>
   );
 }

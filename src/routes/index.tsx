@@ -8,6 +8,8 @@ import logo from "@/assets/original-logo-reference.jpg";
 import { HonorBoard } from "@/components/HonorBoard";
 import { getCountryFlag } from "@/lib/countryFlag";
 import { useLang } from "@/contexts/LanguageContext";
+import { LiveStats } from "@/components/LiveStats";
+import { HeroOfDay } from "@/components/HeroOfDay";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -52,15 +54,6 @@ function Index() {
   const [showAbout, setShowAbout] = useState(false);
   const [badges, setBadges] = useState<Record<string, number>>({});
   const [userId, setUserId] = useState<string | null>(null);
-  const [showScrollTop, setShowScrollTop] = useState(false);
-
-  useEffect(() => {
-    const el = document.querySelector(".app-content-with-nav");
-    if (!el) return;
-    const onScroll = () => setShowScrollTop(el.scrollTop > 400);
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
 
   useEffect(() => {
     try {
@@ -309,6 +302,12 @@ function Index() {
         </div>
       </section>
 
+      {/* إحصائيات حية */}
+      <LiveStats />
+
+      {/* بطل اليوم */}
+      <HeroOfDay />
+
       {/* Honor Board */}
       <HonorBoard />
 
@@ -450,17 +449,6 @@ function Index() {
         </div>
       </footer>
 
-      {/* زر العودة للأعلى */}
-      {showScrollTop && (
-        <button
-          onClick={() => document.querySelector(".app-content-with-nav")?.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[180] inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[image:var(--gradient-hero)] text-white font-bold shadow-[var(--shadow-soft)] hover:scale-110 transition-all duration-300 animate-fade-in"
-          aria-label="العودة للأعلى"
-        >
-          <ArrowUp className="h-4 w-4" />
-          <span className="text-sm">للأعلى</span>
-        </button>
-      )}
     </div>
   );
 }

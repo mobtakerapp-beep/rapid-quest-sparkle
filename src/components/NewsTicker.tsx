@@ -78,6 +78,26 @@ async function getGalleryLeader(contestId: string): Promise<{ name: string; role
   return { name: (prof as any)?.display_name || "—", roleLabel: getRoleLabel((prof as any)?.role_type), votes: bestVotes };
 }
 
+// ── الأحداث الوطنية والإسلامية العُمانية ──
+// Gregorian dates (month 1-based, day). Hijri dates detected via Intl if supported.
+const OMAN_EVENTS: { month: number; day: number; text: string }[] = [
+  { month: 11, day: 18, text: "🎉 تهانينا بمناسبة العيد الوطني الرابع والخمسين لسلطنة عُمان — كل عام وعُمان بألف خير 🇴🇲" },
+  { month: 11, day: 19, text: "🎉 تهانينا بمناسبة العيد الوطني لسلطنة عُمان — يوم المجد والعطاء 🇴🇲" },
+  { month: 1,  day: 1,  text: "🌙 كل عام وأنتم بخير بمناسبة العام الجديد — عام مليء بالتعلم والإنجاز ✨" },
+  { month: 1,  day: 23, text: "🕌 تهانينا بمناسبة ذكرى المولد النبوي الشريف — اللهم صلِّ على سيدنا محمد ﷺ" },
+  { month: 10, day: 1,  text: "🌙 رمضان كريم — كل عام وأنتم بخير، رمضان مبارك على الجميع 🌙" },
+  { month: 4,  day: 23, text: "🌍 تهانينا بمناسبة يوم الأرض — نحافظ على بيئتنا لأجيالنا القادمة 🌱" },
+];
+
+function getOmanNationalEvents(): TickerItem[] {
+  const now = new Date();
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  return OMAN_EVENTS
+    .filter((e) => e.month === m && e.day === d)
+    .map((e, i) => ({ id: `national-${m}-${d}-${i}`, text: e.text, type: "auto" as const }));
+}
+
 async function fetchAutoItems(): Promise<TickerItem[]> {
   const items: TickerItem[] = [];
   try {
@@ -85,6 +105,9 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
     const twoDaysFromNow = new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString();
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
     const todayStartISO = todayStart.toISOString();
+
+    // ── الأحداث الوطنية اليومية ──
+    items.push(...getOmanNationalEvents());
 
     // ── فعاليات قادمة (في غضون 7 أيام) — تبقى حتى يجي وقتها ──
     const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();

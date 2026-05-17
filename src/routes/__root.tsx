@@ -16,6 +16,8 @@ import { TickerWithRole } from "@/components/NewsTicker";
 import { DhikrReminder } from "@/components/DhikrReminder";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { LiveClock } from "@/components/LiveClock";
+import { PageProgressBar } from "@/components/PageProgressBar";
+import { ScrollToTop } from "@/components/ScrollToTop";
 
 function NotFoundComponent() {
   return (
@@ -145,6 +147,7 @@ function RootComponent() {
       <ProtectContent />
       <EventReminderWatcher />
       <DhikrReminder />
+      <PageProgressBar />
       {/* Fixed top bar: news ticker only — clock moved into GlobalNav */}
       <div className="fixed top-0 left-0 right-0 z-[155]">
         <TickerWithRole />
@@ -153,6 +156,7 @@ function RootComponent() {
         <Outlet />
       </div>
       <GlobalNav />
+      <ScrollToTop />
       <Toaster position="top-center" richColors dir="rtl" />
     </LanguageProvider>
   );
