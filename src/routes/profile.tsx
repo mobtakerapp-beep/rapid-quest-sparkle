@@ -502,7 +502,7 @@ function ProfilePage() {
               <input
                 type="password"
                 value={adminCode}
-                onChange={(e) => setAdminCode(e.target.value.replace(/[^\x20-\x7E]/g, ""))}
+                onChange={(e) => setAdminCode(e.target.value.replace(/[^\x20-\x7E]/g, "").toUpperCase())}
                 placeholder="أدخل الكود السري"
                 dir="ltr"
                 lang="en"

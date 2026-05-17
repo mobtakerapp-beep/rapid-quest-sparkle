@@ -494,7 +494,7 @@ function BadgesPage() {
           <div className="flex gap-2">
             <input
               value={parentCodeInput}
-              onChange={(e) => { setParentCodeInput(e.target.value.replace(/[^\x20-\x7E]/g, "")); setLinkError(""); }}
+              onChange={(e) => { setParentCodeInput(e.target.value.replace(/[^\x20-\x7E]/g, "").toLowerCase()); setLinkError(""); }}
               placeholder="الصق كود الطالب هنا..."
               dir="ltr"
               lang="en"
