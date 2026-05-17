@@ -19,7 +19,7 @@ function InlineClock() {
 
   let hijri = "";
   try {
-    hijri = time.toLocaleDateString("ar-OM-u-ca-islamic", { day: "numeric", month: "short", year: "numeric" });
+    hijri = time.toLocaleDateString("ar-OM-u-ca-islamic-umalqura", { day: "numeric", month: "short", year: "numeric" });
   } catch {
     hijri = "";
   }
