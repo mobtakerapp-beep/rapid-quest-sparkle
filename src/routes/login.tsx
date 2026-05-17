@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Mail, Lock, Shield, ArrowRight, KeyRound, X, CheckCircle } from "lucide-react";
+import { Mail, Lock, Shield, ArrowRight, KeyRound, X, ChevronDown } from "lucide-react";
 import logo from "@/assets/original-logo-reference.jpg";
 import { playLoginSound } from "@/lib/sounds";
 
@@ -19,6 +19,7 @@ function LoginPage() {
   const [adminCode, setAdminCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [rememberEmail, setRememberEmail] = useState(false);
+  const [showCodeField, setShowCodeField] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("remembered-email");
@@ -245,55 +246,48 @@ function LoginPage() {
               </div>
             )}
 
-            <details className="rounded-xl border border-dashed border-border p-3">
-              <summary className="text-xs text-muted-foreground cursor-pointer flex items-center gap-2">
-                <KeyRound className="h-3.5 w-3.5" /> كود صلاحيات (اختياري)
-              </summary>
-              <div className="mt-2 space-y-1.5">
-                <input
-                  value={adminCode}
-                  onChange={(e) => {
-                    let val = e.target.value;
-                    val = val.replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660));
-                    val = val.replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0));
-                    val = val.replace(/[^A-Za-z0-9\-_]/g, "").toUpperCase();
-                    setAdminCode(val);
-                  }}
-                  onPaste={(e) => {
-                    e.preventDefault();
-                    let pasted = e.clipboardData.getData("text");
-                    pasted = pasted.replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660));
-                    pasted = pasted.replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0));
-                    pasted = pasted.replace(/[^A-Za-z0-9\-_]/g, "").toUpperCase();
-                    setAdminCode(pasted);
-                  }}
-                  placeholder="WUSTA-T-2026"
-                  dir="ltr"
-                  lang="en"
-                  inputMode="text"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="characters"
-                  spellCheck={false}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-mono tracking-wider"
-                />
-                {adminCode.trim() && (() => {
-                  const c = adminCode.trim().toUpperCase();
-                  let label = "";
-                  let color = "";
-                  if (c.includes("-A-")) { label = "🔑 أدمن (مشرف عام)"; color = "text-amber-700 bg-amber-50 border-amber-200"; }
-                  else if (c.includes("-S-")) { label = "🔑 مشرف"; color = "text-violet-700 bg-violet-50 border-violet-200"; }
-                  else if (c.includes("-T-")) { label = "🔑 معلم"; color = "text-emerald-700 bg-emerald-50 border-emerald-200"; }
-                  if (!label) return null;
-                  return (
-                    <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-lg border ${color}`}>
-                      <CheckCircle className="h-3.5 w-3.5" />
-                      {label} — سيتم تفعيل اللقب عند تسجيل الدخول
-                    </div>
-                  );
-                })()}
-              </div>
-            </details>
+            <div className="rounded-xl border border-dashed border-border p-3">
+              <button
+                type="button"
+                onClick={() => setShowCodeField((v) => !v)}
+                className="w-full text-xs text-muted-foreground flex items-center gap-2 select-none"
+              >
+                <KeyRound className="h-3.5 w-3.5 shrink-0" />
+                <span>كود صلاحيات (اختياري)</span>
+                <ChevronDown className={`h-3.5 w-3.5 ml-auto transition-transform duration-200 ${showCodeField ? "rotate-180" : ""}`} />
+              </button>
+              {showCodeField && (
+                <div className="mt-2">
+                  <input
+                    value={adminCode}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      val = val.replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660));
+                      val = val.replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0));
+                      val = val.replace(/[^A-Za-z0-9\-_]/g, "").toUpperCase();
+                      setAdminCode(val);
+                    }}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      let pasted = e.clipboardData.getData("text");
+                      pasted = pasted.replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660));
+                      pasted = pasted.replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0));
+                      pasted = pasted.replace(/[^A-Za-z0-9\-_]/g, "").toUpperCase();
+                      setAdminCode(pasted);
+                    }}
+                    placeholder="Enter code"
+                    dir="ltr"
+                    lang="en"
+                    inputMode="text"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-mono tracking-wider"
+                  />
+                </div>
+              )}
+            </div>
 
             <button
               type="submit"
