@@ -209,7 +209,7 @@ function BadgesPage() {
 
       ctx.fillStyle = theme.body; ctx.font = `42px ${fontFamily}`;
       ctx.fillText("تقديراً لتميّزه ومشاركته الفاعلة في أنشطة المبادرة", W / 2, 940);
-      ctx.fillText(`وحصوله على ${points} نقطة و ${Object.keys(counts).length} شارة من شارات الإنجاز`, W / 2, 1010);
+      ctx.fillText(`وحصوله على ${toAr(points)} نقطة و ${toAr(Object.keys(counts).length)} شارة من شارات الإنجاز`, W / 2, 1010);
 
       // Stars decoration
       ctx.fillStyle = theme.accent; ctx.font = "60px serif";
@@ -291,10 +291,10 @@ function BadgesPage() {
       ctx.textAlign = "right";
       const date = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
       ctx.fillText(`اسم الطالب: ${name || "—"}`, W - 110, 290);
-      ctx.fillText(`النقاط: ${points}`, W - 110, 330);
+      ctx.fillText(`النقاط: ${toAr(points)}`, W - 110, 330);
       ctx.textAlign = "left";
       ctx.fillText(`التاريخ: ${date}`, 110, 290);
-      ctx.fillText(`عدد الشارات: ${Object.keys(counts).length}`, 110, 330);
+      ctx.fillText(`عدد الشارات: ${toAr(Object.keys(counts).length)}`, 110, 330);
 
       // Helper: draw a section
       let y = 380;
@@ -341,13 +341,13 @@ function BadgesPage() {
           const pct = a.total > 0 ? Math.round((a.score / a.total) * 100) : 0;
           return [
             new Date(a.created_at).toLocaleDateString("ar-EG"),
-            `${pct}%`,
-            `${a.score}/${a.total}`,
+            `${toAr(pct)}%`,
+            `${toAr(a.score)}/${toAr(a.total)}`,
             a.subject || "عام",
             a.quiz_title || "اختبار",
           ];
         });
-        drawSection(`📝 درجات الاختبارات (${attempts.length})`, rows,
+        drawSection(`📝 درجات الاختبارات (${toAr(attempts.length)})`, rows,
           ["الاختبار", "المادة", "الدرجة", "النسبة", "التاريخ"]);
       }
 
@@ -355,11 +355,11 @@ function BadgesPage() {
       if (gradedSubs.length) {
         const rows = gradedSubs.slice(0, 12).map((s) => [
           s.graded_at ? new Date(s.graded_at).toLocaleDateString("ar-EG") : "—",
-          String(s.grade ?? "—"),
+          s.grade != null ? toAr(s.grade) : "—",
           s.subject || "عام",
           s.title || "واجب",
         ]);
-        drawSection(`📚 درجات الواجبات (${gradedSubs.length})`, rows,
+        drawSection(`📚 درجات الواجبات (${toAr(gradedSubs.length)})`, rows,
           ["الواجب", "المادة", "الدرجة", "التاريخ"]);
       }
 
@@ -417,10 +417,10 @@ function BadgesPage() {
       ctx.textAlign = "right";
       const date = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
       ctx.fillText(`اسم الطالب: ${sName || "—"}`, W - 110, 290);
-      ctx.fillText(`النقاط: ${sPoints}`, W - 110, 330);
+      ctx.fillText(`النقاط: ${toAr(sPoints)}`, W - 110, 330);
       ctx.textAlign = "left";
       ctx.fillText(`التاريخ: ${date}`, 110, 290);
-      ctx.fillText(`عدد الشارات: ${Object.keys(sCounts).length}`, 110, 330);
+      ctx.fillText(`عدد الشارات: ${toAr(Object.keys(sCounts).length)}`, 110, 330);
       let y = 380;
       const drawSection = (title: string, rows: string[][], headers: string[]) => {
         if (y > H - 220) return;
@@ -443,15 +443,15 @@ function BadgesPage() {
       if (sAttempts.length) {
         const rows = sAttempts.slice(0, 12).map((a) => {
           const pct = a.total > 0 ? Math.round((a.score / a.total) * 100) : 0;
-          return [new Date(a.created_at).toLocaleDateString("ar-EG"), `${pct}%`, `${a.score}/${a.total}`, a.subject || "عام", a.quiz_title || "اختبار"];
+          return [new Date(a.created_at).toLocaleDateString("ar-EG"), `${toAr(pct)}%`, `${toAr(a.score)}/${toAr(a.total)}`, a.subject || "عام", a.quiz_title || "اختبار"];
         });
-        drawSection(`📝 درجات الاختبارات (${sAttempts.length})`, rows, ["الاختبار", "المادة", "الدرجة", "النسبة", "التاريخ"]);
+        drawSection(`📝 درجات الاختبارات (${toAr(sAttempts.length)})`, rows, ["الاختبار", "المادة", "الدرجة", "النسبة", "التاريخ"]);
       }
       if (sGradedSubs.length) {
         const rows = sGradedSubs.slice(0, 12).map((s) => [
-          s.graded_at ? new Date(s.graded_at).toLocaleDateString("ar-EG") : "—", String(s.grade ?? "—"), s.subject || "عام", s.title || "واجب",
+          s.graded_at ? new Date(s.graded_at).toLocaleDateString("ar-EG") : "—", s.grade != null ? toAr(s.grade) : "—", s.subject || "عام", s.title || "واجب",
         ]);
-        drawSection(`📚 درجات الواجبات (${sGradedSubs.length})`, rows, ["الواجب", "المادة", "الدرجة", "التاريخ"]);
+        drawSection(`📚 درجات الواجبات (${toAr(sGradedSubs.length)})`, rows, ["الواجب", "المادة", "الدرجة", "التاريخ"]);
       }
       if (!sAttempts.length && !sGradedSubs.length) {
         ctx.fillStyle = theme.body; ctx.font = `28px ${af}`; ctx.textAlign = "center";
