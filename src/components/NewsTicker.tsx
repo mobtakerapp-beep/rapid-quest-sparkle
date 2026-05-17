@@ -114,12 +114,12 @@ const HIJRI_EVENTS: { month: number; day: number; text: string }[] = [
 ];
 
 function getHijriDate(): { month: number; day: number } {
-  // Must match GlobalNav.tsx which uses ar-SA-u-ca-islamic for display
+  // ar-OM-u-ca-islamic = Oman's announced calendar (matches GlobalNav.tsx display)
   const tryLocales = [
-    "ar-SA-u-ca-islamic",
-    "en-u-ca-islamic-umalqura",
+    "ar-OM-u-ca-islamic",
     "en-u-ca-islamic-rgsa",
     "en-u-ca-islamic",
+    "ar-SA-u-ca-islamic",
   ];
   for (const locale of tryLocales) {
     try {
