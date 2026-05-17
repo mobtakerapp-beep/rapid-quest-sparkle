@@ -44,7 +44,7 @@ async function printQuiz(quiz: Quiz) {
       <div class="q-header">
         <span class="q-num">${toAr(i + 1)}</span>
         <span class="q-text">${toAr(q.question)}</span>
-        ${isMC ? `<span class="q-score">درجة</span>` : `<span class="q-score">درجات</span>`}
+        <div class="q-score"><span class="qs-lbl">${isMC ? "درجة" : "درجات"}</span><div class="qs-box"></div></div>
       </div>
       ${q.image_url ? `<img src="${q.image_url}" class="q-img" />` : ""}
       ${optsHtml}
@@ -200,13 +200,22 @@ async function printQuiz(quiz: Quiz) {
   }
   .q-text { flex: 1; font-weight: 700; font-size: 13px; line-height: 1.6; }
   .q-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .q-score .qs-lbl {
     font-size: 10px;
     color: #888;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 1px 6px;
     white-space: nowrap;
-    flex-shrink: 0;
+  }
+  .q-score .qs-box {
+    width: 36px;
+    height: 20px;
+    border: 1.5px solid #7b2d8b;
+    border-radius: 3px;
   }
   /* ── MC OPTIONS ── */
   .options-grid {
@@ -315,7 +324,7 @@ async function printQuiz(quiz: Quiz) {
   </div>
   <div class="score-box">
     <span class="lbl">الدرجة:</span>
-    <div class="boxes"><div class="sbox"></div><div class="sbox"></div></div>
+    <div class="boxes"><div class="sbox"></div></div>
     <span style="color:#7b2d8b;font-weight:700;">/ ${toAr(mcCount + essayCount)}</span>
   </div>
 </div>
