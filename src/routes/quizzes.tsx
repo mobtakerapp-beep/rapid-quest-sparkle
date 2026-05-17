@@ -36,14 +36,14 @@ async function printQuiz(quiz: Quiz) {
     const isMC = (q.type || "mc") === "mc";
     const optsHtml = isMC
       ? `<div class="options-grid">${q.options.map((o, oi) =>
-          `<div class="option"><span class="opt-circle">${arabicOpts[oi] || String(oi + 1)}</span><span class="opt-text">${o}</span></div>`
+          `<div class="option"><span class="opt-circle">${arabicOpts[oi] || toAr(oi + 1)}</span><span class="opt-text">${toAr(String(o))}</span></div>`
         ).join("")}</div>`
       : `<div class="essay-lines">${Array.from({ length: 5 }, () =>
           `<div class="essay-line"></div>`).join("")}</div>`;
     return `<div class="question-block">
       <div class="q-header">
         <span class="q-num">${toAr(i + 1)}</span>
-        <span class="q-text">${q.question}</span>
+        <span class="q-text">${toAr(q.question)}</span>
         ${isMC ? `<span class="q-score">درجة</span>` : `<span class="q-score">درجات</span>`}
       </div>
       ${q.image_url ? `<img src="${q.image_url}" class="q-img" />` : ""}

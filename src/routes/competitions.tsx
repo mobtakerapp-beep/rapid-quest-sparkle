@@ -32,14 +32,14 @@ function printCompetition(c: Comp) {
       : [];
     const optsHtml = isMC && displayOpts.length > 0
       ? `<div class="options-grid">${displayOpts.map((o, oi) =>
-          `<div class="option"><span class="opt-circle">${arabicOpts[oi] || String(oi + 1)}</span><span class="opt-text">${o}</span></div>`
+          `<div class="option"><span class="opt-circle">${arabicOpts[oi] || toAr(oi + 1)}</span><span class="opt-text">${toAr(String(o))}</span></div>`
         ).join("")}</div>`
       : `<div class="essay-lines">${Array.from({ length: 3 }, () => `<div class="essay-line"></div>`).join("")}</div>`;
     return `<div class="question-block">
       <div class="q-header">
         <span class="q-num">${toAr(i + 1)}</span>
-        <span class="q-text">${q.question}</span>
-        <span class="q-timer">⏱ ${q.duration_seconds}ث</span>
+        <span class="q-text">${toAr(q.question)}</span>
+        <span class="q-timer">⏱ ${toAr(q.duration_seconds)}ث</span>
       </div>
       ${optsHtml}
     </div>`;
