@@ -114,11 +114,12 @@ const HIJRI_EVENTS: { month: number; day: number; text: string }[] = [
 ];
 
 function getHijriDate(): { month: number; day: number } {
+  // Must match GlobalNav.tsx which uses ar-SA-u-ca-islamic for display
   const tryLocales = [
+    "ar-SA-u-ca-islamic",
     "en-u-ca-islamic-umalqura",
     "en-u-ca-islamic-rgsa",
     "en-u-ca-islamic",
-    "ar-SA-u-ca-islamic-umalqura",
   ];
   for (const locale of tryLocales) {
     try {
@@ -126,13 +127,9 @@ function getHijriDate(): { month: number; day: number } {
       const parts = fmt.formatToParts(new Date());
       const month = parseInt(parts.find((p) => p.type === "month")?.value || "0", 10);
       const day   = parseInt(parts.find((p) => p.type === "day")?.value   || "0", 10);
-      if (month > 0 && day > 0) {
-        console.log(`[Hijri] locale=${locale} month=${month} day=${day}`);
-        return { month, day };
-      }
+      if (month > 0 && day > 0) return { month, day };
     } catch { /* try next locale */ }
   }
-  console.warn("[Hijri] Intl Islamic calendar not supported in this browser");
   return { month: 0, day: 0 };
 }
 
