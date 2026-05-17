@@ -108,15 +108,26 @@ const HIJRI_EVENTS: { month: number; day: number; text: string }[] = [
 ];
 
 function getHijriDate(): { month: number; day: number } {
-  try {
-    const fmt = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", {
-      day: "numeric", month: "numeric",
-    });
-    const parts = fmt.formatToParts(new Date());
-    const month = parseInt(parts.find((p) => p.type === "month")?.value || "0", 10);
-    const day   = parseInt(parts.find((p) => p.type === "day")?.value   || "0", 10);
-    return { month, day };
-  } catch { return { month: 0, day: 0 }; }
+  const tryLocales = [
+    "en-u-ca-islamic-umalqura",
+    "en-u-ca-islamic-rgsa",
+    "en-u-ca-islamic",
+    "ar-SA-u-ca-islamic-umalqura",
+  ];
+  for (const locale of tryLocales) {
+    try {
+      const fmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "numeric" });
+      const parts = fmt.formatToParts(new Date());
+      const month = parseInt(parts.find((p) => p.type === "month")?.value || "0", 10);
+      const day   = parseInt(parts.find((p) => p.type === "day")?.value   || "0", 10);
+      if (month > 0 && day > 0) {
+        console.log(`[Hijri] locale=${locale} month=${month} day=${day}`);
+        return { month, day };
+      }
+    } catch { /* try next locale */ }
+  }
+  console.warn("[Hijri] Intl Islamic calendar not supported in this browser");
+  return { month: 0, day: 0 };
 }
 
 function getOmanNationalEvents(): TickerItem[] {
@@ -372,15 +383,27 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
     const todayActivityStart = new Date(); todayActivityStart.setHours(0, 0, 0, 0);
     const todayActivityISO = todayActivityStart.toISOString();
 
-    const [{ data: subsToday }, { data: attemptsToday }] = await Promise.all([
+    const [
+      { data: subsToday },
+      { data: attemptsToday },
+      { data: msgsToday },
+      { data: stickersToday },
+      { data: commentsToday },
+    ] = await Promise.all([
       supabase.from("competition_submissions").select("user_id").gte("created_at", todayActivityISO),
       supabase.from("quiz_attempts").select("user_id").gte("created_at", todayActivityISO),
+      supabase.from("messages").select("user_id").gte("created_at", todayActivityISO),
+      (supabase as any).from("teacher_stickers").select("teacher_id").gte("created_at", todayActivityISO),
+      supabase.from("activity_comments").select("user_id").gte("created_at", todayActivityISO),
     ]);
 
-    // Build activity score per user
+    // Build activity score per user (students: subs+attempts; teachers: msgs+stickers+comments)
     const activityScore: Record<string, number> = {};
-    (subsToday || []).forEach((s: any) => { activityScore[s.user_id] = (activityScore[s.user_id] || 0) + 2; });
-    (attemptsToday || []).forEach((a: any) => { activityScore[a.user_id] = (activityScore[a.user_id] || 0) + 1; });
+    (subsToday     || []).forEach((s: any) => { activityScore[s.user_id]    = (activityScore[s.user_id]    || 0) + 2; });
+    (attemptsToday || []).forEach((a: any) => { activityScore[a.user_id]    = (activityScore[a.user_id]    || 0) + 1; });
+    (msgsToday     || []).forEach((m: any) => { activityScore[m.user_id]    = (activityScore[m.user_id]    || 0) + 1; });
+    (stickersToday || []).forEach((s: any) => { activityScore[s.teacher_id] = (activityScore[s.teacher_id] || 0) + 3; });
+    (commentsToday || []).forEach((c: any) => { activityScore[c.user_id]    = (activityScore[c.user_id]    || 0) + 1; });
 
     const activeUserIds = Object.keys(activityScore);
     if (activeUserIds.length > 0) {
@@ -398,7 +421,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       };
 
       const topStudent = byRole(["student"]);
-      const topTeacher = byRole(["teacher", "supervisor"]);
+      const topTeacher = byRole(["teacher", "supervisor", "admin"]);
 
       if (topStudent) {
         const score = activityScore[topStudent.id] || 0;
@@ -414,7 +437,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
         const roleLabel = getRoleLabel(topTeacher.role_type);
         items.push({
           id: `active-teacher-today`,
-          text: `⚡ أكثر معلم نشاطاً اليوم: ${roleLabel} ${topTeacher.display_name} — ${score} نشاط`,
+          text: `⚡ أكثر ${roleLabel} نشاطاً اليوم: ${roleLabel} ${topTeacher.display_name} — ${score} نشاط`,
           type: "auto",
         });
       }

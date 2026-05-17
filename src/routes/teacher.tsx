@@ -682,6 +682,8 @@ type Recipient = { id: string; name: string; type: "student" | "teacher" };
 function StickerPanel({ teacherId, students }: { teacherId: string; students: Stat[] }) {
   const [open, setOpen] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState("");
+  const [recipientSearch, setRecipientSearch] = useState("");
+  const [showRecipientDrop, setShowRecipientDrop] = useState(false);
   const [teachers, setTeachers] = useState<Recipient[]>([]);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
@@ -799,33 +801,83 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
               <span>🎖️</span> أرسل ملصق تشجيعي
             </div>
 
-            {/* اختيار المستلم */}
-            <div>
-              <label className="text-xs font-bold text-muted-foreground mb-1.5 block">اختاري المستلم (طالب أو معلم)</label>
+            {/* اختيار المستلم — بحث بالاسم */}
+            <div className="relative">
+              <label className="text-xs font-bold text-muted-foreground mb-1.5 block">ابحث باسم المستلم (طالب أو معلم)</label>
               {allRecipients.length === 0 ? (
                 <p className="text-sm text-rose-600">لا يوجد مستلمون متاحون بعد</p>
               ) : (
-                <select
-                  value={selectedRecipient}
-                  onChange={(e) => setSelectedRecipient(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border-2 border-amber-200 bg-white/80 dark:bg-background focus:border-amber-400 outline-none"
-                >
-                  <option value="">— اختاري المستلم —</option>
-                  {students.length > 0 && (
-                    <optgroup label="الطلاب">
-                      {students.map((s) => (
-                        <option key={s.id} value={s.id}>{s.display_name || "بدون اسم"} (طالب)</option>
-                      ))}
-                    </optgroup>
+                <>
+                  <div className="relative">
+                    <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <input
+                      value={selectedRecipient
+                        ? (allRecipients.find((r) => r.id === selectedRecipient)?.name || "") +
+                          " (" + (allRecipients.find((r) => r.id === selectedRecipient)?.type === "student" ? "طالب" : "معلم") + ")"
+                        : recipientSearch}
+                      onChange={(e) => {
+                        setSelectedRecipient("");
+                        setRecipientSearch(e.target.value);
+                        setShowRecipientDrop(true);
+                      }}
+                      onFocus={() => { setShowRecipientDrop(true); if (selectedRecipient) setRecipientSearch(""); }}
+                      placeholder="اكتبي اسم الطالب أو المعلم..."
+                      className="w-full pr-9 pl-4 py-2.5 rounded-xl border-2 border-amber-200 bg-white/80 dark:bg-background focus:border-amber-400 outline-none"
+                    />
+                    {selectedRecipient && (
+                      <button
+                        onClick={() => { setSelectedRecipient(""); setRecipientSearch(""); setShowRecipientDrop(false); }}
+                        className="absolute left-3 top-2.5 text-muted-foreground hover:text-foreground"
+                      >✕</button>
+                    )}
+                  </div>
+                  {showRecipientDrop && !selectedRecipient && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowRecipientDrop(false)} />
+                      <div className="absolute z-20 mt-1 w-full max-h-52 overflow-y-auto rounded-xl border-2 border-amber-200 bg-white dark:bg-card shadow-xl">
+                        {(() => {
+                          const q = recipientSearch.trim().toLowerCase();
+                          const filtered = allRecipients.filter((r) =>
+                            !q || r.name.toLowerCase().includes(q)
+                          );
+                          if (!filtered.length) return (
+                            <p className="text-sm text-center text-muted-foreground py-4">لا توجد نتائج</p>
+                          );
+                          const studs = filtered.filter((r) => r.type === "student");
+                          const tchrs = filtered.filter((r) => r.type === "teacher");
+                          return (
+                            <>
+                              {studs.length > 0 && (
+                                <>
+                                  <div className="px-3 py-1 text-[10px] font-black text-amber-700 bg-amber-50 dark:bg-amber-950/30 sticky top-0">الطلاب</div>
+                                  {studs.map((r) => (
+                                    <button key={r.id} onMouseDown={() => { setSelectedRecipient(r.id); setShowRecipientDrop(false); setRecipientSearch(""); }}
+                                      className="w-full text-right px-4 py-2 text-sm hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-2">
+                                      <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-bold">طالب</span>
+                                      {r.name}
+                                    </button>
+                                  ))}
+                                </>
+                              )}
+                              {tchrs.length > 0 && (
+                                <>
+                                  <div className="px-3 py-1 text-[10px] font-black text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 sticky top-0">المعلمون والمشرفون</div>
+                                  {tchrs.map((r) => (
+                                    <button key={r.id} onMouseDown={() => { setSelectedRecipient(r.id); setShowRecipientDrop(false); setRecipientSearch(""); }}
+                                      className="w-full text-right px-4 py-2 text-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/20 flex items-center gap-2">
+                                      <span className="text-xs bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-bold">معلم</span>
+                                      {r.name}
+                                    </button>
+                                  ))}
+                                </>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </>
                   )}
-                  {teachers.length > 0 && (
-                    <optgroup label="المعلمون والمشرفون">
-                      {teachers.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name} (معلم)</option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
+                </>
               )}
             </div>
 

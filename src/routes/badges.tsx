@@ -496,6 +496,12 @@ function BadgesPage() {
               value={parentCodeInput}
               onChange={(e) => { setParentCodeInput(e.target.value); setLinkError(""); }}
               placeholder="الصق كود الطالب هنا..."
+              dir="ltr"
+              lang="en"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               className="flex-1 px-4 py-3 rounded-xl border-2 border-border bg-background font-mono text-sm focus:border-[var(--brand)] outline-none transition"
               onKeyDown={(e) => e.key === "Enter" && lookupStudent()}
             />
