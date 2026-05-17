@@ -253,27 +253,56 @@ function Index() {
           <InstallPWA />
         </div>
 
-        {showAbout && (
-          <div dir="rtl" className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowAbout(false)}>
-            <div className="bg-card rounded-3xl max-w-lg w-full p-6 shadow-xl relative" onClick={(e) => e.stopPropagation()}>
-              <button onClick={() => setShowAbout(false)} className="absolute top-4 left-4 p-1.5 rounded-lg hover:bg-secondary"><X className="h-4 w-4" /></button>
-              <div className="text-center">
-                <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[image:var(--gradient-hero)] text-white mb-3"><Info className="h-7 w-7" /></div>
-                <h3 className="text-2xl font-black mb-2">نبذة عن المبادرة</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground mb-5">
-                  مبادرة <b>«كلنا معاً»</b> مبادرة تعليمية تربوية تهدف إلى رفع مستوى التحصيل في أساسيات
-                  مادة الرياضيات لطلاب الصف الخامس بمحافظة الوسطى، عبر بيئة تفاعلية تجمع المعلم
-                  والطالب وولي الأمر في منصة واحدة ميسّرة وآمنة.
-                </p>
-                <div className="rounded-2xl bg-secondary/50 p-4 text-right space-y-2">
-                  <div className="text-xs text-muted-foreground">منفّذ المبادرة</div>
-                  <div className="font-black">الأستاذ محمد نعمان السقطي</div>
-                  <div className="text-xs text-muted-foreground">مشرف مادة الرياضيات بمحافظة الوسطى</div>
-                </div>
-              </div>
-            </div>
+     {showAbout && (
+  <div dir="rtl" className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowAbout(false)}>
+    <div className="bg-card rounded-3xl max-w-xl w-full p-6 shadow-xl relative my-8" onClick={(e) => e.stopPropagation()}>
+      <button onClick={() => setShowAbout(false)} className="absolute top-4 left-4 p-1.5 rounded-lg hover:bg-secondary">
+        <X className="h-4 w-4" />
+      </button>
+      
+      <div className="text-center">
+        <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[image:var(--gradient-hero)] text-white mb-3">
+          <Info className="h-7 w-7" />
+        </div>
+        <h3 className="text-2xl font-black mb-4" style={{ fontFamily: "'Tajawal', sans-serif" }}>نبذة عن المبادرة</h3>
+        
+        <div className="text-right space-y-4 max-h-[60vh] overflow-y-auto pl-2 custom-scrollbar">
+          {/* الوصف الأساسي */}
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            مبادرة <b>«كلنا معاً»</b> مبادرة تعليمية تربوية تهدف إلى رفع مستوى التحصيل في أساسيات
+            مادة الرياضيات لطلاب الصف الخامس بمحافظة الوسطى، عبر بيئة تفاعلية تجمع المعلم
+            والطالب وولي الأمر في منصة واحدة ميسّرة وآمنة.
+          </p>
+
+          {/* ملخص المبادرة */}
+          <div className="border-t border-border/60 pt-3">
+            <h4 className="font-bold text-sm text-[var(--brand)] mb-1.5">١. ملخص المبادرة:</h4>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              المشاركة في علاج مشكلة طلاب الصف الخامس والخاصة بضعف مهارات مادة الرياضيات التي تم دراستها في الحلقة الأولى، والمشاركة مع معلم الصف وعدم تحمله فقط المسؤولية لعلاج تلك المهارات السابقة المهمة ولارتباطه بمنهج يجب السير فيه وفقاً لخطة فصلية.
+            </p>
           </div>
-        )}
+
+          {/* أهداف المبادرة */}
+          <div className="border-t border-border/60 pt-3">
+            <h4 className="font-bold text-sm text-[var(--brand)] mb-1.5">٢. أهداف المبادرة:</h4>
+            <ul className="list-disc list-inside text-xs leading-relaxed text-muted-foreground space-y-1 pr-1">
+              <li>تعلم مهارات المادة الأساسية المفقودة من الحلقة الأولى من طلاب الصف الخامس والتي أخفق فيها الطلبة.</li>
+              <li>ارتفاع نتائج الطلبة في المهارات الأساسية في (الاختبار البعدي) بنسبة تزيد عن ٢٠% عن نتائج الاختبار التشخيصي القبلي في معظم مدارس المبادرة.</li>
+              <li>رفع التحصيل الدراسي لطلبة الصف الخامس في نهاية العام.</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* منفذ المبادرة */}
+        <div className="rounded-2xl bg-secondary/50 p-4 text-right space-y-1 mt-5">
+          <div className="text-[10px] text-muted-foreground font-semibold">منفّذ المبادرة</div>
+          <div className="font-black text-sm bg-[image:var(--gradient-hero)] bg-clip-text text-transparent">الأستاذ محمد نعمان السقطي</div>
+          <div className="text-[11px] text-muted-foreground">مشرف مادة الرياضيات بمحافظة الوسطى</div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
         <div className="mt-6 text-sm text-muted-foreground">
           {isAr ? "مجاني بالكامل • سهل الاستخدام • آمن للأطفال" : "100% Free • Easy to Use • Safe for Kids"}
