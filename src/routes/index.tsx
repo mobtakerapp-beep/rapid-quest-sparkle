@@ -370,6 +370,12 @@ function Index() {
             const badgeCount = f.badgeKey ? (badges[f.badgeKey] || 0) : 0;
             return (
               <Link key={f.title} to={f.to}
+                onClick={() => {
+                  if (f.badgeKey) {
+                    localStorage.setItem(`last_seen_${f.badgeKey}`, new Date().toISOString());
+                    setBadges((b) => { const c = { ...b }; delete c[f.badgeKey!]; return c; });
+                  }
+                }}
                 className="feature-card card-shine animate-fade-in-up group relative bg-card rounded-3xl p-7 border border-border shadow-[var(--shadow-card)] text-right"
                 style={{ animationDelay: `${0.05 * i}s`, "--card-glow": `color-mix(in oklch, ${f.color.includes("violet") ? "oklch(0.6 0.22 290)" : f.color.includes("emerald") ? "oklch(0.55 0.18 150)" : f.color.includes("rose") ? "oklch(0.65 0.2 10)" : f.color.includes("amber") ? "oklch(0.75 0.18 60)" : f.color.includes("cyan") ? "oklch(0.65 0.18 200)" : "oklch(0.62 0.19 265)"} 40%, transparent)` } as React.CSSProperties}>
                 {badgeCount > 0 && (

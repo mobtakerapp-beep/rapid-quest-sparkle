@@ -44,6 +44,7 @@ export function GlobalNav() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [dark, setDark] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [unreadMsgs, setUnreadMsgs] = useState(0);
 
   useEffect(() => {
     const saved = localStorage.getItem("theme-mode");
@@ -66,6 +67,15 @@ export function GlobalNav() {
         }
       }
     } catch {}
+
+    const loadUnreadMsgs = async (id: string) => {
+      const { data } = await supabase
+        .from("direct_messages" as any)
+        .select("id")
+        .eq("to_user_id", id)
+        .is("read_at", null);
+      setUnreadMsgs((data || []).length);
+    };
 
     const load = async (id: string) => {
       const [{ data: p }, { data: roles }] = await Promise.all([
@@ -91,21 +101,43 @@ export function GlobalNav() {
     supabase.auth.getSession().then(({ data }) => {
       const id = data.session?.user.id || null;
       setUid(id);
-      if (id) load(id);
+      if (id) { load(id); loadUnreadMsgs(id); }
       else setLoaded(true);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_, s) => {
       const id = s?.user.id || null;
       setUid(id);
-      if (id) load(id);
+      if (id) { load(id); loadUnreadMsgs(id); }
       else {
         setAvatar(null); setName(null); setRoleType(null);
         setGender(null); setIsAdmin(false); setLoaded(true);
+        setUnreadMsgs(0);
       }
     });
     return () => { sub.subscription.unsubscribe(); };
   }, []);
+
+  // Subscribe to new direct messages for badge count
+  useEffect(() => {
+    if (!uid) return;
+    const ch = supabase
+      .channel("globalnav-dm-rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages" }, (payload: any) => {
+        if ((payload.new as any)?.to_user_id === uid) {
+          setUnreadMsgs((n) => n + 1);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [uid]);
+
+  // Clear messages badge when on /messages page
+  useEffect(() => {
+    if (pathname === "/messages" && unreadMsgs > 0) {
+      setUnreadMsgs(0);
+    }
+  }, [pathname]);
 
   const toggleDark = () => {
     const next = !dark;
@@ -249,11 +281,16 @@ export function GlobalNav() {
           {uid && (
             <Link
               to={"/messages" as any}
-              className="p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition"
+              className="relative p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition"
               aria-label="الرسائل"
               title="الرسائل الخاصة"
             >
               <MessageSquare className="h-4 w-4" />
+              {unreadMsgs > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5 rounded-full bg-rose-500 text-white text-[9px] flex items-center justify-center font-bold">
+                  {unreadMsgs > 9 ? "9+" : unreadMsgs}
+                </span>
+              )}
             </Link>
           )}
 

@@ -15,7 +15,7 @@ export function LiveStats() {
         { count: competitions },
         { count: quizzes },
       ] = await Promise.all([
-        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role_type", "student"),
+        supabase.from("profiles").select("id", { count: "exact", head: true }).or("role_type.is.null,role_type.eq.student"),
         supabase.from("activities").select("id", { count: "exact", head: true }).eq("status", "approved"),
         supabase.from("competitions").select("id", { count: "exact", head: true }),
         supabase.from("quizzes").select("id", { count: "exact", head: true }),
