@@ -502,14 +502,19 @@ function ProfilePage() {
               <input
                 type="text"
                 value={adminCode}
-                onChange={(e) => setAdminCode(e.target.value.replace(/[^\x20-\x7E]/g, "").toUpperCase())}
-                placeholder="WUSTA-A-2026"
+                onChange={(e) => {
+                  const cleaned = e.target.value
+                    .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+                    .replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0))
+                    .replace(/[^A-Za-z0-9\-_]/g, "")
+                    .toUpperCase();
+                  setAdminCode(cleaned);
+                }}
+                placeholder="Enter code"
                 dir="ltr"
-                lang="en"
-                inputMode="text"
                 autoComplete="off"
                 autoCorrect="off"
-                autoCapitalize="characters"
+                autoCapitalize="none"
                 spellCheck={false}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-background font-mono tracking-wider"
               />
