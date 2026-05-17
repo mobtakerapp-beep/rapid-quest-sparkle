@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { toAr } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search, Palette, Type as TypeIcon, Sticker, Send, Trash2, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search, Palette, Type as TypeIcon, Sticker, Send, Trash2, Image as ImageIcon, X } from "lucide-react";
 import { copyToClipboard } from "@/lib/utils";
 import { CERT_THEMES, CERT_FONTS, type CertTheme, type CertFont } from "@/lib/certThemes";
 import { FullPageLoader } from "@/components/LoadingSpinner";
@@ -16,7 +16,9 @@ type Stat = { id: string; display_name: string | null; grade: string | null; poi
 function TeacherDashboard() {
   const [classCode, setClassCode] = useState<string | null>(null);
   const [teacherId, setTeacherId] = useState<string | null>(null);
-  const [studentEmail, setStudentEmail] = useState("");
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentResults, setStudentResults] = useState<{ id: string; display_name: string | null }[]>([]);
+  const [searching, setSearching] = useState(false);
   const [adding, setAdding] = useState(false);
   const navigate = useNavigate();
   const [allowed, setAllowed] = useState(false);
@@ -70,15 +72,32 @@ function TeacherDashboard() {
     setStats(list);
   };
 
-  const addStudent = async () => {
-    if (!studentEmail.trim()) { toast.error("اكتبي بريد الطالب"); return; }
+  const searchStudentByName = async () => {
+    if (!studentSearch.trim()) return;
+    setSearching(true);
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .ilike("display_name", `%${studentSearch.trim()}%`)
+      .or("role_type.is.null,role_type.eq.student")
+      .limit(15);
+    setStudentResults((data || []) as any);
+    setSearching(false);
+  };
+
+  const addStudentById = async (studentId: string, displayName: string | null) => {
+    if (!teacherId) return;
     setAdding(true);
-    const { data, error } = await supabase.rpc("add_student_by_email", { _email: studentEmail.trim() });
+    const { error } = await supabase
+      .from("profiles")
+      .update({ teacher_id: teacherId })
+      .eq("id", studentId);
     setAdding(false);
-    if (error || !data) { toast.error("لم يتم العثور على طالب بهذا البريد"); return; }
-    toast.success("تمت إضافة الطالب لفصلك");
-    setStudentEmail("");
-    if (teacherId) await loadStudents(teacherId);
+    if (error) { toast.error("فشل إضافة الطالب"); return; }
+    toast.success(`تمت إضافة ${displayName || "الطالب"} لفصلك ✅`);
+    setStudentSearch("");
+    setStudentResults([]);
+    await loadStudents(teacherId, classCode);
   };
 
 
@@ -120,15 +139,41 @@ function TeacherDashboard() {
             <p className="text-xs text-muted-foreground mt-2">الطالب يدخل هذا الكود في صفحة ملفه ليلتحق بفصلك</p>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground mb-1">إضافة طالب يدوياً بالبريد</div>
+            <div className="text-xs text-muted-foreground mb-1">إضافة طالب يدوياً بالاسم</div>
             <div className="flex gap-2">
-              <input value={studentEmail} onChange={(e) => setStudentEmail(e.target.value)}
-                placeholder="student@email.com" className="flex-1 px-3 py-2 rounded-xl border border-border bg-background" />
-              <button onClick={addStudent} disabled={adding}
+              <input
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && searchStudentByName()}
+                placeholder="ابحث باسم الطالب..."
+                className="flex-1 px-3 py-2 rounded-xl border border-border bg-background"
+              />
+              <button onClick={searchStudentByName} disabled={searching}
                 className="px-4 py-2 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold inline-flex items-center gap-1 disabled:opacity-50">
-                <UserPlus className="h-4 w-4" /> إضافة
+                <Search className="h-4 w-4" /> بحث
               </button>
             </div>
+            {studentResults.length > 0 && (
+              <div className="mt-2 space-y-1 max-h-44 overflow-y-auto rounded-xl border border-border bg-background p-1">
+                {studentResults.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => addStudentById(s.id, s.display_name)}
+                    disabled={adding}
+                    className="w-full text-right px-3 py-2 rounded-lg hover:bg-secondary flex items-center gap-2 disabled:opacity-50 transition"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-[image:var(--gradient-warm)] flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      {(s.display_name || "ط").charAt(0)}
+                    </div>
+                    <span className="text-sm font-bold flex-1">{s.display_name || "بدون اسم"}</span>
+                    <UserPlus className="h-4 w-4 text-[var(--brand)] shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {studentSearch && studentResults.length === 0 && !searching && (
+              <p className="text-xs text-muted-foreground mt-1">اضغط بحث للعثور على الطالب</p>
+            )}
           </div>
         </div>
 

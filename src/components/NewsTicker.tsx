@@ -513,11 +513,18 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
   // Broadcast badge award — special "أول شارة" message if it's the user's very first
   const broadcastBadgeAward = async (badgeRecord: any) => {
     try {
-      const [{ data: prof }, { data: badge }, { count: badgeCount }] = await Promise.all([
+      const queries: Promise<any>[] = [
         supabase.from("profiles").select("display_name, role_type, gender").eq("id", badgeRecord.user_id).maybeSingle(),
         supabase.from("badges").select("name").eq("id", badgeRecord.badge_id).maybeSingle(),
         supabase.from("user_badges").select("id", { count: "exact", head: true }).eq("user_id", badgeRecord.user_id),
-      ]);
+      ];
+      if (badgeRecord.awarded_by) {
+        queries.push(supabase.from("profiles").select("display_name, role_type").eq("id", badgeRecord.awarded_by).maybeSingle() as any);
+      }
+      const results = await Promise.all(queries);
+      const [{ data: prof }, { data: badge }, { count: badgeCount }] = results;
+      const awarderData = badgeRecord.awarded_by ? (results[3] as any).data : null;
+
       const roleType    = (prof as any)?.role_type;
       const gender      = (prof as any)?.gender;
       const roleLabel   = getRoleLabel(roleType);
@@ -527,9 +534,19 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       const displayName = roleLabel ? `${roleLabel} ${personName}` : personName;
       const isFirst     = (badgeCount ?? 0) <= 1;
 
-      const text = isFirst
-        ? `🌟 أول شارة! تهانينا لـ ${displayName} على الحصول على شارة "${badgeName}" لأول مرة! 🎉🏅`
-        : `🏅 تهانينا! ${displayName} ${verb} على شارة "${badgeName}" 🎉`;
+      let text: string;
+      if (awarderData) {
+        const awarderLabel = getRoleLabel((awarderData as any)?.role_type);
+        const awarderName  = (awarderData as any)?.display_name || "معلم";
+        const fromStr = awarderLabel ? `${awarderLabel} ${awarderName}` : awarderName;
+        text = isFirst
+          ? `🌟 أول شارة! أرسل ${fromStr} شارة "${badgeName}" إلى ${displayName} لأول مرة! 🎉🏅`
+          : `🏅 أرسل ${fromStr} شارة "${badgeName}" إلى ${displayName} — مبروك! 🎉`;
+      } else {
+        text = isFirst
+          ? `🌟 أول شارة! تهانينا لـ ${displayName} على الحصول على شارة "${badgeName}" لأول مرة! 🎉🏅`
+          : `🏅 تهانينا! ${displayName} ${verb} على شارة "${badgeName}" 🎉`;
+      }
 
       pushTickerItem({
         id: `badge-${badgeRecord.id}`,
@@ -547,16 +564,16 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
         supabase.from("profiles").select("display_name, role_type").eq("id", stickerRecord.teacher_id).maybeSingle(),
         supabase.from("profiles").select("display_name, role_type").eq("id", stickerRecord.student_id).maybeSingle(),
       ]);
-      const teacherLabel  = getRoleLabel((teacher as any)?.role_type);
-      const teacherName   = (teacher as any)?.display_name || "معلم";
-      const recipientLabel = getRoleLabel((recipient as any)?.role_type);
+      const teacherLabel   = getRoleLabel((teacher as any)?.role_type);
+      const teacherName    = (teacher as any)?.display_name || "معلم";
+      const recipientLabel = getRoleLabel((recipient as any)?.role_type) || "الطالب";
       const recipientName  = (recipient as any)?.display_name || "مستخدم";
       const title          = stickerRecord.title || "ملصق تشجيعي";
-      const fromStr  = teacherLabel  ? `${teacherLabel} ${teacherName}`  : teacherName;
-      const toStr    = recipientLabel ? `${recipientLabel} ${recipientName}` : recipientName;
+      const fromStr = teacherLabel ? `${teacherLabel} ${teacherName}` : teacherName;
+      const toStr   = `${recipientLabel} ${recipientName}`;
       pushTickerItem({
         id: `sticker-${stickerRecord.id}`,
-        text: `🌟 ${fromStr} أرسل ملصق "${title}" لـ${toStr} — أحسنت! ✨`,
+        text: `🌟 أرسل ${fromStr} إلى ${toStr} ملصقاً: "${title}" — أحسنت! ✨`,
         type: "custom",
         expires_at: endOfToday(),
       });
@@ -572,14 +589,14 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       ]);
       const teacherLabel = getRoleLabel((teacher as any)?.role_type);
       const teacherName  = (teacher as any)?.display_name || "معلم";
-      const studentLabel = getRoleLabel((student as any)?.role_type);
+      const studentLabel = getRoleLabel((student as any)?.role_type) || "الطالب";
       const studentName  = (student as any)?.display_name || "طالب";
       const title        = certRecord.title || "شهادة تقدير";
       const fromStr = teacherLabel ? `${teacherLabel} ${teacherName}` : teacherName;
-      const toStr   = studentLabel ? `${studentLabel} ${studentName}` : studentName;
+      const toStr   = `${studentLabel} ${studentName}`;
       pushTickerItem({
         id: `cert-${certRecord.id}`,
-        text: `🎓 ${fromStr} منح شهادة "${title}" لـ${toStr} — مبروك! 🏆`,
+        text: `🎓 أرسل ${fromStr} إلى ${toStr} شهادة تقدير: "${title}" — مبروك! 🏆`,
         type: "custom",
         expires_at: endOfToday(),
       });
