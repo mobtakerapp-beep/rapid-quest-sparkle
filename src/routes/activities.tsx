@@ -199,7 +199,7 @@ function ActivitiesPage() {
 
   const filtered = activeSubject === "الكل" ? tabItems : tabItems.filter((i) => i.subject === activeSubject);
 
-  const canUploadInTab = activeTab === "teachers" ? canUpload : !!uid;
+  const canUploadInTab = activeTab === "teachers" ? canUpload : isStudent;
 
   return (
     <div dir="rtl" className="min-h-screen bg-background">
