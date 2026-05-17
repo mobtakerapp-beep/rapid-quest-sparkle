@@ -198,7 +198,7 @@ export function GlobalNav() {
               className="text-[9px] font-bold text-muted-foreground whitespace-nowrap"
               style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}
             >
-              وزارة التربية والتعليم
+              وزارة التعليم
             </span>
             <span
               className="text-[9px] font-bold whitespace-nowrap"
