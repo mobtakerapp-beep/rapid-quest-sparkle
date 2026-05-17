@@ -462,7 +462,7 @@ function ProfilePage() {
                   <p className="text-xs text-muted-foreground mb-2">اطلبي من معلمك كود الفصل (6 أحرف) وأدخليه هنا</p>
                 )}
                 <div className="flex gap-2">
-                  <input value={classCodeInput} onChange={(e) => setClassCodeInput(e.target.value.toUpperCase())}
+                  <input value={classCodeInput} onChange={(e) => setClassCodeInput(e.target.value.replace(/[^\x20-\x7E]/g, "").toUpperCase())}
                     placeholder="ABC123" maxLength={6}
                     dir="ltr" lang="en" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
                     className="flex-1 px-3 py-2 rounded-xl border border-border bg-background tracking-widest font-bold uppercase" />
@@ -502,7 +502,7 @@ function ProfilePage() {
               <input
                 type="password"
                 value={adminCode}
-                onChange={(e) => setAdminCode(e.target.value)}
+                onChange={(e) => setAdminCode(e.target.value.replace(/[^\x20-\x7E]/g, ""))}
                 placeholder="أدخل الكود السري"
                 dir="ltr"
                 lang="en"

@@ -252,7 +252,7 @@ function LoginPage() {
               <div className="mt-2 space-y-1.5">
                 <input
                   value={adminCode}
-                  onChange={(e) => setAdminCode(e.target.value.toUpperCase())}
+                  onChange={(e) => setAdminCode(e.target.value.replace(/[^\x20-\x7E]/g, "").toUpperCase())}
                   placeholder="WUSTA-T-2026"
                   dir="ltr"
                   lang="en"
