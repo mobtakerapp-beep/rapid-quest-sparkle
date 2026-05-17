@@ -737,8 +737,10 @@ function BadgesPage() {
         {uid && <MyCertificates uid={uid} />}
         {/* الشارات */}
         {uid && <MyBadges uid={uid} />}
+        {/* ملصقات المعلم */}
+        {uid && audience === "student" && <TeacherStickersSection uid={uid} />}
 
-        <div className="text-center text-sm font-bold mb-3 mt-6 text-muted-foreground">
+        <div className="text-center text-sm font-bold mb-3 mt-8 text-muted-foreground">
           {audience === "teacher" ? "🎓 كل شارات المعلمين" : "🌟 كل شارات الطلاب"}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -760,6 +762,85 @@ function BadgesPage() {
         </div>
       </main>
 
+    </div>
+  );
+}
+
+// ── ملصقات المعلم — قسم الطالب ──────────────────────────────────────────────
+function TeacherStickersSection({ uid }: { uid: string }) {
+  const [stickers, setStickers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await (supabase as any)
+      .from("teacher_stickers")
+      .select("id, teacher_id, image_url, title, message, created_at")
+      .eq("student_id", uid)
+      .order("created_at", { ascending: false });
+    setStickers(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [uid]);
+
+  // ريل تايم — يظهر الملصق فور إرساله
+  useEffect(() => {
+    const ch = (supabase as any)
+      .channel(`stickers-rt-${uid}`)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "teacher_stickers",
+        filter: `student_id=eq.${uid}`,
+      }, (payload: any) => {
+        setStickers((prev) => [payload.new, ...prev]);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [uid]);
+
+  if (loading) return null;
+  if (stickers.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-2xl">🌟</span>
+        <h3 className="font-black text-lg">ملصقات معلمتي</h3>
+        <span className="text-xs text-muted-foreground font-normal bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+          {stickers.length}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {stickers.map((s: any) => (
+          <div
+            key={s.id}
+            className="rounded-2xl overflow-hidden border-2 border-amber-200 dark:border-amber-800 shadow-md hover:shadow-lg transition group"
+            style={{ background: "linear-gradient(135deg, #fffbeb, #fff7ed)" }}
+          >
+            <div className="relative">
+              <img
+                src={s.image_url}
+                alt={s.title}
+                className="w-full h-36 object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+            </div>
+            <div className="p-3">
+              <div className="font-black text-sm text-amber-800 dark:text-amber-300 mb-0.5">{s.title}</div>
+              {s.message && (
+                <div className="text-xs text-amber-700/80 dark:text-amber-500 italic line-clamp-2">
+                  "{s.message}"
+                </div>
+              )}
+              <div className="text-[10px] text-muted-foreground mt-1.5">
+                {new Date(s.created_at).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

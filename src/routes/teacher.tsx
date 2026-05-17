@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { toAr } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search, Palette, Type as TypeIcon } from "lucide-react";
+import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search, Palette, Type as TypeIcon, Sticker, Send, Trash2, Image as ImageIcon } from "lucide-react";
 import { CERT_THEMES, CERT_FONTS, type CertTheme, type CertFont } from "@/lib/certThemes";
 import { FullPageLoader } from "@/components/LoadingSpinner";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
@@ -196,6 +196,8 @@ function TeacherDashboard() {
         {teacherId && <EssayGradingPanel teacherId={teacherId} />}
         {teacherId && <CertificatePanel teacherId={teacherId} />}
         {teacherId && <BadgeSection teacherId={teacherId} />}
+        {teacherId && <StickerPanel teacherId={teacherId} students={stats} />}
+
       </main>
     </div>
   );
@@ -670,6 +672,225 @@ function CreateBadgePanel({ onCreated }: { onCreated?: () => void }) {
           {saving ? "جاري الحفظ..." : "إنشاء الشارة"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ── ملصقات المعلم ─────────────────────────────────────────────────────────────
+function StickerPanel({ teacherId, students }: { teacherId: string; students: Stat[] }) {
+  const [open, setOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState("");
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<any[]>([]);
+  const [loadingSent, setLoadingSent] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const loadSent = async () => {
+    setLoadingSent(true);
+    const { data } = await (supabase as any)
+      .from("teacher_stickers")
+      .select("id, student_id, image_url, title, message, created_at")
+      .eq("teacher_id", teacherId)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    setSent(data || []);
+    setLoadingSent(false);
+  };
+
+  useEffect(() => { if (open) loadSent(); }, [open]);
+
+  const pickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { toast.error("الصورة أكبر من 5 ميغا"); return; }
+    setFile(f);
+    const reader = new FileReader();
+    reader.onload = () => setPreview(reader.result as string);
+    reader.readAsDataURL(f);
+  };
+
+  const send = async () => {
+    if (!selectedStudent) { toast.error("اختاري الطالب أولاً"); return; }
+    if (!title.trim()) { toast.error("اكتبي عنوان الملصق"); return; }
+    if (!file) { toast.error("اختاري صورة الملصق"); return; }
+    setSending(true);
+    const ext = file.name.split(".").pop() || "png";
+    const path = `stickers/${teacherId}/${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("activity-files").upload(path, file, { upsert: true });
+    if (upErr) { toast.error("تعذّر رفع الصورة: " + upErr.message); setSending(false); return; }
+    const { data: urlData } = supabase.storage.from("activity-files").getPublicUrl(path);
+    const image_url = urlData?.publicUrl || "";
+    const { error: insErr } = await (supabase as any).from("teacher_stickers").insert({
+      teacher_id: teacherId,
+      student_id: selectedStudent,
+      image_url,
+      title: title.trim(),
+      message: message.trim(),
+    });
+    if (insErr) { toast.error("تعذّر إرسال الملصق: " + insErr.message); setSending(false); return; }
+    toast.success("✨ تم إرسال الملصق للطالب!");
+    setFile(null); setPreview(null); setTitle(""); setMessage(""); setSelectedStudent("");
+    setSending(false);
+    await loadSent();
+  };
+
+  const deleteSticker = async (id: string) => {
+    await (supabase as any).from("teacher_stickers").delete().eq("id", id);
+    setSent((prev) => prev.filter((s: any) => s.id !== id));
+    toast.success("تم حذف الملصق");
+  };
+
+  const studentName = (id: string) => students.find((s) => s.id === id)?.display_name || "—";
+
+  return (
+    <div className="mt-6">
+      <div className="flex justify-center">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-white font-bold shadow-md hover:opacity-90 transition"
+          style={{ background: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)" }}
+        >
+          <span className="text-lg">🌟</span>
+          {open ? "إخفاء ملصقات المعلم" : "ملصقات المعلم ✨"}
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-4 space-y-4">
+          {/* بطاقة الإرسال */}
+          <div className="bg-card rounded-3xl border-2 border-amber-200 dark:border-amber-800 p-5 space-y-4"
+            style={{ background: "linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%)" }}>
+            <div className="font-black text-lg flex items-center gap-2 text-amber-800 dark:text-amber-300">
+              <span>🎖️</span> أرسل ملصق تشجيعي لطالب
+            </div>
+
+            {/* اختيار الطالب */}
+            <div>
+              <label className="text-xs font-bold text-muted-foreground mb-1.5 block">اختاري الطالب</label>
+              {students.length === 0 ? (
+                <p className="text-sm text-rose-600">لا يوجد طلاب في فصلك بعد</p>
+              ) : (
+                <select
+                  value={selectedStudent}
+                  onChange={(e) => setSelectedStudent(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border-2 border-amber-200 bg-white/80 dark:bg-background focus:border-amber-400 outline-none"
+                >
+                  <option value="">— اختاري طالباً —</option>
+                  {students.map((s) => (
+                    <option key={s.id} value={s.id}>{s.display_name || "بدون اسم"}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* عنوان الملصق */}
+            <div>
+              <label className="text-xs font-bold text-muted-foreground mb-1.5 block">عنوان الملصق</label>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="مثال: أحسنت! 🌟 متميز في الرياضيات"
+                className="w-full px-4 py-2.5 rounded-xl border-2 border-amber-200 bg-white/80 dark:bg-background focus:border-amber-400 outline-none"
+              />
+            </div>
+
+            {/* رسالة اختيارية */}
+            <div>
+              <label className="text-xs font-bold text-muted-foreground mb-1.5 block">رسالة تشجيع (اختياري)</label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="اكتبي كلمة تشجيع قصيرة..."
+                rows={2}
+                className="w-full px-4 py-2.5 rounded-xl border-2 border-amber-200 bg-white/80 dark:bg-background focus:border-amber-400 outline-none resize-none"
+              />
+            </div>
+
+            {/* رفع صورة الملصق */}
+            <div>
+              <label className="text-xs font-bold text-muted-foreground mb-1.5 block">صورة الملصق</label>
+              <input ref={fileRef} type="file" accept="image/*" onChange={pickFile} className="hidden" />
+              {preview ? (
+                <div className="relative inline-block">
+                  <img src={preview} alt="preview"
+                    className="h-36 w-36 object-cover rounded-2xl border-4 border-amber-300 shadow-lg" />
+                  <button
+                    onClick={() => { setFile(null); setPreview(null); if (fileRef.current) fileRef.current.value = ""; }}
+                    className="absolute -top-2 -left-2 h-6 w-6 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs shadow-md"
+                  >✕</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-3 px-5 py-5 rounded-2xl border-2 border-dashed border-amber-300 hover:border-amber-500 text-amber-700 hover:bg-amber-50 transition"
+                >
+                  <ImageIcon className="h-6 w-6" />
+                  <div className="text-right">
+                    <div className="text-sm font-bold">اضغطي لاختيار صورة الملصق</div>
+                    <div className="text-[11px] opacity-70">PNG, JPG, GIF – حتى 5 ميغا</div>
+                  </div>
+                </button>
+              )}
+            </div>
+
+            {/* زر الإرسال */}
+            <button
+              onClick={send}
+              disabled={sending || !selectedStudent || !title.trim() || !file}
+              className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-bold text-base disabled:opacity-40 transition shadow-md"
+              style={{ background: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)" }}
+            >
+              <Send className="h-5 w-5" />
+              {sending ? "جاري الإرسال..." : "أرسل الملصق ✉️"}
+            </button>
+          </div>
+
+          {/* الملصقات المرسلة */}
+          <div className="bg-card rounded-3xl border border-border p-5">
+            <div className="font-bold mb-4 flex items-center gap-2">
+              <span>📋</span> الملصقات المرسلة سابقاً
+              {loadingSent && <span className="text-xs text-muted-foreground font-normal">جاري التحميل...</span>}
+            </div>
+            {sent.length === 0 && !loadingSent ? (
+              <p className="text-sm text-center text-muted-foreground py-8">لم ترسلي أي ملصقات بعد</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {sent.map((s: any) => (
+                  <div key={s.id} className="relative rounded-2xl border border-border overflow-hidden group shadow-sm hover:shadow-md transition bg-card">
+                    <img src={s.image_url} alt={s.title}
+                      className="w-full h-28 object-cover bg-secondary" />
+                    <div className="p-2.5">
+                      <div className="font-bold text-xs truncate">{s.title}</div>
+                      <div className="text-[10px] text-muted-foreground truncate mt-0.5">
+                        → {studentName(s.student_id)}
+                      </div>
+                      {s.message && (
+                        <div className="text-[10px] text-muted-foreground mt-1 line-clamp-2 italic">
+                          "{s.message}"
+                        </div>
+                      )}
+                      <div className="text-[9px] text-muted-foreground/60 mt-1">
+                        {new Date(s.created_at).toLocaleDateString("ar-EG")}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteSticker(s.id)}
+                      className="absolute top-1.5 left-1.5 h-6 w-6 rounded-full bg-rose-600 text-white hidden group-hover:flex items-center justify-center shadow-md"
+                      title="حذف"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
