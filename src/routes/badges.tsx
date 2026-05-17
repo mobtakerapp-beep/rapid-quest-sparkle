@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { toAr } from "@/lib/utils";
+import { toAr, copyToClipboard } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Award, Download, User as UserIcon, Target, Palette, Type as TypeIcon, Copy, Check, Users, Search } from "lucide-react";
@@ -623,7 +623,7 @@ function BadgesPage() {
             <div className="bg-white dark:bg-teal-950/60 rounded-2xl border border-teal-200 dark:border-teal-700 p-3 flex items-center gap-3">
               <code className="flex-1 font-mono text-xs break-all text-teal-800 dark:text-teal-300 select-all">{uid}</code>
               <button
-                onClick={() => { navigator.clipboard.writeText(uid); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); }}
+                onClick={async () => { const ok = await copyToClipboard(uid); if (ok) { setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); } else { toast.error("فشل النسخ، انسخ الكود يدوياً"); } }}
                 className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition">
                 {codeCopied ? <><Check className="h-3.5 w-3.5" /> تم النسخ</> : <><Copy className="h-3.5 w-3.5" /> نسخ</>}
               </button>

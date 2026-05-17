@@ -3,6 +3,7 @@ import { toAr } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search, Palette, Type as TypeIcon, Sticker, Send, Trash2, Image as ImageIcon } from "lucide-react";
+import { copyToClipboard } from "@/lib/utils";
 import { CERT_THEMES, CERT_FONTS, type CertTheme, type CertFont } from "@/lib/certThemes";
 import { FullPageLoader } from "@/components/LoadingSpinner";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
@@ -112,7 +113,7 @@ function TeacherDashboard() {
             <div className="flex items-center gap-2">
               <code className="px-4 py-2 rounded-xl bg-secondary font-black text-2xl tracking-widest">{classCode || "—"}</code>
               {classCode && (
-                <button onClick={() => { navigator.clipboard.writeText(classCode); toast.success("تم النسخ"); }}
+                <button onClick={async () => { const ok = await copyToClipboard(classCode); toast[ok ? "success" : "error"](ok ? "تم النسخ ✅" : "فشل النسخ، انسخ الكود يدوياً"); }}
                   className="p-2 rounded-lg hover:bg-secondary"><Copy className="h-4 w-4" /></button>
               )}
             </div>
