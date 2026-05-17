@@ -27,6 +27,12 @@ function daysFromNow(days: number): string {
   return new Date(Date.now() + days * 24 * 3600 * 1000).toISOString();
 }
 
+function endOfToday(): string {
+  const d = new Date();
+  d.setHours(23, 59, 59, 999);
+  return d.toISOString();
+}
+
 function getRoleLabel(roleType?: string): string {
   switch (roleType) {
     case "teacher":    return "المعلم";
@@ -491,33 +497,88 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
     setItems([...custom, ...auto]);
   };
 
-  // Broadcast a badge award into the ticker (1-day expiry)
+  const pushTickerItem = (item: TickerItem) => {
+    const existing = loadCustomItems();
+    if (!existing.some((x) => x.id === item.id)) {
+      saveCustomItems([item, ...existing]);
+      setItems((prev) => prev.some((x) => x.id === item.id) ? prev : [item, ...prev]);
+      channelRef.current?.send({ type: "broadcast", event: "new_item", payload: item });
+    }
+  };
+
+  // Broadcast badge award — special "أول شارة" message if it's the user's very first
   const broadcastBadgeAward = async (badgeRecord: any) => {
     try {
-      const [{ data: prof }, { data: badge }] = await Promise.all([
+      const [{ data: prof }, { data: badge }, { count: badgeCount }] = await Promise.all([
         supabase.from("profiles").select("display_name, role_type, gender").eq("id", badgeRecord.user_id).maybeSingle(),
         supabase.from("badges").select("name").eq("id", badgeRecord.badge_id).maybeSingle(),
+        supabase.from("user_badges").select("id", { count: "exact", head: true }).eq("user_id", badgeRecord.user_id),
       ]);
-      const roleType = (prof as any)?.role_type;
-      const gender   = (prof as any)?.gender;
-      const roleLabel = getRoleLabel(roleType);
-      const personName = (prof as any)?.display_name || (roleLabel || "مستخدم");
-      const badgeName = (badge as any)?.name || "شارة";
-      // حصل/حصلت based on gender
-      const verb = gender === "female" ? "حصلت" : "حصل";
+      const roleType    = (prof as any)?.role_type;
+      const gender      = (prof as any)?.gender;
+      const roleLabel   = getRoleLabel(roleType);
+      const personName  = (prof as any)?.display_name || (roleLabel || "مستخدم");
+      const badgeName   = (badge as any)?.name || "شارة";
+      const verb        = gender === "female" ? "حصلت" : "حصل";
       const displayName = roleLabel ? `${roleLabel} ${personName}` : personName;
-      const item: TickerItem = {
-        id: `badge-${badgeRecord.id}-${Date.now()}`,
-        text: `🏅 تهانينا! ${displayName} ${verb} على شارة "${badgeName}" 🎉`,
+      const isFirst     = (badgeCount ?? 0) <= 1;
+
+      const text = isFirst
+        ? `🌟 أول شارة! تهانينا لـ ${displayName} على الحصول على شارة "${badgeName}" لأول مرة! 🎉🏅`
+        : `🏅 تهانينا! ${displayName} ${verb} على شارة "${badgeName}" 🎉`;
+
+      pushTickerItem({
+        id: `badge-${badgeRecord.id}`,
+        text,
         type: "custom",
-        expires_at: daysFromNow(1),
-      };
-      const existing = loadCustomItems();
-      if (!existing.some((x) => x.id === item.id)) {
-        saveCustomItems([item, ...existing]);
-        setItems((prev) => prev.some((x) => x.id === item.id) ? prev : [item, ...prev]);
-        channelRef.current?.send({ type: "broadcast", event: "new_item", payload: item });
-      }
+        expires_at: endOfToday(),
+      });
+    } catch {}
+  };
+
+  // Broadcast sticker sent by teacher — shows all day
+  const broadcastStickerSend = async (stickerRecord: any) => {
+    try {
+      const [{ data: teacher }, { data: recipient }] = await Promise.all([
+        supabase.from("profiles").select("display_name, role_type").eq("id", stickerRecord.teacher_id).maybeSingle(),
+        supabase.from("profiles").select("display_name, role_type").eq("id", stickerRecord.student_id).maybeSingle(),
+      ]);
+      const teacherLabel  = getRoleLabel((teacher as any)?.role_type);
+      const teacherName   = (teacher as any)?.display_name || "معلم";
+      const recipientLabel = getRoleLabel((recipient as any)?.role_type);
+      const recipientName  = (recipient as any)?.display_name || "مستخدم";
+      const title          = stickerRecord.title || "ملصق تشجيعي";
+      const fromStr  = teacherLabel  ? `${teacherLabel} ${teacherName}`  : teacherName;
+      const toStr    = recipientLabel ? `${recipientLabel} ${recipientName}` : recipientName;
+      pushTickerItem({
+        id: `sticker-${stickerRecord.id}`,
+        text: `🌟 ${fromStr} أرسل ملصق "${title}" لـ${toStr} — أحسنت! ✨`,
+        type: "custom",
+        expires_at: endOfToday(),
+      });
+    } catch {}
+  };
+
+  // Broadcast certificate issued by teacher — shows all day
+  const broadcastCertificateIssue = async (certRecord: any) => {
+    try {
+      const [{ data: teacher }, { data: student }] = await Promise.all([
+        supabase.from("profiles").select("display_name, role_type").eq("id", certRecord.teacher_id).maybeSingle(),
+        supabase.from("profiles").select("display_name, role_type").eq("id", certRecord.student_id).maybeSingle(),
+      ]);
+      const teacherLabel = getRoleLabel((teacher as any)?.role_type);
+      const teacherName  = (teacher as any)?.display_name || "معلم";
+      const studentLabel = getRoleLabel((student as any)?.role_type);
+      const studentName  = (student as any)?.display_name || "طالب";
+      const title        = certRecord.title || "شهادة تقدير";
+      const fromStr = teacherLabel ? `${teacherLabel} ${teacherName}` : teacherName;
+      const toStr   = studentLabel ? `${studentLabel} ${studentName}` : studentName;
+      pushTickerItem({
+        id: `cert-${certRecord.id}`,
+        text: `🎓 ${fromStr} منح شهادة "${title}" لـ${toStr} — مبروك! 🏆`,
+        type: "custom",
+        expires_at: endOfToday(),
+      });
     } catch {}
   };
 
@@ -548,7 +609,7 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       .subscribe();
 
     // Auto-refresh ticker when new submissions, votes, or events land
-    // Also listen for new badge awards → auto-announce for 1 day
+    // Listen for badges, stickers, and certificates → auto-announce until end of day
     const subsCh = supabase
       .channel("ticker-subs-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "competition_submissions" }, () => refresh())
@@ -557,6 +618,12 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "events" }, () => refresh())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "user_badges" }, (p: any) => {
         broadcastBadgeAward(p.new);
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "teacher_stickers" }, (p: any) => {
+        broadcastStickerSend(p.new);
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "certificates" }, (p: any) => {
+        broadcastCertificateIssue(p.new);
       })
       .subscribe();
 
