@@ -500,17 +500,18 @@ function ProfilePage() {
             <p className="text-xs text-muted-foreground">أدخلي الكود وسيتم تفعيل الصلاحية المناسبة تلقائياً.</p>
             <div className="flex gap-2">
               <input
-                type="password"
+                type="text"
                 value={adminCode}
                 onChange={(e) => setAdminCode(e.target.value.replace(/[^\x20-\x7E]/g, "").toUpperCase())}
-                placeholder="أدخل الكود السري"
+                placeholder="WUSTA-A-2026"
                 dir="ltr"
                 lang="en"
+                inputMode="text"
                 autoComplete="off"
                 autoCorrect="off"
-                autoCapitalize="off"
+                autoCapitalize="characters"
                 spellCheck={false}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-background"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-background font-mono tracking-wider"
               />
               <button
                 type="button"
