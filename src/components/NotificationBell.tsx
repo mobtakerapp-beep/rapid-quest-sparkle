@@ -85,6 +85,8 @@ export function NotificationBell({ userId }: { userId: string }) {
     assignment: "📋",
     competition: "🏆",
     message: "💬",
+    activity: "📚",
+    quiz: "🎯",
   };
 
   return (

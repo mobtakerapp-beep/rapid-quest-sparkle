@@ -16,7 +16,7 @@ export function LiveStats() {
         { count: quizzes },
       ] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role_type", "student"),
-        supabase.from("activities").select("id", { count: "exact", head: true }),
+        supabase.from("activities").select("id", { count: "exact", head: true }).eq("status", "approved"),
         supabase.from("competitions").select("id", { count: "exact", head: true }),
         supabase.from("quizzes").select("id", { count: "exact", head: true }),
       ]);
@@ -28,6 +28,17 @@ export function LiveStats() {
       });
     };
     load();
+    const ch = supabase.channel("livestats-rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "profiles" }, load)
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "profiles" }, load)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activities" }, load)
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "activities" }, load)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "competitions" }, load)
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "competitions" }, load)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "quizzes" }, load)
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "quizzes" }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, []);
 
   const items = [

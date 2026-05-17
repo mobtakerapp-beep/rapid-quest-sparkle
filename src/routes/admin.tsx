@@ -38,7 +38,7 @@ function AdminPage() {
     const [u, t, a, q, c, r, allUsers, rep] = await Promise.all([
       supabase.from("profiles").select("*", { count: "exact", head: true }),
       supabase.from("profiles").select("*", { count: "exact", head: true }).in("role_type", ["teacher","supervisor"]),
-      supabase.from("activities").select("*", { count: "exact", head: true }),
+      supabase.from("activities").select("*", { count: "exact", head: true }).eq("status", "approved"),
       supabase.from("quizzes").select("*", { count: "exact", head: true }),
       supabase.from("competitions").select("*", { count: "exact", head: true }),
       supabase.from("reports").select("*", { count: "exact", head: true }),

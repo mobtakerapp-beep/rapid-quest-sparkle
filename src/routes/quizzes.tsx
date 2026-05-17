@@ -393,6 +393,7 @@ function QuizzesPage() {
       if (!data.session) { navigate({ to: "/login" }); return; }
       const id = data.session.user.id;
       setUid(id);
+      localStorage.setItem("last_seen_quizzes", new Date().toISOString());
       const [{ data: roles }, { data: prof }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", id),
         supabase.from("profiles").select("role_type").eq("id", id).maybeSingle(),

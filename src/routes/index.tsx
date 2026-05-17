@@ -30,11 +30,11 @@ const features = [
   { icon: Bot, title: "المساعد الذكي المتقدم", desc: "اسأل أي سؤال في الرياضيات — يدعم الصور والكسور والجذور", color: "from-violet-500 to-pink-500", to: "/assistant" as const, badgeKey: null },
   { icon: Users, title: "مجتمع تعليمي", desc: "شات مباشر بين المعلمين والطلاب وأولياء الأمور", color: "from-emerald-500 to-teal-500", to: "/chat" as const, badgeKey: null },
   { icon: Image, title: "معرض الإبداعات", desc: "شارك صورك وفيديوهاتك وإبداعاتك مع زملائك", color: "from-pink-500 to-rose-500", to: "/gallery" as const, badgeKey: null },
-  { icon: Zap, title: "المسابقات السريعة", desc: "تنافس على السرعة والإجابة الصحيحة", color: "from-yellow-500 to-orange-500", to: "/competitions" as const, badgeKey: null },
+  { icon: Zap, title: "المسابقات السريعة", desc: "تنافس على السرعة والإجابة الصحيحة", color: "from-yellow-500 to-orange-500", to: "/competitions" as const, badgeKey: "competitions" },
   { icon: Trophy, title: "مسابقات معرض الإبداعات", desc: "أحسن رسمة وفيديو وصورة", color: "from-amber-500 to-orange-600", to: "/gallery-contests" as const, badgeKey: null },
-  { icon: BookOpen, title: "بنك الأنشطة", desc: "أنشطة وأوراق عمل متنوعة للصف الخامس", color: "from-blue-500 to-cyan-500", to: "/activities" as const, badgeKey: null },
+  { icon: BookOpen, title: "بنك الأنشطة", desc: "أنشطة وأوراق عمل متنوعة للصف الخامس", color: "from-blue-500 to-cyan-500", to: "/activities" as const, badgeKey: "activities" },
   { icon: ClipboardList, title: "الواجبات", desc: "حل واجباتك واحصل على تقييم المعلم", color: "from-blue-500 to-indigo-500", to: "/assignments" as const, badgeKey: "assignments" },
-  { icon: Target, title: "اختبارات تفاعلية", desc: "اختبر معلوماتك واكسب نقاطاً", color: "from-rose-500 to-pink-500", to: "/quizzes" as const, badgeKey: null },
+  { icon: Target, title: "اختبارات تفاعلية", desc: "اختبر معلوماتك واكسب نقاطاً", color: "from-rose-500 to-pink-500", to: "/quizzes" as const, badgeKey: "quizzes" },
   { icon: CalIcon, title: "الفاعليات", desc: "مواعيد المسابقات والفعاليات", color: "from-cyan-500 to-blue-500", to: "/calendar" as const, badgeKey: null },
   { icon: Trophy, title: "لوحة المتصدرين", desc: "أعلى معلم وأعلى طالب مشارك", color: "from-amber-500 to-orange-500", to: "/leaderboard" as const, badgeKey: null },
   { icon: Award, title: "شاراتي وإنجازاتي", desc: "شاراتك وشهادة التقدير وكشف درجاتك", color: "from-amber-500 to-yellow-500", to: "/badges" as const, badgeKey: null },
@@ -99,14 +99,23 @@ function Index() {
         }));
       } catch {}
 
-      // Fetch section badges (unread notifications + unread DMs)
-      const [{ count: notifCount }, { data: dms }] = await Promise.all([
+      // Fetch section badges (unread notifications + unread DMs + new content since last visit)
+      const lastActivities = localStorage.getItem("last_seen_activities") || new Date(0).toISOString();
+      const lastCompetitions = localStorage.getItem("last_seen_competitions") || new Date(0).toISOString();
+      const lastQuizzes = localStorage.getItem("last_seen_quizzes") || new Date(0).toISOString();
+      const [{ count: notifCount }, { data: dms }, { count: newActivities }, { count: newCompetitions }, { count: newQuizzes }] = await Promise.all([
         supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", id).eq("is_read", false),
         supabase.from("direct_messages" as any).select("id").eq("to_user_id", id).is("read_at", null),
+        supabase.from("activities").select("id", { count: "exact", head: true }).eq("status", "approved").gt("created_at", lastActivities),
+        supabase.from("competitions").select("id", { count: "exact", head: true }).gt("created_at", lastCompetitions),
+        supabase.from("quizzes").select("id", { count: "exact", head: true }).gt("created_at", lastQuizzes),
       ]);
       const b: Record<string, number> = {};
       if (notifCount && notifCount > 0) b["notifications"] = notifCount;
       if ((dms || []).length > 0) b["messages"] = (dms || []).length;
+      if (newActivities && newActivities > 0) b["activities"] = newActivities;
+      if (newCompetitions && newCompetitions > 0) b["competitions"] = newCompetitions;
+      if (newQuizzes && newQuizzes > 0) b["quizzes"] = newQuizzes;
       setBadges(b);
     };
 
@@ -131,6 +140,15 @@ function Index() {
         if (uid && (payload.new as any)?.to_user_id === uid) {
           setBadges((b) => ({ ...b, messages: (b.messages || 0) + 1 }));
         }
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activities" }, () => {
+        setBadges((b) => ({ ...b, activities: (b.activities || 0) + 1 }));
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "competitions" }, () => {
+        setBadges((b) => ({ ...b, competitions: (b.competitions || 0) + 1 }));
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "quizzes" }, () => {
+        setBadges((b) => ({ ...b, quizzes: (b.quizzes || 0) + 1 }));
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };

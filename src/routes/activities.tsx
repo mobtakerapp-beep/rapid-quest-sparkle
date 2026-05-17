@@ -60,6 +60,7 @@ function ActivitiesPage() {
       if (!data.session) { navigate({ to: "/login" }); return; }
       const id = data.session.user.id;
       setUid(id);
+      localStorage.setItem("last_seen_activities", new Date().toISOString());
       const [{ data: roles }, { data: profile }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", id),
         supabase.from("profiles").select("role_type").eq("id", id).maybeSingle(),
@@ -136,6 +137,28 @@ function ActivitiesPage() {
       if (error) throw error;
       toast.success(activeTab === "students" ? "تم رفع نشاطك ✨" : "تم رفع النشاط ✨");
       setTitle(""); setDesc(""); setFile(null); setShowForm(false);
+      // إرسال إشعارات لطلاب المعلم (ليس للمعلم نفسه)
+      if (canUpload) {
+        try {
+          const { data: students } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("teacher_id", uid)
+            .neq("id", uid);
+          if (students && students.length > 0) {
+            await supabase.from("notifications").insert(
+              students.map((s: any) => ({
+                user_id: s.id,
+                title: `نشاط تعليمي جديد 📚`,
+                body: title.trim(),
+                type: "activity",
+                link: "/activities",
+                is_read: false,
+              }))
+            );
+          }
+        } catch { /* notifications are optional, don't fail upload */ }
+      }
       load();
     } catch (e: any) {
       toast.error(e.message ? `فشل الرفع: ${e.message}` : "فشل الرفع");
