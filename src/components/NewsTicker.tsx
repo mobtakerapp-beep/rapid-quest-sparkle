@@ -78,24 +78,62 @@ async function getGalleryLeader(contestId: string): Promise<{ name: string; role
   return { name: (prof as any)?.display_name || "—", roleLabel: getRoleLabel((prof as any)?.role_type), votes: bestVotes };
 }
 
-// ── الأحداث الوطنية والإسلامية العُمانية ──
-// Gregorian dates (month 1-based, day). Hijri dates detected via Intl if supported.
-const OMAN_EVENTS: { month: number; day: number; text: string }[] = [
-  { month: 11, day: 18, text: "🎉 تهانينا بمناسبة العيد الوطني الرابع والخمسين لسلطنة عُمان — كل عام وعُمان بألف خير 🇴🇲" },
+// ── الأحداث الوطنية الميلادية ──
+const GREGORIAN_EVENTS: { month: number; day: number; text: string }[] = [
+  { month: 11, day: 18, text: "🎉 تهانينا بمناسبة العيد الوطني لسلطنة عُمان — كل عام وعُمان بألف خير 🇴🇲" },
   { month: 11, day: 19, text: "🎉 تهانينا بمناسبة العيد الوطني لسلطنة عُمان — يوم المجد والعطاء 🇴🇲" },
-  { month: 1,  day: 1,  text: "🌙 كل عام وأنتم بخير بمناسبة العام الجديد — عام مليء بالتعلم والإنجاز ✨" },
-  { month: 1,  day: 23, text: "🕌 تهانينا بمناسبة ذكرى المولد النبوي الشريف — اللهم صلِّ على سيدنا محمد ﷺ" },
-  { month: 10, day: 1,  text: "🌙 رمضان كريم — كل عام وأنتم بخير، رمضان مبارك على الجميع 🌙" },
+  { month: 1,  day: 1,  text: "🌟 كل عام وأنتم بخير بمناسبة العام الميلادي الجديد — عام مليء بالتعلم والإنجاز ✨" },
   { month: 4,  day: 23, text: "🌍 تهانينا بمناسبة يوم الأرض — نحافظ على بيئتنا لأجيالنا القادمة 🌱" },
 ];
 
+// ── الأحداث الإسلامية بالتاريخ الهجري ──
+// month: 1=محرم, 2=صفر, 3=ربيع الأول, ... 9=رمضان, 10=شوال, 12=ذو الحجة
+const HIJRI_EVENTS: { month: number; day: number; text: string }[] = [
+  { month: 1,  day: 1,  text: "🌙 كل عام وأنتم بخير بمناسبة رأس السنة الهجرية — عام هجري جديد مبارك على الجميع 🌙" },
+  { month: 1,  day: 10, text: "🕌 يوم عاشوراء المبارك — تقبّل الله صيامكم وأعمالكم الصالحة" },
+  { month: 3,  day: 12, text: "🕌 تهانينا بمناسبة ذكرى المولد النبوي الشريف — اللهم صلِّ على سيدنا محمد ﷺ" },
+  { month: 7,  day: 27, text: "🌙 تهانينا بمناسبة ليلة الإسراء والمعراج — ليلة مباركة على الأمة الإسلامية جمعاء" },
+  { month: 8,  day: 15, text: "🌟 ليلة النصف من شعبان — تقبّل الله طاعاتكم وأعمالكم الصالحة" },
+  { month: 9,  day: 1,  text: "🌙 رمضان كريم — كل عام وأنتم بخير، رمضان مبارك على الجميع 🌙" },
+  { month: 9,  day: 27, text: "✨ ليلة القدر المباركة — خيرٌ من ألف شهر، تقبّل الله قيامكم وصيامكم" },
+  { month: 10, day: 1,  text: "🎉 عيد الفطر المبارك — كل عام وأنتم بخير، تقبّل الله منّا ومنكم صالح الأعمال 🌙" },
+  { month: 10, day: 2,  text: "🎉 أيام العيد — عيد الفطر المبارك، كل عام وأنتم بخير وسعادة 😊" },
+  { month: 10, day: 3,  text: "🎉 أيام العيد — كل عام وأنتم بخير، أطال الله أعماركم بالخير والعافية" },
+  { month: 12, day: 1,  text: "🕌 بداية أيام ذي الحجة المباركة — كل عام وأنتم بخير، اللهم تقبّل من الحجاج 🕋" },
+  { month: 12, day: 9,  text: "🕋 يوم عرفة المبارك — أعظم أيام السنة، اللهم اغفر لنا وتقبّل دعاءنا" },
+  { month: 12, day: 10, text: "🎉 عيد الأضحى المبارك — كل عام وأنتم بخير، تقبّل الله منّا ومنكم صالح الأعمال 🐑" },
+  { month: 12, day: 11, text: "🎉 أيام التشريق — عيد الأضحى المبارك، كل عام وأنتم بخير وبركة" },
+  { month: 12, day: 12, text: "🎉 أيام التشريق — كل عام وأنتم بخير، أيام أكل وشرب وذكر لله" },
+  { month: 12, day: 13, text: "🎉 آخر أيام التشريق — كل عام وأنتم بخير، تقبّل الله منّا ومنكم" },
+];
+
+function getHijriDate(): { month: number; day: number } {
+  try {
+    const fmt = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", {
+      day: "numeric", month: "numeric",
+    });
+    const parts = fmt.formatToParts(new Date());
+    const month = parseInt(parts.find((p) => p.type === "month")?.value || "0", 10);
+    const day   = parseInt(parts.find((p) => p.type === "day")?.value   || "0", 10);
+    return { month, day };
+  } catch { return { month: 0, day: 0 }; }
+}
+
 function getOmanNationalEvents(): TickerItem[] {
   const now = new Date();
-  const m = now.getMonth() + 1;
-  const d = now.getDate();
-  return OMAN_EVENTS
-    .filter((e) => e.month === m && e.day === d)
-    .map((e, i) => ({ id: `national-${m}-${d}-${i}`, text: e.text, type: "auto" as const }));
+  const gm = now.getMonth() + 1;
+  const gd = now.getDate();
+  const { month: hm, day: hd } = getHijriDate();
+
+  const gregorianItems = GREGORIAN_EVENTS
+    .filter((e) => e.month === gm && e.day === gd)
+    .map((e, i) => ({ id: `national-g-${gm}-${gd}-${i}`, text: e.text, type: "auto" as const }));
+
+  const hijriItems = HIJRI_EVENTS
+    .filter((e) => e.month === hm && e.day === hd)
+    .map((e, i) => ({ id: `national-h-${hm}-${hd}-${i}`, text: e.text, type: "auto" as const }));
+
+  return [...gregorianItems, ...hijriItems];
 }
 
 async function fetchAutoItems(): Promise<TickerItem[]> {
@@ -139,18 +177,23 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       });
     }
 
-    // ── مسابقات سريعة أُنشئت اليوم ──
+    // ── مسابقات نشطة حالياً (تبقى حتى انتهاء وقتها) ──
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
     const { data: newComps } = await supabase
       .from("competitions")
-      .select("id, title, created_at")
-      .gte("created_at", todayStartISO)
+      .select("id, title, created_at, ends_at")
+      .gte("created_at", threeDaysAgo)
+      .or(`ends_at.is.null,ends_at.gt.${now}`)
       .order("created_at", { ascending: false })
       .limit(3);
 
     for (const comp of (newComps || [])) {
+      const createdDate = new Date(comp.created_at);
+      const isNew = Date.now() - createdDate.getTime() < 24 * 3600 * 1000;
+      const label = isNew ? "⚡ مسابقة جديدة" : "⚡ مسابقة نشطة";
       items.push({
         id: `comp-new-${comp.id}`,
-        text: `⚡ مسابقة سريعة جديدة: "${comp.title}" — شارك الآن وأثبت نفسك! 🏆`,
+        text: `${label}: "${comp.title}" — شارك الآن وأثبت نفسك! 🏆`,
         type: "auto",
       });
     }
@@ -239,18 +282,22 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       });
     }
 
-    // ── معارض أُنشئت اليوم ──
+    // ── معارض نشطة حالياً (تبقى حتى انتهاء وقتها) ──
     const { data: newGallery } = await supabase
       .from("gallery_contests")
       .select("id, title, created_at, ends_at")
-      .gte("created_at", todayStartISO)
+      .gte("created_at", threeDaysAgo)
+      .or(`ends_at.is.null,ends_at.gt.${now}`)
       .order("created_at", { ascending: false })
       .limit(3);
 
     for (const gc of (newGallery || [])) {
+      const createdDate = new Date(gc.created_at);
+      const isNew = Date.now() - createdDate.getTime() < 24 * 3600 * 1000;
+      const label = isNew ? "🎨 معرض إبداعي جديد" : "🎨 معرض إبداعي نشط";
       items.push({
         id: `gallery-new-${gc.id}`,
-        text: `🎨 مسابقة معرض جديدة: "${gc.title}" — شارك بإبداعك الآن وفز بلقب نجم المعرض 🌟`,
+        text: `${label}: "${gc.title}" — شارك بإبداعك واحصل على لقب نجم المعرض 🌟`,
         type: "auto",
       });
     }
@@ -372,14 +419,20 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
   const broadcastBadgeAward = async (badgeRecord: any) => {
     try {
       const [{ data: prof }, { data: badge }] = await Promise.all([
-        supabase.from("profiles").select("display_name").eq("id", badgeRecord.user_id).maybeSingle(),
+        supabase.from("profiles").select("display_name, role_type, gender").eq("id", badgeRecord.user_id).maybeSingle(),
         supabase.from("badges").select("name").eq("id", badgeRecord.badge_id).maybeSingle(),
       ]);
-      const studentName = (prof as any)?.display_name || "طالب";
+      const roleType = (prof as any)?.role_type;
+      const gender   = (prof as any)?.gender;
+      const roleLabel = getRoleLabel(roleType);
+      const personName = (prof as any)?.display_name || (roleLabel || "مستخدم");
       const badgeName = (badge as any)?.name || "شارة";
+      // حصل/حصلت based on gender
+      const verb = gender === "female" ? "حصلت" : "حصل";
+      const displayName = roleLabel ? `${roleLabel} ${personName}` : personName;
       const item: TickerItem = {
         id: `badge-${badgeRecord.id}-${Date.now()}`,
-        text: `🏅 تهانينا! ${studentName} حصل على شارة "${badgeName}"`,
+        text: `🏅 تهانينا! ${displayName} ${verb} على شارة "${badgeName}" 🎉`,
         type: "custom",
         expires_at: daysFromNow(1),
       };
