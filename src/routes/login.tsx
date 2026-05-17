@@ -259,31 +259,25 @@ function LoginPage() {
               {showCodeField && (
                 <div className="mt-2">
                   <input
+                    type="text"
                     value={adminCode}
                     onChange={(e) => {
-                      let val = e.target.value;
-                      val = val.replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660));
-                      val = val.replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0));
-                      val = val.replace(/[^A-Za-z0-9\-_]/g, "").toUpperCase();
-                      setAdminCode(val);
-                    }}
-                    onPaste={(e) => {
-                      e.preventDefault();
-                      let pasted = e.clipboardData.getData("text");
-                      pasted = pasted.replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660));
-                      pasted = pasted.replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0));
-                      pasted = pasted.replace(/[^A-Za-z0-9\-_]/g, "").toUpperCase();
-                      setAdminCode(pasted);
+                      const raw = e.target.value;
+                      // convert Arabic-Indic and Extended Arabic-Indic numerals to ASCII
+                      const cleaned = raw
+                        .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+                        .replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0))
+                        .replace(/[^A-Za-z0-9\-_]/g, "")
+                        .toUpperCase();
+                      setAdminCode(cleaned);
                     }}
                     placeholder="Enter code"
                     dir="ltr"
-                    lang="en"
-                    inputMode="text"
                     autoComplete="off"
                     autoCorrect="off"
-                    autoCapitalize="characters"
+                    autoCapitalize="none"
                     spellCheck={false}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-mono tracking-wider"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-mono tracking-wider ltr"
                   />
                 </div>
               )}
