@@ -255,6 +255,11 @@ function LoginPage() {
                   onChange={(e) => setAdminCode(e.target.value.toUpperCase())}
                   placeholder="WUSTA-T-2026"
                   dir="ltr"
+                  lang="en"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
                   className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-mono tracking-wider"
                 />
                 {adminCode.trim() && (() => {

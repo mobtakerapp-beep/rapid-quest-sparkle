@@ -677,9 +677,12 @@ function CreateBadgePanel({ onCreated }: { onCreated?: () => void }) {
 }
 
 // ── ملصقات المعلم ─────────────────────────────────────────────────────────────
+type Recipient = { id: string; name: string; type: "student" | "teacher" };
+
 function StickerPanel({ teacherId, students }: { teacherId: string; students: Stat[] }) {
   const [open, setOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState("");
+  const [selectedRecipient, setSelectedRecipient] = useState("");
+  const [teachers, setTeachers] = useState<Recipient[]>([]);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -687,7 +690,32 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<any[]>([]);
   const [loadingSent, setLoadingSent] = useState(false);
+  const [sentSearch, setSentSearch] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    supabase.from("profiles").select("id, display_name, role_type")
+      .in("role_type", ["teacher", "supervisor", "admin"])
+      .neq("id", teacherId)
+      .then(({ data }) => {
+        setTeachers((data || []).map((p: any) => ({ id: p.id, name: p.display_name || "—", type: "teacher" as const })));
+      });
+  }, [teacherId]);
+
+  const allRecipients: Recipient[] = [
+    ...students.map((s) => ({ id: s.id, name: s.display_name || "بدون اسم", type: "student" as const })),
+    ...teachers,
+  ];
+
+  const recipientLabel = (id: string) => {
+    const r = allRecipients.find((r) => r.id === id);
+    return r ? `${r.name} (${r.type === "student" ? "طالب" : "معلم"})` : "—";
+  };
+
+  const recipientTypeLabel = (id: string) => {
+    const r = allRecipients.find((r) => r.id === id);
+    return r?.type === "teacher" ? "معلم" : "طالب";
+  };
 
   const loadSent = async () => {
     setLoadingSent(true);
@@ -714,7 +742,7 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
   };
 
   const send = async () => {
-    if (!selectedStudent) { toast.error("اختاري الطالب أولاً"); return; }
+    if (!selectedRecipient) { toast.error("اختاري المستلم أولاً"); return; }
     if (!title.trim()) { toast.error("اكتبي عنوان الملصق"); return; }
     if (!file) { toast.error("اختاري صورة الملصق"); return; }
     setSending(true);
@@ -726,14 +754,15 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
     const image_url = urlData?.publicUrl || "";
     const { error: insErr } = await (supabase as any).from("teacher_stickers").insert({
       teacher_id: teacherId,
-      student_id: selectedStudent,
+      student_id: selectedRecipient,
       image_url,
       title: title.trim(),
       message: message.trim(),
     });
     if (insErr) { toast.error("تعذّر إرسال الملصق: " + insErr.message); setSending(false); return; }
-    toast.success("✨ تم إرسال الملصق للطالب!");
-    setFile(null); setPreview(null); setTitle(""); setMessage(""); setSelectedStudent("");
+    const rType = recipientTypeLabel(selectedRecipient);
+    toast.success(`✨ تم إرسال الملصق لل${rType}!`);
+    setFile(null); setPreview(null); setTitle(""); setMessage(""); setSelectedRecipient("");
     setSending(false);
     await loadSent();
   };
@@ -744,7 +773,9 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
     toast.success("تم حذف الملصق");
   };
 
-  const studentName = (id: string) => students.find((s) => s.id === id)?.display_name || "—";
+  const filteredSent = sentSearch.trim()
+    ? sent.filter((s: any) => (s.title || "").includes(sentSearch) || recipientLabel(s.student_id).includes(sentSearch))
+    : sent;
 
   return (
     <div className="mt-6">
@@ -755,7 +786,7 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
           style={{ background: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)" }}
         >
           <span className="text-lg">🌟</span>
-          {open ? "إخفاء ملصقات المعلم" : "ملصقات المعلم ✨"}
+          {open ? "إخفاء الملصقات" : "الملصقات ✨"}
         </button>
       </div>
 
@@ -765,24 +796,35 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
           <div className="bg-card rounded-3xl border-2 border-amber-200 dark:border-amber-800 p-5 space-y-4"
             style={{ background: "linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%)" }}>
             <div className="font-black text-lg flex items-center gap-2 text-amber-800 dark:text-amber-300">
-              <span>🎖️</span> أرسل ملصق تشجيعي لطالب
+              <span>🎖️</span> أرسل ملصق تشجيعي
             </div>
 
-            {/* اختيار الطالب */}
+            {/* اختيار المستلم */}
             <div>
-              <label className="text-xs font-bold text-muted-foreground mb-1.5 block">اختاري الطالب</label>
-              {students.length === 0 ? (
-                <p className="text-sm text-rose-600">لا يوجد طلاب في فصلك بعد</p>
+              <label className="text-xs font-bold text-muted-foreground mb-1.5 block">اختاري المستلم (طالب أو معلم)</label>
+              {allRecipients.length === 0 ? (
+                <p className="text-sm text-rose-600">لا يوجد مستلمون متاحون بعد</p>
               ) : (
                 <select
-                  value={selectedStudent}
-                  onChange={(e) => setSelectedStudent(e.target.value)}
+                  value={selectedRecipient}
+                  onChange={(e) => setSelectedRecipient(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border-2 border-amber-200 bg-white/80 dark:bg-background focus:border-amber-400 outline-none"
                 >
-                  <option value="">— اختاري طالباً —</option>
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>{s.display_name || "بدون اسم"}</option>
-                  ))}
+                  <option value="">— اختاري المستلم —</option>
+                  {students.length > 0 && (
+                    <optgroup label="الطلاب">
+                      {students.map((s) => (
+                        <option key={s.id} value={s.id}>{s.display_name || "بدون اسم"} (طالب)</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {teachers.length > 0 && (
+                    <optgroup label="المعلمون والمشرفون">
+                      {teachers.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name} (معلم)</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               )}
             </div>
@@ -840,7 +882,7 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
             {/* زر الإرسال */}
             <button
               onClick={send}
-              disabled={sending || !selectedStudent || !title.trim() || !file}
+              disabled={sending || !selectedRecipient || !title.trim() || !file}
               className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-bold text-base disabled:opacity-40 transition shadow-md"
               style={{ background: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)" }}
             >
@@ -851,22 +893,41 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
 
           {/* الملصقات المرسلة */}
           <div className="bg-card rounded-3xl border border-border p-5">
-            <div className="font-bold mb-4 flex items-center gap-2">
+            <div className="font-bold mb-3 flex items-center gap-2">
               <span>📋</span> الملصقات المرسلة سابقاً
               {loadingSent && <span className="text-xs text-muted-foreground font-normal">جاري التحميل...</span>}
             </div>
-            {sent.length === 0 && !loadingSent ? (
-              <p className="text-sm text-center text-muted-foreground py-8">لم ترسلي أي ملصقات بعد</p>
+            {/* بحث في الملصقات */}
+            {sent.length > 0 && (
+              <div className="relative mb-4">
+                <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <input
+                  value={sentSearch}
+                  onChange={(e) => setSentSearch(e.target.value)}
+                  placeholder="بحث في الملصقات..."
+                  className="w-full pr-9 pl-4 py-2 rounded-xl border border-border bg-background text-sm"
+                />
+              </div>
+            )}
+            {filteredSent.length === 0 && !loadingSent ? (
+              <p className="text-sm text-center text-muted-foreground py-8">
+                {sentSearch ? "لا توجد نتائج للبحث" : "لم ترسلي أي ملصقات بعد"}
+              </p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {sent.map((s: any) => (
+                {filteredSent.map((s: any) => {
+                  const rType = recipientTypeLabel(s.student_id);
+                  return (
                   <div key={s.id} className="relative rounded-2xl border border-border overflow-hidden group shadow-sm hover:shadow-md transition bg-card">
                     <img src={s.image_url} alt={s.title}
                       className="w-full h-28 object-cover bg-secondary" />
                     <div className="p-2.5">
                       <div className="font-bold text-xs truncate">{s.title}</div>
-                      <div className="text-[10px] text-muted-foreground truncate mt-0.5">
-                        → {studentName(s.student_id)}
+                      <div className="text-[10px] truncate mt-0.5 flex items-center gap-1">
+                        <span className={`inline-block px-1.5 py-0.5 rounded-full font-bold ${rType === "معلم" ? "bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"}`}>
+                          {rType}
+                        </span>
+                        <span className="text-muted-foreground truncate">{recipientLabel(s.student_id).split(" (")[0]}</span>
                       </div>
                       {s.message && (
                         <div className="text-[10px] text-muted-foreground mt-1 line-clamp-2 italic">
@@ -885,7 +946,8 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

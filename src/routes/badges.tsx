@@ -770,6 +770,7 @@ function BadgesPage() {
 function TeacherStickersSection({ uid }: { uid: string }) {
   const [stickers, setStickers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -803,17 +804,35 @@ function TeacherStickersSection({ uid }: { uid: string }) {
   if (loading) return null;
   if (stickers.length === 0) return null;
 
+  const filtered = search.trim()
+    ? stickers.filter((s: any) => (s.title || "").includes(search) || (s.message || "").includes(search))
+    : stickers;
+
   return (
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-2xl">🌟</span>
-        <h3 className="font-black text-lg">ملصقات معلمتي</h3>
+        <h3 className="font-black text-lg">ملصقاتي</h3>
         <span className="text-xs text-muted-foreground font-normal bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
           {stickers.length}
         </span>
       </div>
+      {stickers.length > 2 && (
+        <div className="relative mb-3">
+          <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="بحث في الملصقات..."
+            className="w-full pr-9 pl-4 py-2 rounded-xl border border-border bg-background text-sm"
+          />
+        </div>
+      )}
+      {filtered.length === 0 ? (
+        <p className="text-sm text-center text-muted-foreground py-4">لا توجد نتائج</p>
+      ) : (
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {stickers.map((s: any) => (
+        {filtered.map((s: any) => (
           <div
             key={s.id}
             className="rounded-2xl overflow-hidden border-2 border-amber-200 dark:border-amber-800 shadow-md hover:shadow-lg transition group"
@@ -841,6 +860,7 @@ function TeacherStickersSection({ uid }: { uid: string }) {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

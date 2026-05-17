@@ -83,7 +83,9 @@ function SupervisorPage() {
         <ShieldCheck className="h-12 w-12 text-[var(--brand)]" />
         <h2 className="font-bold text-lg">تفعيل صلاحيات المشرف</h2>
         <p className="text-sm text-muted-foreground">أدخل كود المشرف للوصول إلى لوحة المراقبة</p>
-        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="كود المشرف" className="w-72 px-4 py-2.5 rounded-xl border border-border bg-background text-center" />
+        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="كود المشرف"
+          dir="ltr" lang="en" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
+          className="w-72 px-4 py-2.5 rounded-xl border border-border bg-background text-center" />
         <button onClick={claimSupervisor} className="px-6 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">تفعيل</button>
         <Link to="/" className="text-[var(--brand)] font-bold mt-2">العودة</Link>
       </div>

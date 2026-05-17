@@ -464,6 +464,7 @@ function ProfilePage() {
                 <div className="flex gap-2">
                   <input value={classCodeInput} onChange={(e) => setClassCodeInput(e.target.value.toUpperCase())}
                     placeholder="ABC123" maxLength={6}
+                    dir="ltr" lang="en" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
                     className="flex-1 px-3 py-2 rounded-xl border border-border bg-background tracking-widest font-bold uppercase" />
                   <button type="button" onClick={joinClass} disabled={joining}
                     className="px-4 py-2 rounded-xl bg-[var(--brand)] text-white font-bold disabled:opacity-50">
@@ -503,6 +504,12 @@ function ProfilePage() {
                 value={adminCode}
                 onChange={(e) => setAdminCode(e.target.value)}
                 placeholder="أدخل الكود السري"
+                dir="ltr"
+                lang="en"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-background"
               />
               <button
