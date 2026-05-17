@@ -24,12 +24,17 @@ function printCompetition(c: Comp) {
   const mcCount = qs.filter(q => q.is_multiple_choice).length;
   const textCount = qs.filter(q => !q.is_multiple_choice).length;
 
+  const _fyPrint = (a: string[]) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+  let _prevPrintCompKey: string | undefined;
   const questionsHtml = qs.map((q, i) => {
     const isMC = q.is_multiple_choice;
-    // Shuffle display order without revealing which is correct
-    const displayOpts = isMC && Array.isArray(q.options) && q.options.length > 0
-      ? [...q.options].sort(() => Math.random() - 0.5)
-      : [];
+    let displayOpts: string[] = [];
+    if (isMC && Array.isArray(q.options) && q.options.length >= 2) {
+      let attempt = 0;
+      do { displayOpts = _fyPrint(q.options); attempt++; }
+      while (displayOpts.join("|") === _prevPrintCompKey && attempt < 20);
+      _prevPrintCompKey = displayOpts.join("|");
+    }
     const optsHtml = isMC && displayOpts.length > 0
       ? `<div class="options-grid">${displayOpts.map((o, oi) =>
           `<div class="option"><span class="opt-circle">${arabicOpts[oi] || toAr(oi + 1)}</span><span class="opt-text">${toAr(String(o))}</span></div>`
@@ -829,16 +834,20 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
         // Store original unshuffled questions for review display
         originalQsRef.current = rawQs;
         // Shuffle MC options for each question using Fisher-Yates; track original index mapping.
-        // Condition: shuffle any question that has ≥2 options (regardless of is_multiple_choice flag
-        // which may be stripped by the RPC).
+        // Each question is guaranteed to have a DIFFERENT permutation from the previous question.
+        const _fyIdx = (arr: number[]) => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
         const map: Record<number, number[]> = {};
+        let prevCompKey: string | undefined;
         const qs = rawQs.map((q, qi) => {
           if (!q.options?.length || q.options.length < 2) return q;
-          const indices: number[] = q.options.map((_: any, i: number) => i);
-          for (let i = indices.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [indices[i], indices[j]] = [indices[j], indices[i]];
+          const base: number[] = q.options.map((_: any, i: number) => i);
+          let indices = _fyIdx(base);
+          let key = indices.join(",");
+          for (let attempt = 0; attempt < 20 && key === prevCompKey; attempt++) {
+            indices = _fyIdx(base);
+            key = indices.join(",");
           }
+          prevCompKey = key;
           map[qi] = indices; // map[qi][displayIdx] = originalIdx
           return { ...q, options: indices.map((i: number) => q.options![i]) };
         });

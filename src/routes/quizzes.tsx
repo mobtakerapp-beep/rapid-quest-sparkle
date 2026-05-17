@@ -32,10 +32,19 @@ async function printQuiz(quiz: Quiz) {
   const mcCount = qs.filter(q => (q.type || "mc") === "mc").length;
   const essayCount = qs.filter(q => q.type === "essay").length;
 
+  const _fy = (a: string[]) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+  let _prevPrintKey: string | undefined;
   const questionsHtml = qs.map((q, i) => {
     const isMC = (q.type || "mc") === "mc";
+    let shuffledOpts = q.options;
+    if (isMC && q.options.length >= 2) {
+      let attempt = 0;
+      do { shuffledOpts = _fy(q.options); attempt++; }
+      while (shuffledOpts.join("|") === _prevPrintKey && attempt < 20);
+      _prevPrintKey = shuffledOpts.join("|");
+    }
     const optsHtml = isMC
-      ? `<div class="options-grid">${q.options.map((o, oi) =>
+      ? `<div class="options-grid">${shuffledOpts.map((o, oi) =>
           `<div class="option"><span class="opt-circle">${arabicOpts[oi] || toAr(oi + 1)}</span><span class="opt-text">${toAr(String(o))}</span></div>`
         ).join("")}</div>`
       : `<div class="essay-lines">${Array.from({ length: 5 }, () =>
@@ -613,16 +622,29 @@ function QuizzesPage() {
 
 type ShuffledQ = Q & { originalIndices: number[] };
 
-function shuffleOnce(rawQs: Q[], isTeacher: boolean): ShuffledQ[] {
+function fisherYatesShuffle(arr: number[]): number[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function shuffleOnce(rawQs: Q[]): ShuffledQ[] {
+  let prevKey: string | undefined;
   return rawQs.map((q) => {
-    if (isTeacher || (q.type || "mc") !== "mc" || q.options.length === 0) {
+    if ((q.type || "mc") !== "mc" || q.options.length < 2) {
       return { ...q, originalIndices: q.options.map((_, i) => i) };
     }
-    const indices = q.options.map((_, i) => i);
-    for (let i = indices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [indices[i], indices[j]] = [indices[j], indices[i]];
+    const base = q.options.map((_, i) => i);
+    let indices = fisherYatesShuffle(base);
+    let key = indices.join(",");
+    for (let attempt = 0; attempt < 20 && key === prevKey; attempt++) {
+      indices = fisherYatesShuffle(base);
+      key = indices.join(",");
     }
+    prevKey = key;
     return { ...q, options: indices.map((i) => q.options[i]), originalIndices: indices };
   });
 }
@@ -636,8 +658,8 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
   const [previousDetails, setPreviousDetails] = useState<any[] | null>(null);
   const rawQs = Array.isArray(quiz.questions) ? quiz.questions : [];
 
-  // Shuffle options once per quiz load (stable for the whole attempt)
-  const [shuffledQs] = useState<ShuffledQ[]>(() => shuffleOnce(rawQs as Q[], isTeacher));
+  // Shuffle options once per quiz load (stable for the whole attempt; always random even for teachers)
+  const [shuffledQs] = useState<ShuffledQ[]>(() => shuffleOnce(rawQs as Q[]));
   const qs: ShuffledQ[] = shuffledQs;
   const mcCount = qs.filter((q) => (q.type || "mc") === "mc").length;
 
