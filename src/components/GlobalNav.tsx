@@ -4,6 +4,7 @@ import { User as UserIcon, Moon, Sun, MessageSquare, Home, LogOut, BadgeCheck, C
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "./NotificationBell";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
+import omanEmblem from "@/assets/oman-emblem.png";
 
 function InlineClock() {
   const [time, setTime] = useState(new Date());
@@ -183,8 +184,14 @@ export function GlobalNav() {
           )}
         </div>
 
-        {/* وسط: الساعة */}
-        <div className="flex items-center justify-center px-2 shrink-0">
+        {/* وسط: شعار عمان + محافظة الوسطى + الساعة */}
+        <div className="flex flex-col items-center justify-center px-2 shrink-0 gap-0.5">
+          <div className="flex items-center gap-1">
+            <img src={omanEmblem} alt="شعار عمان" className="h-5 w-5 object-contain" />
+            <span className="text-[9px] font-black text-foreground whitespace-nowrap" style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}>
+              محافظة الوسطى
+            </span>
+          </div>
           <InlineClock />
         </div>
 
