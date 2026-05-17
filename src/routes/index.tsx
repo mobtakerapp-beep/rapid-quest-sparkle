@@ -140,12 +140,37 @@ function Index() {
   const isTeacher = roleType === "teacher" || roleType === "supervisor" || roleType === "admin" || isAdmin;
   const isStudent = roleType === "student" && !isAdmin;
 
+  useEffect(() => {
+    const els = document.querySelectorAll(".reveal");
+    const obs = new IntersectionObserver(
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("visible"); obs.unobserve(e.target); } }),
+      { threshold: 0.1 }
+    );
+    els.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
+  }, []);
+
+  const particles = [
+    { top: "18%", right: "8%",  size: 10, color: "var(--brand)",   dur: "5s",  delay: "0s"   },
+    { top: "35%", left: "5%",   size: 7,  color: "var(--brand-2)", dur: "7s",  delay: "1.2s" },
+    { top: "60%", right: "12%", size: 12, color: "var(--brand-3)", dur: "6s",  delay: "0.5s" },
+    { top: "12%", left: "18%",  size: 6,  color: "var(--brand)",   dur: "8s",  delay: "2s"   },
+    { top: "75%", left: "10%",  size: 9,  color: "var(--brand-2)", dur: "5.5s",delay: "1.8s" },
+    { top: "50%", right: "4%",  size: 5,  color: "var(--brand-3)", dur: "9s",  delay: "0.8s" },
+    { top: "28%", right: "22%", size: 8,  color: "var(--brand)",   dur: "6.5s",delay: "3s"   },
+  ];
+
   return (
     <div dir="rtl" className="min-h-screen bg-background overflow-hidden">
       <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[var(--brand)] opacity-20 blur-3xl" />
-        <div className="absolute top-40 -left-40 h-96 w-96 rounded-full bg-[var(--brand-2)] opacity-20 blur-3xl" />
-        <div className="absolute bottom-0 right-1/3 h-96 w-96 rounded-full bg-[var(--brand-3)] opacity-15 blur-3xl" />
+        <div className="blob-1 absolute -top-40 -right-40 h-[28rem] w-[28rem] rounded-full bg-[var(--brand)] opacity-20 blur-3xl" />
+        <div className="blob-2 absolute top-40 -left-40 h-[28rem] w-[28rem] rounded-full bg-[var(--brand-2)] opacity-20 blur-3xl" />
+        <div className="blob-3 absolute bottom-20 right-1/3 h-80 w-80 rounded-full bg-[var(--brand-3)] opacity-15 blur-3xl" />
+        <div className="blob-2 absolute top-1/2 left-1/2 h-64 w-64 rounded-full bg-[var(--brand)] opacity-10 blur-3xl" style={{ animationDelay: "5s" }} />
+        {particles.map((p, i) => (
+          <span key={i} className="particle absolute rounded-full opacity-50"
+            style={{ top: p.top, ...(p.right ? { right: p.right } : { left: p.left }), width: p.size, height: p.size, background: p.color, "--dur": p.dur, "--delay": p.delay, filter: "blur(1px)" } as React.CSSProperties} />
+        ))}
       </div>
 
       {/* Hero */}
@@ -303,17 +328,21 @@ function Index() {
       </section>
 
       {/* إحصائيات حية */}
+      <hr className="section-divider" />
       <LiveStats />
 
       {/* بطل اليوم */}
+      <hr className="section-divider" />
       <HeroOfDay />
 
       {/* Honor Board */}
+      <hr className="section-divider" />
       <HonorBoard />
 
       {/* Features with badges */}
+      <hr className="section-divider" />
       <section className="container mx-auto px-6 pb-20">
-        <div className="text-center mb-12">
+        <div className="reveal text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-black mb-3">{isAr ? "ماذا نقدم لك؟" : "What We Offer"}</h2>
           <p className="text-muted-foreground">{isAr ? "كل ما تحتاجه لرحلة تعليمية ممتعة في مكان واحد" : "Everything you need for an enjoyable learning journey in one place"}</p>
         </div>
@@ -323,7 +352,7 @@ function Index() {
             const badgeCount = f.badgeKey ? (badges[f.badgeKey] || 0) : 0;
             return (
               <Link key={f.title} to={f.to}
-                className="feature-card animate-fade-in-up group relative bg-card rounded-3xl p-7 border border-border shadow-[var(--shadow-card)] text-right"
+                className="feature-card card-shine animate-fade-in-up group relative bg-card rounded-3xl p-7 border border-border shadow-[var(--shadow-card)] text-right"
                 style={{ animationDelay: `${0.05 * i}s`, "--card-glow": `color-mix(in oklch, ${f.color.includes("violet") ? "oklch(0.6 0.22 290)" : f.color.includes("emerald") ? "oklch(0.55 0.18 150)" : f.color.includes("rose") ? "oklch(0.65 0.2 10)" : f.color.includes("amber") ? "oklch(0.75 0.18 60)" : f.color.includes("cyan") ? "oklch(0.65 0.18 200)" : "oklch(0.62 0.19 265)"} 40%, transparent)` } as React.CSSProperties}>
                 {badgeCount > 0 && (
                   <span className="absolute top-3 left-3 min-w-[22px] h-[22px] rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center px-1 shadow-lg animate-pulse">
