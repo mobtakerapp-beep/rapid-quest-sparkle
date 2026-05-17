@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { toAr } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, User as UserIcon, GraduationCap, BookOpen, Heart, LogOut, Shield, Key, Camera, Palette, AlertTriangle, Ban, ChevronDown, ChevronUp } from "lucide-react";
@@ -28,8 +28,8 @@ function ProfilePage() {
   
   const [bio, setBio] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
-  const [adminCode, setAdminCode] = useState("");
   const [claiming, setClaiming] = useState(false);
+  const codeInputRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [theme, setTheme] = useState("default");
   const [country, setCountry] = useState("سلطنة عُمان");
@@ -132,7 +132,7 @@ function ProfilePage() {
   };
 
   const claimAccessCode = async () => {
-    const code = adminCode.trim();
+    const code = (codeInputRef.current?.value ?? "").trim();
     if (!code) return;
     setClaiming(true);
     const attempts = [
@@ -146,7 +146,7 @@ function ProfilePage() {
         attempt.apply();
         if (uid) await supabase.from("profiles").update({ role_type: attempt.newRole }).eq("id", uid);
         toast.success(attempt.success);
-        setAdminCode("");
+        if (codeInputRef.current) codeInputRef.current.value = "";
         setClaiming(false);
         setTimeout(() => window.location.reload(), 1200);
         return;
@@ -498,29 +498,35 @@ function ProfilePage() {
               <Key className="h-3.5 w-3.5" /> كود التفعيل (أدمن / مشرف / معلم)
             </label>
             <p className="text-xs text-muted-foreground">أدخلي الكود وسيتم تفعيل الصلاحية المناسبة تلقائياً.</p>
-            <div className="flex gap-2">
+            <div className="flex gap-2" dir="ltr">
               <input
+                ref={codeInputRef}
                 type="text"
-                value={adminCode}
-                onChange={(e) => {
-                  const cleaned = e.target.value
+                onInput={(e) => {
+                  const el = e.currentTarget;
+                  const pos = el.selectionStart ?? el.value.length;
+                  const cleaned = el.value
                     .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660))
                     .replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0))
                     .replace(/[^A-Za-z0-9\-_]/g, "")
                     .toUpperCase();
-                  setAdminCode(cleaned);
+                  if (cleaned !== el.value) {
+                    el.value = cleaned;
+                    const newPos = Math.min(pos, cleaned.length);
+                    el.setSelectionRange(newPos, newPos);
+                  }
                 }}
                 placeholder="Enter code"
-                dir="ltr"
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-background font-mono tracking-wider"
+                style={{ direction: "ltr", textAlign: "left" }}
               />
               <button
                 type="button"
-                disabled={claiming || !adminCode.trim()}
+                disabled={claiming}
                 onClick={claimAccessCode}
                 className="px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50"
               >

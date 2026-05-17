@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Mail, Lock, Shield, ArrowRight, KeyRound, X, ChevronDown } from "lucide-react";
@@ -10,16 +10,24 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+function cleanCode(raw: string): string {
+  return raw
+    .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+    .replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0))
+    .replace(/[^A-Za-z0-9\-_]/g, "")
+    .toUpperCase();
+}
+
 function LoginPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [adminCode, setAdminCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [rememberEmail, setRememberEmail] = useState(false);
   const [showCodeField, setShowCodeField] = useState(false);
+  const codeInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("remembered-email");
@@ -28,6 +36,9 @@ function LoginPage() {
       setRememberEmail(true);
     }
   }, []);
+
+  const getCode = () => codeInputRef.current?.value.trim() ?? "";
+  const clearCode = () => { if (codeInputRef.current) codeInputRef.current.value = ""; };
 
   const claimAccessCode = async (code: string) => {
     const trimmed = code.trim();
@@ -40,18 +51,17 @@ function LoginPage() {
     for (const attempt of attempts) {
       const { data } = await supabase.rpc(attempt.fn as any, { _code: trimmed });
       if (data) {
-        // Also update profiles.role_type so the greeting shows the correct role immediately
         const { data: sess } = await supabase.auth.getSession();
         if (sess?.session?.user.id) {
           await supabase.from("profiles").update({ role_type: attempt.roleType }).eq("id", sess.session.user.id);
         }
         toast.success(attempt.success);
-        setAdminCode("");
+        clearCode();
         return;
       }
     }
     toast.error("الكود غير صحيح أو مستخدم من قبل");
-    setAdminCode("");
+    clearCode();
   };
 
   useEffect(() => {
@@ -85,6 +95,7 @@ function LoginPage() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const code = getCode();
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
@@ -104,16 +115,14 @@ function LoginPage() {
           },
         });
         if (error) throw error;
-        if (adminCode && data.user) {
-          setTimeout(async () => {
-            await claimAccessCode(adminCode);
-          }, 800);
+        if (code && data.user) {
+          setTimeout(async () => { await claimAccessCode(code); }, 800);
         }
         toast.success("تم إنشاء الحساب! تحقق من بريدك إن طُلب.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
         if (error) throw error;
-        if (adminCode) await claimAccessCode(adminCode);
+        if (code) await claimAccessCode(code);
         toast.success("مرحباً بعودتك!");
       }
       playLoginSound();
@@ -250,34 +259,34 @@ function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowCodeField((v) => !v)}
-                className="w-full text-xs text-muted-foreground flex items-center gap-2 select-none"
+                className="w-full text-xs text-muted-foreground flex items-center gap-2"
               >
                 <KeyRound className="h-3.5 w-3.5 shrink-0" />
                 <span>كود صلاحيات (اختياري)</span>
                 <ChevronDown className={`h-3.5 w-3.5 ml-auto transition-transform duration-200 ${showCodeField ? "rotate-180" : ""}`} />
               </button>
               {showCodeField && (
-                <div className="mt-2">
+                <div dir="ltr" className="mt-2">
                   <input
+                    ref={codeInputRef}
                     type="text"
-                    value={adminCode}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      // convert Arabic-Indic and Extended Arabic-Indic numerals to ASCII
-                      const cleaned = raw
-                        .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660))
-                        .replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0))
-                        .replace(/[^A-Za-z0-9\-_]/g, "")
-                        .toUpperCase();
-                      setAdminCode(cleaned);
+                    onInput={(e) => {
+                      const el = e.currentTarget;
+                      const pos = el.selectionStart ?? el.value.length;
+                      const cleaned = cleanCode(el.value);
+                      if (cleaned !== el.value) {
+                        el.value = cleaned;
+                        const newPos = Math.min(pos, cleaned.length);
+                        el.setSelectionRange(newPos, newPos);
+                      }
                     }}
                     placeholder="Enter code"
-                    dir="ltr"
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-mono tracking-wider ltr"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-mono tracking-wider"
+                    style={{ direction: "ltr", textAlign: "left" }}
                   />
                 </div>
               )}
