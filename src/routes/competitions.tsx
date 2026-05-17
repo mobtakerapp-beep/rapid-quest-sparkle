@@ -263,7 +263,7 @@ function printCompetition(c: Comp) {
   </div>
   <div class="info-cell">
     <div class="info-label">الزمن الكلي</div>
-    <div class="info-value">${totalTime} ثانية</div>
+    <div class="info-value">${toAr(totalTime)} ثانية</div>
   </div>
   <div class="info-cell">
     <div class="info-label">نوع الأسئلة</div>
@@ -294,9 +294,9 @@ function printCompetition(c: Comp) {
 <div class="title-banner">🏆 ${c.title}</div>
 
 <div class="stats-bar">
-  ${mcCount > 0 ? `<span class="stat-pill" style="background:#fffbef;color:#d97706;border:1px solid #f59e0b;">✏️ اختيارية: ${mcCount}</span>` : ""}
-  ${textCount > 0 ? `<span class="stat-pill" style="background:#fef2f2;color:#c8102e;border:1px solid #fca5a5;">📝 مقالية: ${textCount}</span>` : ""}
-  <span class="stat-pill" style="background:#f0fdf4;color:#15803d;border:1px solid #86efac;">⏱ مجموع الوقت: ${totalTime} ثانية</span>
+  ${mcCount > 0 ? `<span class="stat-pill" style="background:#fffbef;color:#d97706;border:1px solid #f59e0b;">✏️ اختيارية: ${toAr(mcCount)}</span>` : ""}
+  ${textCount > 0 ? `<span class="stat-pill" style="background:#fef2f2;color:#c8102e;border:1px solid #fca5a5;">📝 مقالية: ${toAr(textCount)}</span>` : ""}
+  <span class="stat-pill" style="background:#f0fdf4;color:#15803d;border:1px solid #86efac;">⏱ مجموع الوقت: ${toAr(totalTime)} ثانية</span>
 </div>
 
 <div class="instructions">

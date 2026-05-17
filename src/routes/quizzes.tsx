@@ -316,16 +316,16 @@ async function printQuiz(quiz: Quiz) {
   <div class="score-box">
     <span class="lbl">الدرجة:</span>
     <div class="boxes"><div class="sbox"></div><div class="sbox"></div></div>
-    <span style="color:#7b2d8b;font-weight:700;">/ ${mcCount + essayCount}</span>
+    <span style="color:#7b2d8b;font-weight:700;">/ ${toAr(mcCount + essayCount)}</span>
   </div>
 </div>
 
 <div class="title-banner">🎯 ${quiz.title}</div>
 
 <div class="stats-bar">
-  ${mcCount > 0 ? `<span class="stat-pill" style="background:#e8f4fd;color:#1d6fa4;border:1px solid #1d6fa4;">✏️ أسئلة اختيارية: ${mcCount}</span>` : ""}
-  ${essayCount > 0 ? `<span class="stat-pill" style="background:#f3e8ff;color:#7b2d8b;border:1px solid #7b2d8b;">📝 أسئلة مقالية: ${essayCount}</span>` : ""}
-  <span class="stat-pill" style="background:#fff8e0;color:#9a6000;border:1px solid #e0a000;">📊 المجموع: ${mcCount + essayCount} سؤال</span>
+  ${mcCount > 0 ? `<span class="stat-pill" style="background:#e8f4fd;color:#1d6fa4;border:1px solid #1d6fa4;">✏️ أسئلة اختيارية: ${toAr(mcCount)}</span>` : ""}
+  ${essayCount > 0 ? `<span class="stat-pill" style="background:#f3e8ff;color:#7b2d8b;border:1px solid #7b2d8b;">📝 أسئلة مقالية: ${toAr(essayCount)}</span>` : ""}
+  <span class="stat-pill" style="background:#fff8e0;color:#9a6000;border:1px solid #e0a000;">📊 المجموع: ${toAr(mcCount + essayCount)} سؤال</span>
 </div>
 
 <div class="instructions">
