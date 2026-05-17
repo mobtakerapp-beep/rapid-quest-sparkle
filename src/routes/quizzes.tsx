@@ -611,6 +611,22 @@ function QuizzesPage() {
   );
 }
 
+type ShuffledQ = Q & { originalIndices: number[] };
+
+function shuffleOnce(rawQs: Q[], isTeacher: boolean): ShuffledQ[] {
+  return rawQs.map((q) => {
+    if (isTeacher || (q.type || "mc") !== "mc" || q.options.length === 0) {
+      return { ...q, originalIndices: q.options.map((_, i) => i) };
+    }
+    const indices = q.options.map((_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    return { ...q, options: indices.map((i) => q.options[i]), originalIndices: indices };
+  });
+}
+
 function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; isTeacher: boolean; onBack: () => void }) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [essays, setEssays] = useState<Record<number, string>>({});
@@ -620,10 +636,9 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
   const [previousDetails, setPreviousDetails] = useState<any[] | null>(null);
   const rawQs = Array.isArray(quiz.questions) ? quiz.questions : [];
 
-  // No shuffle: display options exactly as saved in DB.
-  // correct=0 in DB means the first option is the correct answer.
-  // Student sends answers[i] = oi (the pressed display index = original DB index).
-  const qs: Q[] = rawQs as Q[];
+  // Shuffle options once per quiz load (stable for the whole attempt)
+  const [shuffledQs] = useState<ShuffledQ[]>(() => shuffleOnce(rawQs as Q[], isTeacher));
+  const qs: ShuffledQ[] = shuffledQs;
   const mcCount = qs.filter((q) => (q.type || "mc") === "mc").length;
 
   // Load previous attempt — students can take only ONCE; teachers preview without submitting
@@ -738,12 +753,13 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
             ) : (
             <div className="grid gap-2">
               {q.options.map((o, oi) => {
-                const sel = answers[i] === oi;
+                const originalIdx = (q as ShuffledQ).originalIndices?.[oi] ?? oi;
+                const sel = answers[i] === originalIdx;
                 return (
                   <button key={oi} disabled={isTeacher}
                     onClick={(e) => {
-                      setAnswers({ ...answers, [i]: oi });
-                      if (oi === q.correct) {
+                      setAnswers({ ...answers, [i]: originalIdx });
+                      if (originalIdx === q.correct) {
                         playCorrect();
                         const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
                         burstStars({ x: (r.left + r.width / 2) / window.innerWidth, y: (r.top + r.height / 2) / window.innerHeight });

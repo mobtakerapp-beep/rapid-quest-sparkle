@@ -3,7 +3,7 @@ import { toAr } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, BookOpen, Upload, FileText, Download, Trash2, Video, Image as ImageIcon, File as FileIcon, Plus, X, CheckCircle2, Clock, MessageCircle, Send, ShieldAlert, CheckSquare, Square } from "lucide-react";
+import { ArrowLeft, BookOpen, Upload, FileText, Download, Trash2, Video, Image as ImageIcon, File as FileIcon, Plus, X, CheckCircle2, Clock, MessageCircle, Send, ShieldAlert, CheckSquare, Square, GraduationCap } from "lucide-react";
 import { Reactions } from "@/components/Reactions";
 import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
@@ -23,7 +23,10 @@ type Activity = {
   created_at: string;
   status: string;
   teacher_name?: string;
+  uploader_role_type?: string;
 };
+
+const TEACHER_ROLES = ["teacher", "admin", "supervisor"];
 
 const fileIcon = (type: string) => {
   if (type.startsWith("image/")) return ImageIcon;
@@ -37,8 +40,10 @@ function ActivitiesPage() {
   const [uid, setUid] = useState<string | null>(null);
   const [canUpload, setCanUpload] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isStudent, setIsStudent] = useState(false);
   const [items, setItems] = useState<Activity[]>([]);
   const [activeSubject, setActiveSubject] = useState<string>("الكل");
+  const [activeTab, setActiveTab] = useState<"teachers" | "students">("teachers");
   const [showForm, setShowForm] = useState(false);
   const [subject, setSubject] = useState(SCHOOLS[0]);
   const [title, setTitle] = useState("");
@@ -65,6 +70,7 @@ function ActivitiesPage() {
       const privileged = admin || roleList.some((r) => r === "teacher") || rt === "teacher";
       setIsAdmin(admin);
       setCanUpload(privileged);
+      setIsStudent(!privileged);
       load();
     });
   }, [navigate]);
@@ -74,14 +80,21 @@ function ActivitiesPage() {
     const acts = (data || []) as Activity[];
     const uids = [...new Set(acts.map((a) => a.user_id))];
     const { data: profs } = uids.length
-      ? await supabase.from("profiles").select("id, display_name").in("id", uids)
+      ? await supabase.from("profiles").select("id, display_name, role_type").in("id", uids)
       : { data: [] };
     const nameMap: Record<string, string> = {};
-    (profs || []).forEach((p: any) => { nameMap[p.id] = p.display_name || ""; });
-    setItems(acts.map((a) => ({ ...a, teacher_name: nameMap[a.user_id] || "" })));
+    const roleMap: Record<string, string> = {};
+    (profs || []).forEach((p: any) => {
+      nameMap[p.id] = p.display_name || "";
+      roleMap[p.id] = p.role_type || "";
+    });
+    setItems(acts.map((a) => ({
+      ...a,
+      teacher_name: nameMap[a.user_id] || "",
+      uploader_role_type: roleMap[a.user_id] || "",
+    })));
   };
 
-  // ── Realtime subscription ──
   useEffect(() => {
     const ch = supabase.channel("activities-rt")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "activities" }, (p) => {
@@ -121,7 +134,7 @@ function ActivitiesPage() {
         file_url: publicUrl, file_type: fileType, file_name: fileName,
       });
       if (error) throw error;
-      toast.success("تم رفع النشاط ✨");
+      toast.success(activeTab === "students" ? "تم رفع نشاطك ✨" : "تم رفع النشاط ✨");
       setTitle(""); setDesc(""); setFile(null); setShowForm(false);
       load();
     } catch (e: any) {
@@ -180,7 +193,13 @@ function ActivitiesPage() {
     setItems((p) => p.map((i) => i.id === id ? { ...i, status: "approved" } : i));
   };
 
-  const filtered = activeSubject === "الكل" ? items : items.filter((i) => i.subject === activeSubject);
+  const tabItems = activeTab === "teachers"
+    ? items.filter((i) => TEACHER_ROLES.includes(i.uploader_role_type || ""))
+    : items.filter((i) => !TEACHER_ROLES.includes(i.uploader_role_type || ""));
+
+  const filtered = activeSubject === "الكل" ? tabItems : tabItems.filter((i) => i.subject === activeSubject);
+
+  const canUploadInTab = activeTab === "teachers" ? canUpload : !!uid;
 
   return (
     <div dir="rtl" className="min-h-screen bg-background">
@@ -200,7 +219,22 @@ function ActivitiesPage() {
             )}
           </div>
         </div>
+
+        {/* Tabs */}
+        <div className="container mx-auto px-4 pb-2 flex gap-2">
+          <button
+            onClick={() => { setActiveTab("teachers"); setShowForm(false); }}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition ${activeTab === "teachers" ? "bg-blue-600 text-white" : "bg-secondary hover:bg-secondary/80"}`}>
+            <BookOpen className="h-4 w-4" /> بنك أنشطة المعلمين
+          </button>
+          <button
+            onClick={() => { setActiveTab("students"); setShowForm(false); }}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition ${activeTab === "students" ? "bg-emerald-600 text-white" : "bg-secondary hover:bg-secondary/80"}`}>
+            <GraduationCap className="h-4 w-4" /> بنك أنشطة الطلاب
+          </button>
+        </div>
       </header>
+
       {selectMode && isAdmin && (
         <div className="sticky top-[57px] z-20 bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center gap-3" dir="rtl">
           <span className="text-sm font-bold text-rose-700">{toAr(selected.size)} محدد</span>
@@ -215,23 +249,36 @@ function ActivitiesPage() {
 
       <main className="container mx-auto px-4 py-6 max-w-5xl">
         {/* Welcome banner */}
-        <div className="mb-6 rounded-3xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 via-cyan-50 to-sky-50 p-5 text-center">
-          <div className="text-3xl mb-2">📚✨</div>
-          <h2 className="font-black text-lg text-blue-900 mb-1">أهلاً بك في بنك الأنشطة</h2>
-          <p className="text-sm text-blue-800">استكشف أنشطة المعلمين الإبداعية في كل المواد، شارك بتعليقك وتفاعلك مع زملائك. كل نشاط يقربك خطوة من شارة جديدة 🏅</p>
-        </div>
-        {/* Upload (teachers/admins only) */}
-        {canUpload && (
+        {activeTab === "teachers" ? (
+          <div className="mb-6 rounded-3xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 via-cyan-50 to-sky-50 p-5 text-center">
+            <div className="text-3xl mb-2">📚✨</div>
+            <h2 className="font-black text-lg text-blue-900 mb-1">بنك أنشطة المعلمين</h2>
+            <p className="text-sm text-blue-800">استكشف أنشطة المعلمين الإبداعية في كل المواد، شارك بتعليقك وتفاعلك مع زملائك. كل نشاط يقربك خطوة من شارة جديدة 🏅</p>
+          </div>
+        ) : (
+          <div className="mb-6 rounded-3xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 p-5 text-center">
+            <div className="text-3xl mb-2">🎓✨</div>
+            <h2 className="font-black text-lg text-emerald-900 mb-1">بنك أنشطة الطلاب</h2>
+            <p className="text-sm text-emerald-800">شارك أعمالك وإبداعاتك مع زملائك! ارفع صورك ومقاطع الفيديو وملفاتك المدرسية وأظهر موهبتك 🌟</p>
+          </div>
+        )}
+
+        {/* Upload form */}
+        {canUploadInTab && (
           <div className="mb-6">
             {!showForm ? (
               <button onClick={() => setShowForm(true)}
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[image:var(--gradient-hero)] text-white font-bold shadow-[var(--shadow-soft)]">
-                <Plus className="h-5 w-5" /> إضافة نشاط جديد
+                className={`w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-white font-bold shadow-[var(--shadow-soft)] ${activeTab === "students" ? "bg-gradient-to-r from-emerald-500 to-teal-500" : "bg-[image:var(--gradient-hero)]"}`}>
+                <Plus className="h-5 w-5" />
+                {activeTab === "students" ? "رفع نشاط طالب" : "إضافة نشاط جديد"}
               </button>
             ) : (
               <div className="bg-card rounded-3xl border border-border p-5 shadow-[var(--shadow-card)]">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold flex items-center gap-2"><Upload className="h-4 w-4" /> رفع نشاط</h3>
+                  <h3 className="font-bold flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    {activeTab === "students" ? "رفع نشاط طالب" : "رفع نشاط معلم"}
+                  </h3>
                   <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-secondary"><X className="h-4 w-4" /></button>
                 </div>
                 <div className="grid gap-3">
@@ -247,10 +294,10 @@ function ActivitiesPage() {
                   <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-secondary hover:bg-secondary/80 text-sm">
                     <Upload className="h-4 w-4" />
                     {file ? file.name : "اختر ملف (PDF / صورة / فيديو / مستند)"}
-                    <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} className="hidden" />
+                    <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} className="hidden" accept="image/*,video/*,application/pdf,.doc,.docx,.txt" />
                   </label>
                   <button onClick={upload} disabled={uploading || !title.trim()}
-                    className="px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
+                    className={`px-5 py-2.5 rounded-xl text-white font-bold disabled:opacity-50 ${activeTab === "students" ? "bg-gradient-to-r from-emerald-500 to-teal-500" : "bg-[image:var(--gradient-hero)]"}`}>
                     {uploading ? "جاري الرفع..." : (file ? "رفع" : "نشر نص فقط")}
                   </button>
                 </div>
@@ -264,14 +311,20 @@ function ActivitiesPage() {
           {["الكل", ...SCHOOLS].map((s) => (
             <button key={s} onClick={() => setActiveSubject(s)}
               className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition ${
-                activeSubject === s ? "bg-[image:var(--gradient-hero)] text-white" : "bg-secondary hover:bg-secondary/80"
+                activeSubject === s
+                  ? activeTab === "students" ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white" : "bg-[image:var(--gradient-hero)] text-white"
+                  : "bg-secondary hover:bg-secondary/80"
               }`}>{s}</button>
           ))}
         </div>
 
         {/* Items */}
         {filtered.length === 0 ? (
-          <div className="text-center text-muted-foreground py-16 text-sm">لا توجد أنشطة في هذا القسم بعد. {canUpload && "كن أول من يرفع!"}</div>
+          <div className="text-center text-muted-foreground py-16 text-sm">
+            {activeTab === "students"
+              ? "لا توجد أنشطة للطلاب بعد. كن أول من يشارك إبداعه! 🌟"
+              : `لا توجد أنشطة في هذا القسم بعد. ${canUpload ? "كن أول من يرفع!" : ""}`}
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((it) => {
@@ -290,7 +343,7 @@ function ActivitiesPage() {
                   )}
                   <div onClick={() => selectMode && isAdmin && toggleSelect(it.id)}
                     className={selectMode && isAdmin ? "cursor-pointer" : ""}>
-                    <ActivityCard it={it} Icon={Icon} isImg={isImg} isVid={isVid} canDelete={!selectMode && canDelete} isAdmin={isAdmin} uid={uid} onApprove={approve} onDelete={del} />
+                    <ActivityCard it={it} Icon={Icon} isImg={isImg} isVid={isVid} canDelete={!selectMode && canDelete} isAdmin={isAdmin} uid={uid} onApprove={approve} onDelete={del} isStudentTab={activeTab === "students"} />
                   </div>
                 </div>
               );
@@ -302,10 +355,21 @@ function ActivitiesPage() {
   );
 }
 
-function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onApprove, onDelete }: any) {
+function parseCommentContent(content: string): { text: string; imageUrl: string | null } {
+  const marker = "\n__img__:";
+  const idx = content.indexOf(marker);
+  if (idx === -1) return { text: content, imageUrl: null };
+  return { text: content.slice(0, idx), imageUrl: content.slice(idx + marker.length) };
+}
+
+function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onApprove, onDelete, isStudentTab }: any) {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [text, setText] = useState("");
+  const [commentImg, setCommentImg] = useState<File | null>(null);
+  const [commentImgPreview, setCommentImgPreview] = useState<string | null>(null);
+  const [sendingComment, setSendingComment] = useState(false);
+  const commentImgRef = useRef<HTMLInputElement>(null);
 
   const loadComments = async () => {
     const { data } = await supabase.from("activity_comments").select("*").eq("activity_id", it.id).order("created_at", { ascending: true });
@@ -321,12 +385,41 @@ function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onAppro
     if (!showComments) loadComments();
   };
 
+  const pickCommentImg = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setCommentImg(f);
+    const reader = new FileReader();
+    reader.onload = (ev) => setCommentImgPreview(ev.target?.result as string);
+    reader.readAsDataURL(f);
+  };
+
+  const removeCommentImg = () => {
+    setCommentImg(null);
+    setCommentImgPreview(null);
+    if (commentImgRef.current) commentImgRef.current.value = "";
+  };
+
   const sendComment = async () => {
-    if (!text.trim() || !uid) return;
-    const { error } = await supabase.from("activity_comments").insert({ activity_id: it.id, user_id: uid, content: text.trim() });
-    if (error) return toast.error(`فشل الإرسال: ${error.message}`);
-    setText("");
-    loadComments();
+    if (!text.trim() && !commentImg) return;
+    if (!uid) return;
+    setSendingComment(true);
+    try {
+      let content = text.trim();
+      if (commentImg) {
+        const ext = commentImg.name.split(".").pop() || "jpg";
+        const path = `comments/${uid}/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("activity-files").upload(path, commentImg);
+        if (upErr) { toast.error("فشل رفع الصورة"); setSendingComment(false); return; }
+        const imgUrl = supabase.storage.from("activity-files").getPublicUrl(path).data.publicUrl;
+        content = content + "\n__img__:" + imgUrl;
+      }
+      if (!content.trim()) { setSendingComment(false); return; }
+      const { error } = await supabase.from("activity_comments").insert({ activity_id: it.id, user_id: uid, content });
+      if (error) { toast.error(`فشل الإرسال: ${error.message}`); setSendingComment(false); return; }
+      setText(""); removeCommentImg();
+      loadComments();
+    } finally { setSendingComment(false); }
   };
 
   const delComment = async (id: string) => {
@@ -336,77 +429,107 @@ function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onAppro
 
   return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-[var(--shadow-card)] flex flex-col">
-                  {it.file_url ? (
-                    isImg ? (
-                    <img src={it.file_url} alt={it.title} className="w-full h-44 object-cover" loading="lazy" />
-                  ) : isVid ? (
-                    <video src={it.file_url} controls className="w-full h-44 object-cover bg-black" />
-                  ) : (
-                    <div className="h-44 bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center">
-                      <Icon className="h-16 w-16 text-blue-400" />
+      {it.file_url ? (
+        isImg ? (
+          <img src={it.file_url} alt={it.title} className="w-full h-44 object-cover" loading="lazy" />
+        ) : isVid ? (
+          <video src={it.file_url} controls className="w-full h-44 object-cover bg-black" />
+        ) : (
+          <div className="h-44 bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center">
+            <Icon className="h-16 w-16 text-blue-400" />
+          </div>
+        )
+      ) : (
+        <div className={`h-32 flex items-center justify-center p-4 ${isStudentTab ? "bg-gradient-to-br from-emerald-50 to-teal-50" : "bg-gradient-to-br from-violet-50 to-pink-50"}`}>
+          <FileText className={`h-10 w-10 ${isStudentTab ? "text-emerald-400" : "text-violet-400"}`} />
+        </div>
+      )}
+      <div className="p-4 flex-1 flex flex-col">
+        <div className="text-xs text-[var(--brand)] font-semibold mb-1 flex items-center gap-1.5">
+          🏫 {it.subject || "—"}{it.teacher_name ? <span className="text-muted-foreground font-normal">• {it.teacher_name}</span> : null}
+        </div>
+        <h3 className="font-bold mb-1 line-clamp-2">{it.title}</h3>
+        {it.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-3"><MathText text={it.description} /></p>}
+        {it.status !== "approved" && (
+          <div className="mb-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 w-fit">
+            <Clock className="h-3 w-3" /> قيد المراجعة
+          </div>
+        )}
+        <div className="mt-auto flex items-center gap-2">
+          {it.file_url && (
+            <a href={it.file_url} target="_blank" rel="noreferrer" download={it.file_name || undefined}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-sm">
+              <Download className="h-4 w-4" /> تحميل
+            </a>
+          )}
+          <button onClick={toggleComments} className="p-2 rounded-xl bg-secondary hover:bg-secondary/80" title="التعليقات">
+            <MessageCircle className="h-4 w-4" />
+          </button>
+          {isAdmin && it.status !== "approved" && (
+            <button onClick={() => onApprove(it.id)} className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200" title="اعتماد">
+              <CheckCircle2 className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button onClick={() => onDelete(it.id)} className="p-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive/20">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <Reactions targetType="activity" targetId={it.id} uid={uid} />
+        {showComments && (
+          <div className="mt-3 pt-3 border-t border-border space-y-2">
+            <div className="max-h-48 overflow-y-auto space-y-1.5">
+              {comments.length === 0 ? (
+                <div className="text-xs text-muted-foreground text-center py-2">لا توجد تعليقات</div>
+              ) : comments.map((c) => {
+                const { text: cText, imageUrl: cImg } = parseCommentContent(c.content || "");
+                return (
+                  <div key={c.id} className="text-xs bg-secondary/50 rounded-lg p-2">
+                    <div className="flex justify-between gap-2 mb-1">
+                      <b>{c.name}: </b>
+                      {(c.user_id === uid || isAdmin) && (
+                        <button onClick={() => delComment(c.id)} className="text-destructive opacity-70 hover:opacity-100 shrink-0">×</button>
+                      )}
                     </div>
-                  )) : (
-                    <div className="h-32 bg-gradient-to-br from-violet-50 to-pink-50 flex items-center justify-center p-4">
-                      <FileText className="h-10 w-10 text-violet-400" />
-                    </div>
-                  )}
-                  <div className="p-4 flex-1 flex flex-col">
-                    <div className="text-xs text-[var(--brand)] font-semibold mb-1 flex items-center gap-1.5">
-                    🏫 {it.subject || "—"}{it.teacher_name ? <span className="text-muted-foreground font-normal">• {it.teacher_name}</span> : null}
-                  </div>
-                    <h3 className="font-bold mb-1 line-clamp-2">{it.title}</h3>
-                    {it.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-3"><MathText text={it.description} /></p>}
-                    {it.status !== "approved" && (
-                      <div className="mb-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 w-fit">
-                        <Clock className="h-3 w-3" /> قيد المراجعة
-                      </div>
+                    {cText && <div className="break-words">{cText}</div>}
+                    {cImg && (
+                      <a href={cImg} target="_blank" rel="noreferrer">
+                        <img src={cImg} alt="صورة" className="mt-1.5 max-h-40 rounded-lg object-cover border border-border cursor-pointer hover:opacity-90 transition" />
+                      </a>
                     )}
-                    <div className="mt-auto flex items-center gap-2">
-                      {it.file_url && (
-                        <a href={it.file_url} target="_blank" rel="noreferrer" download={it.file_name || undefined}
-                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-sm">
-                          <Download className="h-4 w-4" /> تحميل
-                        </a>
-                      )}
-                      <button onClick={toggleComments} className="p-2 rounded-xl bg-secondary hover:bg-secondary/80" title="التعليقات">
-                        <MessageCircle className="h-4 w-4" />
-                      </button>
-                      {isAdmin && it.status !== "approved" && (
-                        <button onClick={() => onApprove(it.id)} className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200" title="اعتماد">
-                          <CheckCircle2 className="h-4 w-4" />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button onClick={() => onDelete(it.id)} className="p-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive/20">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                    <Reactions targetType="activity" targetId={it.id} uid={uid} />
-                    {showComments && (
-                      <div className="mt-3 pt-3 border-t border-border space-y-2">
-                        <div className="max-h-40 overflow-y-auto space-y-1.5">
-                          {comments.length === 0 ? (
-                            <div className="text-xs text-muted-foreground text-center py-2">لا توجد تعليقات</div>
-                          ) : comments.map((c) => (
-                            <div key={c.id} className="text-xs bg-secondary/50 rounded-lg p-2 flex justify-between gap-2">
-                              <div className="flex-1"><b>{c.name}: </b>{c.content}</div>
-                              {(c.user_id === uid || isAdmin) && (
-                                <button onClick={() => delComment(c.id)} className="text-destructive opacity-70 hover:opacity-100">×</button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex gap-1">
-                          <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendComment()}
-                            placeholder="تعليق..." className="flex-1 px-3 py-1.5 rounded-lg border border-border bg-background text-sm" />
-                          <button onClick={sendComment} disabled={!text.trim()} className="p-1.5 rounded-lg bg-[var(--brand)] text-white disabled:opacity-50">
-                            <Send className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
+                );
+              })}
+            </div>
+
+            {/* Comment image preview */}
+            {commentImgPreview && (
+              <div className="relative w-fit">
+                <img src={commentImgPreview} alt="معاينة" className="h-20 rounded-lg border border-border object-cover" />
+                <button onClick={removeCommentImg} className="absolute -top-1 -right-1 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] leading-none">×</button>
+              </div>
+            )}
+
+            {/* Comment input */}
+            <div className="flex gap-1 items-end">
+              <div className="flex-1 space-y-1">
+                <input value={text} onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendComment()}
+                  placeholder="تعليق..." className="w-full px-3 py-1.5 rounded-lg border border-border bg-background text-sm" />
+              </div>
+              <label className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 cursor-pointer shrink-0" title="إضافة صورة">
+                <ImageIcon className="h-3.5 w-3.5" />
+                <input ref={commentImgRef} type="file" accept="image/*" className="hidden" onChange={pickCommentImg} />
+              </label>
+              <button onClick={sendComment} disabled={(!text.trim() && !commentImg) || sendingComment}
+                className="p-1.5 rounded-lg bg-[var(--brand)] text-white disabled:opacity-50 shrink-0">
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
