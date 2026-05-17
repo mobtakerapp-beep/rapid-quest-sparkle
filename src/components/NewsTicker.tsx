@@ -426,16 +426,23 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       const topStudent = byRole(["student"]);
       const topTeacher = byRole(["teacher", "supervisor", "admin"]);
 
-      if (topStudent) {
+      if (topStudent && topTeacher) {
+        const sScore = activityScore[topStudent.id] || 0;
+        const tScore = activityScore[topTeacher.id] || 0;
+        const roleLabel = getRoleLabel(topTeacher.role_type);
+        items.push({
+          id: `active-top-today`,
+          text: `⚡ أكثر نشاطاً اليوم — الطالب ${topStudent.display_name} (${sScore} نشاط) | ${roleLabel} ${topTeacher.display_name} (${tScore} نشاط)`,
+          type: "auto",
+        });
+      } else if (topStudent) {
         const score = activityScore[topStudent.id] || 0;
         items.push({
           id: `active-student-today`,
           text: `⚡ أكثر طالب نشاطاً اليوم: الطالب ${topStudent.display_name} — ${score} نشاط`,
           type: "auto",
         });
-      }
-
-      if (topTeacher) {
+      } else if (topTeacher) {
         const score = activityScore[topTeacher.id] || 0;
         const roleLabel = getRoleLabel(topTeacher.role_type);
         items.push({
