@@ -184,19 +184,36 @@ export function GlobalNav() {
           )}
         </div>
 
-        {/* وسط: شعار عمان + محافظة الوسطى + الساعة */}
-        <div className="flex flex-col items-center justify-center px-2 shrink-0 gap-0.5">
-          <div className="flex items-center gap-1">
-            <img src={omanEmblem} alt="شعار عمان" className="h-5 w-5 object-contain" />
-            <span className="text-[9px] font-black text-foreground whitespace-nowrap" style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}>
+        {/* وسط: شعار السلطنة + الأسطر الثلاثة */}
+        <div className="flex items-center justify-center gap-1.5 px-2 shrink-0">
+          <img src={omanEmblem} alt="شعار عمان" className="h-8 w-8 object-contain shrink-0 drop-shadow-sm" />
+          <div className="flex flex-col items-center leading-none gap-px select-none">
+            <span
+              className="text-[10px] font-black tracking-wide text-foreground whitespace-nowrap"
+              style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}
+            >
+              سلطنة عُمان
+            </span>
+            <span
+              className="text-[9px] font-bold text-muted-foreground whitespace-nowrap"
+              style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}
+            >
+              وزارة التربية والتعليم
+            </span>
+            <span
+              className="text-[9px] font-bold whitespace-nowrap"
+              style={{ fontFamily: "'Tajawal','Cairo',sans-serif", color: "var(--brand)" }}
+            >
               محافظة الوسطى
             </span>
           </div>
-          <InlineClock />
         </div>
 
-        {/* يسار: الأيقونات */}
+        {/* يسار: الساعة + الأيقونات */}
         <div className="flex items-center gap-0 shrink-0">
+          <div className="px-1.5 border-l border-border">
+            <InlineClock />
+          </div>
           {/* ايقونة الرئيسية تختفي لما تكون في الرئيسية */}
           {!isHome && (
             <Link
