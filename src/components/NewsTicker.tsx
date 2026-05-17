@@ -368,6 +368,59 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       });
     }
 
+    // ── أكثر طالب ومعلم نشاطاً اليوم ──
+    const todayActivityStart = new Date(); todayActivityStart.setHours(0, 0, 0, 0);
+    const todayActivityISO = todayActivityStart.toISOString();
+
+    const [{ data: subsToday }, { data: attemptsToday }] = await Promise.all([
+      supabase.from("competition_submissions").select("user_id").gte("created_at", todayActivityISO),
+      supabase.from("quiz_attempts").select("user_id").gte("created_at", todayActivityISO),
+    ]);
+
+    // Build activity score per user
+    const activityScore: Record<string, number> = {};
+    (subsToday || []).forEach((s: any) => { activityScore[s.user_id] = (activityScore[s.user_id] || 0) + 2; });
+    (attemptsToday || []).forEach((a: any) => { activityScore[a.user_id] = (activityScore[a.user_id] || 0) + 1; });
+
+    const activeUserIds = Object.keys(activityScore);
+    if (activeUserIds.length > 0) {
+      const { data: activeProfiles } = await supabase
+        .from("profiles")
+        .select("id, display_name, role_type, points")
+        .in("id", activeUserIds);
+
+      const byRole = (roles: string[]) => {
+        const candidates = (activeProfiles || []).filter((p: any) => roles.includes(p.role_type));
+        if (!candidates.length) return null;
+        return candidates.reduce((best: any, p: any) =>
+          (activityScore[p.id] || 0) > (activityScore[best.id] || 0) ? p : best
+        );
+      };
+
+      const topStudent = byRole(["student"]);
+      const topTeacher = byRole(["teacher", "supervisor"]);
+
+      if (topStudent) {
+        const score = activityScore[topStudent.id] || 0;
+        items.push({
+          id: `active-student-today`,
+          text: `⚡ أكثر طالب نشاطاً اليوم: الطالب ${topStudent.display_name} — ${score} نشاط`,
+          type: "auto",
+        });
+      }
+
+      if (topTeacher) {
+        const score = activityScore[topTeacher.id] || 0;
+        const roleLabel = getRoleLabel(topTeacher.role_type);
+        items.push({
+          id: `active-teacher-today`,
+          text: `⚡ أكثر معلم نشاطاً اليوم: ${roleLabel} ${topTeacher.display_name} — ${score} نشاط`,
+          type: "auto",
+        });
+      }
+    }
+
+    // ── متصدرو النقاط الكلية ──
     const { data: topProfiles } = await supabase
       .from("profiles")
       .select("display_name, points, role_type")
