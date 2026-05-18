@@ -3,7 +3,7 @@ import { toAr } from "@/lib/utils";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, User as UserIcon, GraduationCap, BookOpen, Heart, LogOut, Shield, Key, Camera, Palette, AlertTriangle, Ban, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, User as UserIcon, GraduationCap, BookOpen, Heart, LogOut, Shield, Key, Camera, Palette, AlertTriangle, Ban, ChevronDown, ChevronUp, Users, RefreshCw, CheckCircle2 } from "lucide-react";
 import { FullPageLoader } from "@/components/LoadingSpinner";
 import { playLogoutSound } from "@/lib/sounds";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
@@ -39,6 +39,7 @@ function ProfilePage() {
   const classCodeInputRef = useRef<HTMLInputElement>(null);
   const [myTeacherName, setMyTeacherName] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
+  const [changingTeacher, setChangingTeacher] = useState(false);
   const [warnings, setWarnings] = useState<{ id: string; title: string; body: string | null; type: string; created_at: string }[]>([]);
   const [showWarnings, setShowWarnings] = useState(false);
   const [winnerTitle, setWinnerTitle] = useState<WinnerTitle | null>(null);
@@ -160,18 +161,46 @@ function ProfilePage() {
     const code = (classCodeInputRef.current?.value ?? "").trim();
     if (!code) { toast.error("اكتبي كود الفصل"); return; }
     setJoining(true);
-    const { data, error } = await supabase.rpc("join_teacher_by_code", { _code: code });
-    setJoining(false);
-    if (error || !data) { toast.error("الكود غير صحيح"); return; }
-    toast.success("تم الانضمام لفصل المعلم 🎉");
-    if (classCodeInputRef.current) classCodeInputRef.current.value = "";
-    // refresh teacher name
-    const { data: prof } = await supabase.from("profiles").select("teacher_id").eq("id", uid!).maybeSingle();
-    const tid = (prof as any)?.teacher_id;
-    if (tid) {
-      const { data: t } = await supabase.from("profiles").select("display_name").eq("id", tid).maybeSingle();
-      setMyTeacherName(t?.display_name || "—");
+
+    // 1) Try joining as a student to a teacher's class
+    const { data: joined, error: joinErr } = await supabase.rpc("join_teacher_by_code", { _code: code });
+    if (!joinErr && joined) {
+      setJoining(false);
+      toast.success("تم الانضمام لفصل المعلم 🎉");
+      if (classCodeInputRef.current) classCodeInputRef.current.value = "";
+      setChangingTeacher(false);
+      const { data: prof } = await supabase.from("profiles").select("teacher_id").eq("id", uid!).maybeSingle();
+      const tid = (prof as any)?.teacher_id;
+      if (tid) {
+        const { data: t } = await supabase.from("profiles").select("display_name").eq("id", tid).maybeSingle();
+        setMyTeacherName(t?.display_name || "—");
+      }
+      return;
     }
+
+    // 2) Fallback: maybe this is a role activation code (teacher/supervisor/admin)
+    //    Happens when someone registered as student but has a staff activation code.
+    const roleAttempts = [
+      { fn: "claim_admin_role",      newRole: "supervisor" as const, success: "تم تفعيل صلاحيات الأدمن 🛡️",  apply: () => { setIsAdmin(true); setRoleType("supervisor"); } },
+      { fn: "claim_supervisor_role", newRole: "supervisor" as const, success: "تم تفعيل صلاحيات المشرف 🛡️", apply: () => setRoleType("supervisor") },
+      { fn: "claim_teacher_role",    newRole: "teacher"   as const, success: "تم تفعيل حساب المعلم 📘",      apply: () => setRoleType("teacher") },
+    ];
+    for (const attempt of roleAttempts) {
+      const { data: claimed } = await supabase.rpc(attempt.fn as any, { _code: code });
+      if (claimed) {
+        attempt.apply();
+        if (uid) await supabase.from("profiles").update({ role_type: attempt.newRole }).eq("id", uid);
+        toast.success(attempt.success);
+        if (classCodeInputRef.current) classCodeInputRef.current.value = "";
+        setChangingTeacher(false);
+        setJoining(false);
+        setTimeout(() => window.location.reload(), 1200);
+        return;
+      }
+    }
+
+    setJoining(false);
+    toast.error("الكود غير صحيح — تحقق من الكود وحاول مجدداً");
   };
 
   const onAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -455,44 +484,83 @@ function ProfilePage() {
             )}
 
             {roleType === "student" && (
-              <div className="rounded-2xl border border-dashed border-border p-4 bg-secondary/30">
-                <label className="text-sm font-semibold mb-1 block">الانضمام إلى فصل معلم</label>
-                {myTeacherName ? (
-                  <p className="text-xs text-emerald-600 font-bold mb-2">✓ معلمك الحالي: {myTeacherName}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground mb-2">اطلبي من معلمك كود الفصل (6 أحرف) وأدخليه هنا</p>
-                )}
-                <div className="flex gap-2" dir="ltr">
-                  <input
-                    ref={classCodeInputRef}
-                    type="text"
-                    onInput={(e) => {
-                      const el = e.currentTarget;
-                      const pos = el.selectionStart ?? el.value.length;
-                      const cleaned = el.value
-                        .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660))
-                        .replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0))
-                        .replace(/[^A-Za-z0-9]/g, "")
-                        .toUpperCase()
-                        .slice(0, 6);
-                      if (cleaned !== el.value) {
-                        el.value = cleaned;
-                        const newPos = Math.min(pos, cleaned.length);
-                        el.setSelectionRange(newPos, newPos);
-                      }
-                    }}
-                    placeholder="ABC123"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    className="flex-1 px-3 py-2 rounded-xl border border-border bg-background tracking-widest font-bold"
-                    style={{ direction: "ltr", textAlign: "left" }}
-                  />
-                  <button type="button" onClick={joinClass} disabled={joining}
-                    className="px-4 py-2 rounded-xl bg-[var(--brand)] text-white font-bold disabled:opacity-50">
-                    {joining ? "..." : myTeacherName ? "تغيير" : "انضمام"}
-                  </button>
+              <div className="rounded-2xl border border-border overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-l from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/20 border-b border-border">
+                  <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                    <Users className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold">الانضمام إلى فصل معلم</p>
+                    <p className="text-[11px] text-muted-foreground">أدخل كود الفصل المكون من 6 أحرف</p>
+                  </div>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  {/* Current teacher card */}
+                  {myTeacherName && !changingTeacher && (
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">معلمك الحالي</p>
+                        <p className="text-sm font-black text-emerald-700 dark:text-emerald-300 truncate">{myTeacherName}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setChangingTeacher(true); setTimeout(() => classCodeInputRef.current?.focus(), 50); }}
+                        className="flex items-center gap-1 text-[11px] px-3 py-1.5 rounded-lg bg-white dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition shrink-0">
+                        <RefreshCw className="h-3 w-3" />
+                        تغيير
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Input row — show when no teacher OR when changing */}
+                  {(!myTeacherName || changingTeacher) && (
+                    <div className="space-y-2">
+                      {changingTeacher && (
+                        <p className="text-xs text-muted-foreground">أدخل كود المعلم الجديد للانتقال إلى فصله:</p>
+                      )}
+                      <div className="flex gap-2" dir="ltr">
+                        <input
+                          ref={classCodeInputRef}
+                          type="text"
+                          onInput={(e) => {
+                            const el = e.currentTarget;
+                            const pos = el.selectionStart ?? el.value.length;
+                            const cleaned = el.value
+                              .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+                              .replace(/[\u06f0-\u06f9]/g, (c) => String(c.charCodeAt(0) - 0x06f0))
+                              .replace(/[^A-Za-z0-9]/g, "")
+                              .toUpperCase()
+                              .slice(0, 6);
+                            if (cleaned !== el.value) {
+                              el.value = cleaned;
+                              const newPos = Math.min(pos, cleaned.length);
+                              el.setSelectionRange(newPos, newPos);
+                            }
+                          }}
+                          placeholder="ABC123"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="none"
+                          spellCheck={false}
+                          className="flex-1 px-3 py-2.5 rounded-xl border border-border bg-background tracking-widest font-bold text-center"
+                          style={{ direction: "ltr" }}
+                        />
+                        <button type="button" onClick={joinClass} disabled={joining}
+                          className="px-5 py-2.5 rounded-xl bg-gradient-to-l from-blue-500 to-indigo-600 text-white font-bold disabled:opacity-50 hover:opacity-90 transition shrink-0">
+                          {joining ? "..." : "انضمام"}
+                        </button>
+                        {changingTeacher && (
+                          <button type="button" onClick={() => { setChangingTeacher(false); if (classCodeInputRef.current) classCodeInputRef.current.value = ""; }}
+                            className="px-3 py-2.5 rounded-xl border border-border text-sm font-bold text-muted-foreground hover:bg-secondary transition shrink-0">
+                            إلغاء
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
