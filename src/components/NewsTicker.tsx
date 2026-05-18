@@ -33,13 +33,14 @@ function endOfToday(): string {
   return d.toISOString();
 }
 
-function getRoleLabel(roleType?: string): string {
+function getRoleLabel(roleType?: string, gender?: string | null): string {
+  const isFemale = gender === "female" || gender === "أنثى" || gender === "f";
   switch (roleType) {
-    case "teacher":    return "المعلم";
-    case "student":    return "الطالب";
-    case "admin":      return "المشرف العام";
-    case "supervisor": return "المشرف";
-    case "parent":     return "ولي الأمر";
+    case "teacher":    return isFemale ? "المعلمة"    : "المعلم";
+    case "student":    return isFemale ? "الطالبة"    : "الطالب";
+    case "admin":      return isFemale ? "المشرفة العامة" : "المشرف العام";
+    case "supervisor": return isFemale ? "المشرفة"    : "المشرف";
+    case "parent":     return isFemale ? "ولية الأمر" : "ولي الأمر";
     default:           return "";
   }
 }
@@ -57,9 +58,9 @@ async function getTopSubmission(compId: string): Promise<{ name: string; roleLab
   const top: any = sorted[0];
   if (!top) return null;
   const hasCorrect = top.question_count ? (top.correct_count ?? 0) > 0 : !!top.is_correct;
-  const { data: prof } = await supabase.from("profiles").select("display_name, role_type").eq("id", top.user_id).maybeSingle();
+  const { data: prof } = await supabase.from("profiles").select("display_name, role_type, gender").eq("id", top.user_id).maybeSingle();
   const name = top.name || (prof as any)?.display_name || "—";
-  const roleLabel = getRoleLabel((prof as any)?.role_type);
+  const roleLabel = getRoleLabel((prof as any)?.role_type, (prof as any)?.gender);
   const score = top.question_count ? `${top.correct_count ?? 0}/${top.question_count}` : (top.is_correct ? "إجابة صحيحة" : "");
   const time = top.time_taken_seconds >= 60
     ? `${Math.floor(top.time_taken_seconds / 60)}د ${top.time_taken_seconds % 60}ث`
@@ -80,8 +81,8 @@ async function getGalleryLeader(contestId: string): Promise<{ name: string; role
     if (v > bestVotes) { bestEntry = e; bestVotes = v; }
   }
   if (!bestVotes) return null;
-  const { data: prof } = await supabase.from("profiles").select("display_name, role_type").eq("id", bestEntry.user_id).maybeSingle();
-  return { name: (prof as any)?.display_name || "—", roleLabel: getRoleLabel((prof as any)?.role_type), votes: bestVotes };
+  const { data: prof } = await supabase.from("profiles").select("display_name, role_type, gender").eq("id", bestEntry.user_id).maybeSingle();
+  return { name: (prof as any)?.display_name || "—", roleLabel: getRoleLabel((prof as any)?.role_type, (prof as any)?.gender), votes: bestVotes };
 }
 
 // ── الأحداث الوطنية الميلادية ──
@@ -394,9 +395,9 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       .limit(4);
 
     for (const act of (newActivities || [])) {
-      const { data: poster } = await supabase.from("profiles").select("display_name, role_type").eq("id", act.user_id).maybeSingle();
+      const { data: poster } = await supabase.from("profiles").select("display_name, role_type, gender").eq("id", act.user_id).maybeSingle();
       const isNew = Date.now() - new Date(act.created_at).getTime() < 24 * 3600 * 1000;
-      const posterLabel = getRoleLabel((poster as any)?.role_type) || "المعلم";
+      const posterLabel = getRoleLabel((poster as any)?.role_type, (poster as any)?.gender) || "المعلم";
       const posterName  = (poster as any)?.display_name || "—";
       items.push({
         id: `activity-${act.id}`,
@@ -414,8 +415,8 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       .limit(4);
 
     for (const asgn of (newAssignments || [])) {
-      const { data: teacher } = await supabase.from("profiles").select("display_name, role_type").eq("id", asgn.teacher_id).maybeSingle();
-      const teacherLabel = getRoleLabel((teacher as any)?.role_type) || "المعلم";
+      const { data: teacher } = await supabase.from("profiles").select("display_name, role_type, gender").eq("id", asgn.teacher_id).maybeSingle();
+      const teacherLabel = getRoleLabel((teacher as any)?.role_type, (teacher as any)?.gender) || "المعلم";
       const teacherName  = (teacher as any)?.display_name || "—";
       const isNew = Date.now() - new Date(asgn.created_at).getTime() < 24 * 3600 * 1000;
       let dueStr = "";
@@ -449,8 +450,8 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       .limit(4);
 
     for (const quiz of (newQuizzes || [])) {
-      const { data: creator } = await supabase.from("profiles").select("display_name, role_type").eq("id", quiz.created_by).maybeSingle();
-      const creatorLabel = getRoleLabel((creator as any)?.role_type) || "المعلم";
+      const { data: creator } = await supabase.from("profiles").select("display_name, role_type, gender").eq("id", quiz.created_by).maybeSingle();
+      const creatorLabel = getRoleLabel((creator as any)?.role_type, (creator as any)?.gender) || "المعلم";
       const creatorName  = (creator as any)?.display_name || "—";
       const isNew = Date.now() - new Date(quiz.created_at).getTime() < 24 * 3600 * 1000;
       items.push({
@@ -486,9 +487,9 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       for (const [quizId, top] of Object.entries(topPerQuiz)) {
         const quizTitle = quizMap[quizId];
         if (!quizTitle) continue;
-        const { data: winner } = await supabase.from("profiles").select("display_name, role_type").eq("id", (top as any).user_id).maybeSingle();
+        const { data: winner } = await supabase.from("profiles").select("display_name, role_type, gender").eq("id", (top as any).user_id).maybeSingle();
         if (!(winner as any)?.display_name) continue;
-        const winnerLabel = getRoleLabel((winner as any)?.role_type) || "الطالب";
+        const winnerLabel = getRoleLabel((winner as any)?.role_type, (winner as any)?.gender) || "الطالب";
         const winnerName  = (winner as any)?.display_name;
         const scoreStr = (top as any).max_score ? `${toAr((top as any).score)}/${toAr((top as any).max_score)}` : `${toAr((top as any).score)}`;
         items.push({
@@ -529,7 +530,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
     if (activeUserIds.length > 0) {
       const { data: activeProfiles } = await supabase
         .from("profiles")
-        .select("id, display_name, role_type, points")
+        .select("id, display_name, role_type, gender, points")
         .in("id", activeUserIds);
 
       const byRole = (roles: string[]) => {
@@ -546,22 +547,24 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       if (topStudent && topTeacher) {
         const sScore = activityScore[topStudent.id] || 0;
         const tScore = activityScore[topTeacher.id] || 0;
-        const roleLabel = getRoleLabel(topTeacher.role_type);
+        const studentLabel = getRoleLabel(topStudent.role_type, topStudent.gender);
+        const teacherLabel = getRoleLabel(topTeacher.role_type, topTeacher.gender);
         items.push({
           id: `active-top-today`,
-          text: `⚡ أكثر نشاطاً اليوم — الطالب ${topStudent.display_name} (${sScore} نشاط) | ${roleLabel} ${topTeacher.display_name} (${tScore} نشاط)`,
+          text: `⚡ أكثر نشاطاً اليوم — ${studentLabel} ${topStudent.display_name} (${sScore} نشاط) | ${teacherLabel} ${topTeacher.display_name} (${tScore} نشاط)`,
           type: "auto",
         });
       } else if (topStudent) {
         const score = activityScore[topStudent.id] || 0;
+        const studentLabel = getRoleLabel(topStudent.role_type, topStudent.gender);
         items.push({
           id: `active-student-today`,
-          text: `⚡ أكثر طالب نشاطاً اليوم: الطالب ${topStudent.display_name} — ${score} نشاط`,
+          text: `⚡ أكثر ${studentLabel} نشاطاً اليوم: ${studentLabel} ${topStudent.display_name} — ${score} نشاط`,
           type: "auto",
         });
       } else if (topTeacher) {
         const score = activityScore[topTeacher.id] || 0;
-        const roleLabel = getRoleLabel(topTeacher.role_type);
+        const roleLabel = getRoleLabel(topTeacher.role_type, topTeacher.gender);
         items.push({
           id: `active-teacher-today`,
           text: `⚡ أكثر ${roleLabel} نشاطاً اليوم: ${roleLabel} ${topTeacher.display_name} — ${score} نشاط`,
@@ -573,7 +576,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
     // ── متصدرو النقاط الكلية ──
     const { data: topProfiles } = await supabase
       .from("profiles")
-      .select("display_name, points, role_type")
+      .select("display_name, points, role_type, gender")
       .order("points", { ascending: false })
       .limit(3);
 
@@ -583,7 +586,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       if (!p.display_name) return;
       const pts = p.points ?? 0;
       if (pts <= 0) return; // only show if they have actual points
-      const roleLabel = getRoleLabel(p.role_type);
+      const roleLabel = getRoleLabel(p.role_type, p.gender);
       const nameWithRole = roleLabel ? `${roleLabel} ${p.display_name}` : p.display_name;
       items.push({
         id: `profile-${medalIdx}`,
