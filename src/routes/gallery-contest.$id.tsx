@@ -76,6 +76,8 @@ function ContestPage() {
   const submit = async () => {
     if (!uid) return;
     if (!file && !caption.trim()) return toast.error("أضف نصاً أو ملف صورة/فيديو");
+    if (file && file.type.startsWith("video/") && file.size > 20 * 1024 * 1024) return toast.error("حجم الفيديو كبير — الحد الأقصى 20 ميجا (مقاطع قصيرة فقط) 🎬");
+    if (file && !file.type.startsWith("video/") && file.size > 10 * 1024 * 1024) return toast.error("الصورة كبيرة — الحد الأقصى 10 ميجا");
     setBusy(true);
     try {
       let url: string | null = null;

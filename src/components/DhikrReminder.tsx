@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { MOTIVATIONAL_QUOTES } from "@/data/motivational-quotes";
 
 const ADHKAR = [
   { text: "سُبْحَانَ اللهِ وَبِحَمْدِهِ، سُبْحَانَ اللهِ الْعَظِيمِ", source: "متفق عليه" },
@@ -102,7 +103,20 @@ const ADHKAR = [
 const INTERVAL_MS = 10 * 60 * 1000;
 const COUNTER_KEY = "dhikr_counter_v1";
 const ORDER_KEY = "dhikr_order_session_v1";
+const QUOTE_ORDER_KEY = "motivational_order_session_v1";
 const TARGET = 1000;
+const QUOTE_DELAY_MS = 40000;
+const QUOTE_AUTO_HIDE_MS = 25000;
+
+function getShuffledQuoteOrder(): number[] {
+  try {
+    const raw = sessionStorage.getItem(QUOTE_ORDER_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  const arr = MOTIVATIONAL_QUOTES.map((_, i) => i).sort(() => Math.random() - 0.5);
+  try { sessionStorage.setItem(QUOTE_ORDER_KEY, JSON.stringify(arr)); } catch {}
+  return arr;
+}
 
 function toArabicNums(n: number): string {
   return n.toString().replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[parseInt(d)]);
@@ -126,6 +140,20 @@ export function DhikrReminder() {
     try { return Math.min(TARGET, parseInt(localStorage.getItem(COUNTER_KEY) || "0", 10) || 0); } catch { return 0; }
   });
   const shownCountRef = useRef(0);
+  const quoteShownRef = useRef(0);
+
+  const [quoteVisible, setQuoteVisible] = useState(false);
+  const [quoteText, setQuoteText] = useState("");
+  const [quoteProgress, setQuoteProgress] = useState(100);
+
+  const showQuote = () => {
+    const order = getShuffledQuoteOrder();
+    const idx = order[quoteShownRef.current % order.length];
+    quoteShownRef.current += 1;
+    setQuoteText(MOTIVATIONAL_QUOTES[idx]);
+    setQuoteVisible(true);
+    setQuoteProgress(100);
+  };
 
   const show = () => {
     const order = getShuffledOrder();
@@ -146,8 +174,16 @@ export function DhikrReminder() {
     if (!visible) return;
     const autoDismiss = setTimeout(() => setVisible(false), 35000);
     const tick = setInterval(() => setProgress((p) => Math.max(0, p - (100 / 140))), 250);
-    return () => { clearTimeout(autoDismiss); clearInterval(tick); };
+    const quoteTimer = setTimeout(showQuote, QUOTE_DELAY_MS);
+    return () => { clearTimeout(autoDismiss); clearInterval(tick); clearTimeout(quoteTimer); };
   }, [visible]);
+
+  useEffect(() => {
+    if (!quoteVisible) return;
+    const autoDismiss = setTimeout(() => setQuoteVisible(false), QUOTE_AUTO_HIDE_MS);
+    const tick = setInterval(() => setQuoteProgress((p) => Math.max(0, p - (100 / (QUOTE_AUTO_HIDE_MS / 250)))), 250);
+    return () => { clearTimeout(autoDismiss); clearInterval(tick); };
+  }, [quoteVisible]);
 
   const increment = () => {
     setCount((c) => {
@@ -158,11 +194,47 @@ export function DhikrReminder() {
     });
   };
 
-  if (!visible) return null;
+  if (!visible && !quoteVisible) return null;
 
   const pct = Math.round((count / TARGET) * 100);
 
   return (
+    <>
+    {/* بطاقة العبارة التحفيزية */}
+    {quoteVisible && (
+      <div dir="rtl" className="fixed bottom-24 left-4 z-[199] w-[300px] animate-in slide-in-from-bottom-4 fade-in duration-500">
+        <div
+          style={{ background: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 60%, #fde68a 100%)", boxShadow: "0 8px 32px 0 rgba(245,158,11,0.18), 0 2px 8px 0 rgba(0,0,0,0.07)", border: "1.5px solid #fcd34d" }}
+          className="rounded-3xl overflow-hidden"
+        >
+          {/* شريط التقدم */}
+          <div className="h-1.5 bg-amber-100 w-full">
+            <div className="h-full bg-gradient-to-l from-amber-400 to-yellow-400 transition-all duration-300" style={{ width: `${quoteProgress}%` }} />
+          </div>
+          {/* رأس */}
+          <div className="flex items-center justify-between px-4 pt-3 pb-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-lg">✨</span>
+              <span className="text-xs font-black text-amber-700 tracking-wide">عبارة تحفيزية</span>
+            </div>
+            <button onClick={() => setQuoteVisible(false)} className="text-amber-400 hover:text-amber-600 p-1 rounded-xl hover:bg-amber-100 transition">
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M18 6L6 18M6 6l12 12" /></svg>
+            </button>
+          </div>
+          {/* النص */}
+          <div className="px-4 pb-4 pt-1">
+            <div className="rounded-2xl px-4 py-3" style={{ background: "rgba(255,255,255,0.55)", border: "1px solid #fde68a" }}>
+              <p className="text-center leading-loose text-amber-900 font-bold" style={{ fontFamily: "'Tajawal', sans-serif", fontSize: "0.97rem", lineHeight: "1.9" }}>
+                {quoteText}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* بطاقة الأذكار */}
+    {visible && (
     <div
       dir="rtl"
       className="fixed bottom-24 left-4 z-[200] w-[320px] animate-in slide-in-from-bottom-4 fade-in duration-500"
@@ -249,5 +321,7 @@ export function DhikrReminder() {
         </div>
       </div>
     </div>
+    )}
+    </>
   );
 }
