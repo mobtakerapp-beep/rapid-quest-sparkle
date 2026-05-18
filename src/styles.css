@@ -352,6 +352,17 @@
   animation: particle-rise var(--dur, 5s) var(--delay, 0s) ease-in-out infinite;
 }
 
+/* ── Floating math symbols ──────────────────────────────────────────────── */
+@keyframes math-float {
+  0%   { transform: translateY(0px)   rotate(0deg)  scale(1);    opacity: var(--op, 0.12); }
+  33%  { transform: translateY(-18px) rotate(8deg)  scale(1.15); opacity: calc(var(--op, 0.12) * 1.6); }
+  66%  { transform: translateY(-8px)  rotate(-5deg) scale(0.95); opacity: calc(var(--op, 0.12) * 1.2); }
+  100% { transform: translateY(0px)   rotate(0deg)  scale(1);    opacity: var(--op, 0.12); }
+}
+.math-sym {
+  animation: math-float var(--dur, 9s) var(--delay, 0s) ease-in-out infinite;
+}
+
 /* ── Section divider gradient ───────────────────────────────────────────── */
 .section-divider {
   height: 2px;

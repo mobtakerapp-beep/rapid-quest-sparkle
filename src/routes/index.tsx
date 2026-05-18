@@ -10,6 +10,7 @@ import { getCountryFlag } from "@/lib/countryFlag";
 import { useLang } from "@/contexts/LanguageContext";
 import { LiveStats } from "@/components/LiveStats";
 import { HeroOfDay } from "@/components/HeroOfDay";
+import { DailyQuote } from "@/components/DailyQuote";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -189,6 +190,21 @@ function Index() {
           <span key={i} className="particle absolute rounded-full opacity-50"
             style={{ top: p.top, ...(p.right ? { right: p.right } : { left: p.left }), width: p.size, height: p.size, background: p.color, "--dur": p.dur, "--delay": p.delay, filter: "blur(1px)" } as React.CSSProperties} />
         ))}
+        {[
+          { sym: "π",  top: "10%", left: "3%",   dur: "9s",  delay: "0s",   size: "1.5rem", opacity: 0.15 },
+          { sym: "√",  top: "22%", right: "2%",  dur: "11s", delay: "1.5s", size: "1.3rem", opacity: 0.12 },
+          { sym: "∑",  top: "55%", left: "2%",   dur: "8s",  delay: "3s",   size: "1.4rem", opacity: 0.13 },
+          { sym: "÷",  top: "70%", right: "3%",  dur: "12s", delay: "0.8s", size: "1.6rem", opacity: 0.1  },
+          { sym: "×",  top: "40%", left: "15%",  dur: "7s",  delay: "2.2s", size: "1.2rem", opacity: 0.1  },
+          { sym: "=",  top: "15%", right: "15%", dur: "10s", delay: "4s",   size: "1.3rem", opacity: 0.1  },
+          { sym: "∞",  top: "80%", left: "20%",  dur: "13s", delay: "1s",   size: "1.4rem", opacity: 0.11 },
+          { sym: "%",  top: "32%", right: "18%", dur: "9.5s",delay: "2.8s", size: "1.2rem", opacity: 0.09 },
+        ].map((m, i) => (
+          <span key={`math-${i}`} className="math-sym absolute pointer-events-none select-none font-black"
+            style={{ top: m.top, ...(m.right ? { right: m.right } : { left: m.left }), fontSize: m.size, color: "var(--brand)", opacity: m.opacity, "--dur": m.dur, "--delay": m.delay, fontFamily: "'Tajawal', monospace" } as React.CSSProperties}>
+            {m.sym}
+          </span>
+        ))}
       </div>
 
       {/* Hero */}
@@ -352,6 +368,10 @@ function Index() {
       {/* بطل اليوم */}
       <hr className="section-divider" />
       <HeroOfDay />
+
+      {/* فكرة اليوم */}
+      <hr className="section-divider" />
+      <DailyQuote />
 
       {/* Honor Board */}
       <hr className="section-divider" />
