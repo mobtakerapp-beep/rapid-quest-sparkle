@@ -226,8 +226,35 @@ export function GlobalNav() {
         </div>
 
         {/* وسط: شعار السلطنة + الأسطر الثلاثة */}
-        <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-1 sm:px-2 shrink-0">
-          <img src={omanEmblem} alt="شعار عمان" className="h-6 w-6 sm:h-8 sm:w-8 object-contain shrink-0 drop-shadow-sm" />
+        <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-1 sm:px-2 shrink-0 min-w-0">
+          <img src={omanEmblem} alt="شعار عمان" className="h-5 w-5 sm:h-8 sm:w-8 object-contain shrink-0 drop-shadow-sm" />
+
+          {/* على المحمول: صف واحد مضغوط */}
+          <div className="flex sm:hidden flex-col items-center leading-none select-none min-w-0">
+            <span
+              className="text-[9px] font-black tracking-wide text-foreground whitespace-nowrap"
+              style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}
+            >
+              سلطنة عُمان
+            </span>
+            <div className="flex items-center gap-0.5">
+              <span
+                className="text-[8px] font-bold text-muted-foreground whitespace-nowrap"
+                style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}
+              >
+                وزارة التعليم
+              </span>
+              <span className="text-[7px] text-muted-foreground/40">·</span>
+              <span
+                className="text-[8px] font-bold whitespace-nowrap"
+                style={{ fontFamily: "'Tajawal','Cairo',sans-serif", color: "var(--brand)" }}
+              >
+                محافظة الوسطى
+              </span>
+            </div>
+          </div>
+
+          {/* على الشاشات الكبيرة: ثلاثة أسطر مرتبة */}
           <div className="hidden sm:flex flex-col items-center leading-none gap-px select-none">
             <span
               className="text-[10px] font-black tracking-wide text-foreground whitespace-nowrap"
