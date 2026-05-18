@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Trophy, Plus, Clock, Send, X, Crown, MessageCircle, Image as ImageIcon, Link2, Trash2, ShieldAlert, CheckSquare, Square, Printer } from "lucide-react";
+import { ArrowLeft, Trophy, Plus, Clock, Send, X, Crown, MessageCircle, Image as ImageIcon, Link2, Trash2, ShieldAlert, CheckSquare, Square, Printer, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Reactions } from "@/components/Reactions";
 import { MathToolbar } from "@/components/MathToolbar";
@@ -400,6 +400,8 @@ function CompetitionsPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [questions, setQuestions] = useState<MQ[]>([newBlankQuestion()]);
+  const [editingComp, setEditingComp] = useState<Comp | null>(null);
+  const [editCTitle, setEditCTitle] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -431,6 +433,21 @@ function CompetitionsPage() {
   const toggleSelect = (id: string) => setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const selectAll = () => setSelected(new Set(comps.map((c) => c.id)));
   const clearSelect = () => { setSelected(new Set()); setSelectMode(false); };
+
+  const openEditComp = (c: Comp, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingComp(c);
+    setEditCTitle(c.title);
+  };
+
+  const saveCompEdit = async () => {
+    if (!editingComp || !editCTitle.trim()) return toast.error("العنوان مطلوب");
+    const { error } = await supabase.from("competitions").update({ title: editCTitle.trim() }).eq("id", editingComp.id);
+    if (error) return toast.error("فشل التعديل");
+    setComps((p) => p.map((x) => x.id === editingComp.id ? { ...x, title: editCTitle.trim() } : x));
+    setEditingComp(null);
+    toast.success("تم تعديل المسابقة ✅");
+  };
 
   const bulkDelete = async () => {
     if (selected.size === 0) return;
@@ -706,6 +723,11 @@ function CompetitionsPage() {
                       <button onClick={(e) => { e.stopPropagation(); printCompetition(c); }} className="p-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 shadow" title="طباعة">
                         <Printer className="h-3.5 w-3.5" />
                       </button>
+                      {c.created_by === uid && (
+                        <button onClick={(e) => openEditComp(c, e)} className="p-1.5 rounded-lg bg-white/90 text-amber-600 hover:bg-amber-100 shadow" title="تعديل">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <button onClick={onDelete} className="p-1.5 rounded-lg bg-destructive/90 text-white hover:bg-destructive shadow" title="حذف">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -717,6 +739,25 @@ function CompetitionsPage() {
           </div>
         )}
       </main>
+
+      {/* ── نموذج تعديل المسابقة ── */}
+      {editingComp && (
+        <>
+          <div className="fixed inset-0 z-[200] bg-black/50" onClick={() => setEditingComp(null)} />
+          <div dir="rtl" className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[210] bg-card border border-border rounded-3xl shadow-2xl p-5 max-w-md mx-auto space-y-3">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-bold flex items-center gap-2"><Pencil className="h-4 w-4 text-amber-500" /> تعديل المسابقة</h3>
+              <button onClick={() => setEditingComp(null)} className="p-1 rounded-lg hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <input value={editCTitle} onChange={(e) => setEditCTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveCompEdit()} placeholder="عنوان المسابقة" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" autoFocus />
+            <p className="text-xs text-muted-foreground">ملاحظة: لتعديل الأسئلة احذف المسابقة وأنشئ واحدة جديدة</p>
+            <div className="flex gap-2 pt-1">
+              <button onClick={saveCompEdit} className="flex-1 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">حفظ التعديل ✓</button>
+              <button onClick={() => setEditingComp(null)} className="px-4 py-2.5 rounded-xl bg-secondary">إلغاء</button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Target, Plus, X, Check, ShieldAlert, CheckSquare, Square, Trash2, Printer } from "lucide-react";
+import { ArrowLeft, Target, Plus, X, Check, ShieldAlert, CheckSquare, Square, Trash2, Printer, Pencil } from "lucide-react";
 import { FullPageLoader } from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { MathToolbar } from "@/components/MathToolbar";
@@ -386,6 +386,9 @@ function QuizzesPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
+  const [editQTitle, setEditQTitle] = useState("");
+  const [editQSubject, setEditQSubject] = useState(SCHOOLS[0]);
 
   const subjects = ["الكل", ...SCHOOLS];
 
@@ -479,6 +482,21 @@ function QuizzesPage() {
   };
   const selectAll = () => setSelected(new Set(list.map((q) => q.id)));
   const clearSelect = () => { setSelected(new Set()); setSelectMode(false); };
+
+  const openEditQuiz = (q: Quiz) => {
+    setEditingQuiz(q);
+    setEditQTitle(q.title);
+    setEditQSubject(q.subject || SCHOOLS[0]);
+  };
+
+  const saveQuizEdit = async () => {
+    if (!editingQuiz || !editQTitle.trim()) return toast.error("العنوان مطلوب");
+    const { error } = await supabase.from("quizzes").update({ title: editQTitle.trim(), subject: editQSubject }).eq("id", editingQuiz.id);
+    if (error) return toast.error("فشل التعديل");
+    setList((p) => p.map((x) => x.id === editingQuiz.id ? { ...x, title: editQTitle.trim(), subject: editQSubject } : x));
+    setEditingQuiz(null);
+    toast.success("تم تعديل الاختبار ✅");
+  };
 
   const deleteQuizImages = async (ids: string[]) => {
     const { data: rows } = await supabase.from("quizzes").select("questions").in("id", ids);
@@ -620,6 +638,11 @@ function QuizzesPage() {
                     <button onClick={(e) => { e.stopPropagation(); printQuiz(q); }} className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80" title="طباعة">
                       <Printer className="h-3.5 w-3.5" />
                     </button>
+                    {q.created_by === uid && (
+                      <button onClick={(e) => { e.stopPropagation(); openEditQuiz(q); }} className="p-1.5 rounded-lg bg-amber-100 text-amber-600 hover:bg-amber-200" title="تعديل">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     {canDelete && (
                       <button onClick={onDelete} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
                         <X className="h-3.5 w-3.5" />
@@ -632,6 +655,28 @@ function QuizzesPage() {
             })}
         </div>
       </main>
+
+      {/* ── نموذج تعديل الاختبار ── */}
+      {editingQuiz && (
+        <>
+          <div className="fixed inset-0 z-[200] bg-black/50" onClick={() => setEditingQuiz(null)} />
+          <div dir="rtl" className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[210] bg-card border border-border rounded-3xl shadow-2xl p-5 max-w-md mx-auto space-y-3">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-bold flex items-center gap-2"><Pencil className="h-4 w-4 text-amber-500" /> تعديل الاختبار</h3>
+              <button onClick={() => setEditingQuiz(null)} className="p-1 rounded-lg hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <input value={editQTitle} onChange={(e) => setEditQTitle(e.target.value)} placeholder="عنوان الاختبار" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
+            <select value={editQSubject} onChange={(e) => setEditQSubject(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background">
+              {SCHOOLS.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <p className="text-xs text-muted-foreground">ملاحظة: لتعديل الأسئلة احذف الاختبار وأنشئ واحداً جديداً</p>
+            <div className="flex gap-2 pt-1">
+              <button onClick={saveQuizEdit} className="flex-1 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">حفظ التعديل ✓</button>
+              <button onClick={() => setEditingQuiz(null)} className="px-4 py-2.5 rounded-xl bg-secondary">إلغاء</button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
