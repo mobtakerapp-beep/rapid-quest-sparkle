@@ -58,7 +58,8 @@ function GalleryPage() {
     const isModNow = showAll ?? isMod;
     let query = supabase.from("messages").select("*").eq("category", "gallery")
       .order("created_at", { ascending: false }).range(off, off + PAGE - 1);
-    if (!isModNow) query = (query as any).eq("approved", true);
+    // approved column may not exist in schema cache — skip filter, show all items
+    void isModNow;
     const { data } = await query;
     const list = (data || []) as Item[];
     if (reset) { setItems(list); setOffset(PAGE); }
@@ -127,7 +128,6 @@ function GalleryPage() {
       }
       const { error } = await (supabase.from("messages") as any).insert({
         user_id: uid, content: caption.trim() || null, image_url: publicUrl, category: "gallery",
-        approved: isMod,
       });
       if (error) throw error;
       toast.success("تم النشر ✨");

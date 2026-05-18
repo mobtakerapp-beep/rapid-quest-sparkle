@@ -27,8 +27,8 @@ function InlineClock() {
   return (
     <div className="flex flex-col items-center leading-none select-none gap-px" dir="rtl">
       <span className="text-[11px] font-black tabular-nums text-foreground">{timeStr}</span>
-      <span className="text-[9px] text-muted-foreground opacity-80 whitespace-nowrap">{gregorian}</span>
-      {hijri && <span className="text-[8px] text-amber-600 dark:text-amber-400 opacity-90 whitespace-nowrap">{hijri}</span>}
+      <span className="hidden sm:block text-[9px] text-muted-foreground opacity-80 whitespace-nowrap">{gregorian}</span>
+      {hijri && <span className="hidden sm:block text-[8px] text-amber-600 dark:text-amber-400 opacity-90 whitespace-nowrap">{hijri}</span>}
     </div>
   );
 }
@@ -226,9 +226,9 @@ export function GlobalNav() {
         </div>
 
         {/* وسط: شعار السلطنة + الأسطر الثلاثة */}
-        <div className="flex items-center justify-center gap-1.5 px-2 shrink-0">
-          <img src={omanEmblem} alt="شعار عمان" className="h-8 w-8 object-contain shrink-0 drop-shadow-sm" />
-          <div className="flex flex-col items-center leading-none gap-px select-none">
+        <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-1 sm:px-2 shrink-0">
+          <img src={omanEmblem} alt="شعار عمان" className="h-6 w-6 sm:h-8 sm:w-8 object-contain shrink-0 drop-shadow-sm" />
+          <div className="hidden sm:flex flex-col items-center leading-none gap-px select-none">
             <span
               className="text-[10px] font-black tracking-wide text-foreground whitespace-nowrap"
               style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}

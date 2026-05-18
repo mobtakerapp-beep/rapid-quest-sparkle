@@ -993,9 +993,9 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
     setSending(true);
     const ext = file.name.split(".").pop() || "png";
     const path = `stickers/${teacherId}/${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("activity-files").upload(path, file, { upsert: true });
+    const { error: upErr } = await supabase.storage.from("stickers").upload(path, file, { upsert: true });
     if (upErr) { toast.error("تعذّر رفع الصورة: " + upErr.message); setSending(false); return; }
-    const { data: urlData } = supabase.storage.from("activity-files").getPublicUrl(path);
+    const { data: urlData } = supabase.storage.from("stickers").getPublicUrl(path);
     const image_url = urlData?.publicUrl || "";
     const { error: insErr } = await (supabase as any).from("teacher_stickers").insert({
       teacher_id: teacherId,

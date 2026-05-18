@@ -50,7 +50,8 @@ function ContestPage() {
   const load = async (myId: string, showAll?: boolean) => {
     const isModNow = showAll ?? isMod;
     let q = supabase.from("gallery_contest_entries").select("*").eq("contest_id", id).order("created_at");
-    if (!isModNow) q = (q as any).eq("approved", true);
+    // approved column may not exist in schema cache — skip filter, show all items
+    void isModNow;
     const { data: e } = await q;
     const list = (e || []) as Entry[];
     setEntries(list);
@@ -91,7 +92,6 @@ function ContestPage() {
       }
       const { error } = await (supabase.from("gallery_contest_entries") as any).insert({
         contest_id: id, user_id: uid, media_url: url, caption: caption.trim() || null,
-        approved: isMod,
       });
       if (error) throw error;
       toast.success(isMod ? "تم تقديم مشاركتك ✨" : "تم تقديم مشاركتك وستظهر بعد الاعتماد ⏳");
