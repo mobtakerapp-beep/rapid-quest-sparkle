@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { Mail, Lock, Shield, ArrowRight, KeyRound, X, ChevronDown } from "lucide-react";
 import logo from "@/assets/original-logo-reference.jpg";
 import { playLoginSound } from "@/lib/sounds";
-import { LiveClock } from "@/components/LiveClock";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -136,11 +135,7 @@ function LoginPage() {
   };
 
   return (
-    <div dir="rtl" className="min-h-screen flex items-center justify-center p-4 bg-background relative overflow-hidden">
-      {/* شريط الوقت — ثابت تحت شريط الأخبار */}
-      <div className="fixed top-[32px] inset-x-0 z-[150] bg-card/95 backdrop-blur-sm border-b border-border flex items-center justify-center gap-3 px-4 py-1.5">
-        <LiveClock />
-      </div>
+    <div dir="rtl" className="min-h-screen flex items-center justify-center p-4 pt-[80px] bg-background relative overflow-hidden">
       <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[var(--brand)] opacity-20 blur-3xl" />
       <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[var(--brand-2)] opacity-20 blur-3xl" />
 
