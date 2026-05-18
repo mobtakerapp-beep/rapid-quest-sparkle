@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toAr } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { Megaphone, Plus, X, Star } from "lucide-react";
+import { Megaphone, Plus, X, Star, Pencil, Check } from "lucide-react";
 import { toast } from "sonner";
 
 type TickerItem = { id: string; text: string; type: "auto" | "custom"; expires_at?: string };
@@ -33,6 +33,18 @@ function endOfToday(): string {
   return d.toISOString();
 }
 
+function timeAgo(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const mins  = Math.floor(diffMs / 60000);
+  const hours = Math.floor(diffMs / 3600000);
+  const days  = Math.floor(diffMs / 86400000);
+  if (mins  <  2) return "الآن";
+  if (mins  < 60) return `منذ ${mins} دقيقة`;
+  if (hours < 24) return `منذ ${hours} ساعة`;
+  if (days  === 1) return "أمس";
+  return `منذ ${days} أيام`;
+}
+
 function getRoleLabel(roleType?: string, gender?: string | null): string {
   const isFemale = gender === "female" || gender === "أنثى" || gender === "f";
   switch (roleType) {
@@ -59,7 +71,8 @@ async function getTopSubmission(compId: string): Promise<{ name: string; roleLab
   if (!top) return null;
   const hasCorrect = top.question_count ? (top.correct_count ?? 0) > 0 : !!top.is_correct;
   const { data: prof } = await supabase.from("profiles").select("display_name, role_type, gender").eq("id", top.user_id).maybeSingle();
-  const name = top.name || (prof as any)?.display_name || "—";
+  const name = top.name || (prof as any)?.display_name;
+  if (!name) return null;
   const roleLabel = getRoleLabel((prof as any)?.role_type, (prof as any)?.gender);
   const score = top.question_count ? `${top.correct_count ?? 0}/${top.question_count}` : (top.is_correct ? "إجابة صحيحة" : "");
   const time = top.time_taken_seconds >= 60
@@ -82,7 +95,9 @@ async function getGalleryLeader(contestId: string): Promise<{ name: string; role
   }
   if (!bestVotes) return null;
   const { data: prof } = await supabase.from("profiles").select("display_name, role_type, gender").eq("id", bestEntry.user_id).maybeSingle();
-  return { name: (prof as any)?.display_name || "—", roleLabel: getRoleLabel((prof as any)?.role_type, (prof as any)?.gender), votes: bestVotes };
+  const name = (prof as any)?.display_name;
+  if (!name) return null;
+  return { name, roleLabel: getRoleLabel((prof as any)?.role_type, (prof as any)?.gender), votes: bestVotes };
 }
 
 // ── الأحداث الوطنية الميلادية ──
@@ -350,13 +365,13 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       });
     }
 
-    // ── معارض منتهية (خلال آخر أسبوع): الفائز بلقب "نجم المعرض 🌟" ──
-    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+    // ── معارض منتهية (خلال آخر 3 أيام فقط): الفائز بلقب "نجم المعرض 🌟" ──
+    const threeDaysAgoGallery = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
     const { data: endedGallery } = await supabase
       .from("gallery_contests")
       .select("id, title, ends_at")
       .lt("ends_at", now)
-      .gte("ends_at", oneWeekAgo)
+      .gte("ends_at", threeDaysAgoGallery)
       .order("ends_at", { ascending: false })
       .limit(5);
 
@@ -399,12 +414,14 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
 
     for (const act of (newActivities || [])) {
       const { data: poster } = await supabase.from("profiles").select("display_name, role_type, gender").eq("id", act.user_id).maybeSingle();
-      const isNew = Date.now() - new Date(act.created_at).getTime() < 24 * 3600 * 1000;
+      const posterName = (poster as any)?.display_name;
+      if (!posterName) continue;
       const posterLabel = getRoleLabel((poster as any)?.role_type, (poster as any)?.gender) || "المعلم";
-      const posterName  = (poster as any)?.display_name || "—";
+      const isNew = Date.now() - new Date(act.created_at).getTime() < 24 * 3600 * 1000;
+      const when = isNew ? timeAgo(act.created_at) : "";
       items.push({
         id: `activity-${act.id}`,
-        text: `📚 ${isNew ? "نشاط جديد" : "نشاط"} من ${posterLabel} ${posterName}: "${act.title}"${act.subject && act.subject !== "عام" ? ` — مادة: ${act.subject}` : ""} — تفضّل واطّلع عليه! 👈`,
+        text: `📚 ${isNew ? "نشاط جديد" : "نشاط"} من ${posterLabel} ${posterName}: "${act.title}"${act.subject && act.subject !== "عام" ? ` — مادة: ${act.subject}` : ""}${when ? ` — ${when}` : ""} 👈`,
         type: "auto",
       });
     }
@@ -419,8 +436,9 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
 
     for (const asgn of (newAssignments || [])) {
       const { data: teacher } = await supabase.from("profiles").select("display_name, role_type, gender").eq("id", asgn.teacher_id).maybeSingle();
+      const teacherName = (teacher as any)?.display_name;
+      if (!teacherName) continue;
       const teacherLabel = getRoleLabel((teacher as any)?.role_type, (teacher as any)?.gender) || "المعلم";
-      const teacherName  = (teacher as any)?.display_name || "—";
       const isNew = Date.now() - new Date(asgn.created_at).getTime() < 24 * 3600 * 1000;
       let dueStr = "";
       if (asgn.due_at) {
@@ -437,9 +455,10 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
           dueStr = ` — موعد التسليم: ${dueDate.toLocaleDateString("ar-EG", { weekday: "short", month: "short", day: "numeric" })} 📅`;
         }
       }
+      const when = isNew ? timeAgo(asgn.created_at) : "";
       items.push({
         id: `assignment-${asgn.id}`,
-        text: `📋 ${isNew ? "واجب جديد" : "واجب"} من ${teacherLabel} ${teacherName}: "${asgn.title}"${dueStr} — سلّمه في وقته! 💪`,
+        text: `📋 ${isNew ? "واجب جديد" : "واجب"} من ${teacherLabel} ${teacherName}: "${asgn.title}"${dueStr}${when ? ` — ${when}` : ""} 💪`,
         type: "auto",
       });
     }
@@ -454,12 +473,14 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
 
     for (const quiz of (newQuizzes || [])) {
       const { data: creator } = await supabase.from("profiles").select("display_name, role_type, gender").eq("id", quiz.created_by).maybeSingle();
+      const creatorName = (creator as any)?.display_name;
+      if (!creatorName) continue;
       const creatorLabel = getRoleLabel((creator as any)?.role_type, (creator as any)?.gender) || "المعلم";
-      const creatorName  = (creator as any)?.display_name || "—";
       const isNew = Date.now() - new Date(quiz.created_at).getTime() < 24 * 3600 * 1000;
+      const when = isNew ? timeAgo(quiz.created_at) : "";
       items.push({
         id: `quiz-${quiz.id}`,
-        text: `🎯 ${isNew ? "اختبار جديد" : "اختبار"} من ${creatorLabel} ${creatorName}: "${quiz.title}" — شارك الآن واكسب نقاطاً! ⭐`,
+        text: `🎯 ${isNew ? "اختبار جديد" : "اختبار"} من ${creatorLabel} ${creatorName}: "${quiz.title}"${when ? ` — ${when}` : ""} — شارك الآن واكسب نقاطاً! ⭐`,
         type: "auto",
       });
     }
@@ -616,6 +637,8 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
   const [showAdd, setShowAdd] = useState(false);
   const [newText, setNewText] = useState("");
   const [durationDays, setDurationDays] = useState(3);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const refresh = async () => {
@@ -815,6 +838,26 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
     toast.success("تم حذف الإعلان");
   };
 
+  const startEdit = (it: TickerItem) => {
+    setEditingId(it.id);
+    setEditText(it.text);
+  };
+
+  const saveEdit = (id: string) => {
+    const text = editText.trim();
+    if (!text) return;
+    const existing = loadCustomItems();
+    const updated = existing.map((x) => x.id === id ? { ...x, text } : x);
+    saveCustomItems(updated);
+    setItems((prev) => prev.map((x) => x.id === id ? { ...x, text } : x));
+    channelRef.current?.send({ type: "broadcast", event: "remove_item", payload: { id } });
+    const newItem = updated.find((x) => x.id === id);
+    if (newItem) channelRef.current?.send({ type: "broadcast", event: "new_item", payload: newItem });
+    setEditingId(null);
+    setEditText("");
+    toast.success("تم تعديل الإعلان ✅");
+  };
+
   const customItems = loadCustomItems();
 
   // Always render the bar so the fixed-top height stays consistent (avoids layout shift).
@@ -943,22 +986,65 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
                 {customItems.map((it) => (
                   <div
                     key={it.id}
-                    className="flex items-center gap-2 text-xs bg-secondary/60 rounded-xl px-3 py-2"
+                    className="flex items-start gap-2 text-xs bg-secondary/60 rounded-xl px-3 py-2"
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="truncate">{it.text}</div>
-                      {it.expires_at && (
-                        <div className="text-[10px] text-muted-foreground mt-0.5">
-                          ينتهي: {new Date(it.expires_at).toLocaleDateString("ar-EG")}
-                        </div>
+                      {editingId === it.id ? (
+                        <textarea
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          rows={2}
+                          autoFocus
+                          className="w-full px-2 py-1 rounded-lg border border-amber-400 bg-background text-xs resize-none focus:outline-none"
+                        />
+                      ) : (
+                        <>
+                          <div className="truncate">{it.text}</div>
+                          {it.expires_at && (
+                            <div className="text-[10px] text-muted-foreground mt-0.5">
+                              ينتهي: {new Date(it.expires_at).toLocaleDateString("ar-EG")}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
-                    <button
-                      onClick={() => removeItem(it.id)}
-                      className="text-destructive shrink-0 hover:opacity-70"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                      {editingId === it.id ? (
+                        <>
+                          <button
+                            onClick={() => saveEdit(it.id)}
+                            className="text-emerald-600 hover:opacity-70"
+                            title="حفظ"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="text-muted-foreground hover:opacity-70"
+                            title="إلغاء"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => startEdit(it)}
+                            className="text-amber-500 hover:opacity-70"
+                            title="تعديل"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => removeItem(it.id)}
+                            className="text-destructive hover:opacity-70"
+                            title="حذف"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
