@@ -770,6 +770,19 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
     const det = (row?.details as any[]) || [];
     setScore(s); setDone(true); setPreviousDetails(det);
     toast.success(`نتيجتك: ${toAr(s)}/${toAr(mcCount)} 🎉`);
+    // إشعار للمعلم صاحب الاختبار فقط
+    if (quiz.created_by && quiz.created_by !== uid) {
+      try {
+        await supabase.from("notifications").insert({
+          user_id: quiz.created_by,
+          title: `طالب أجرى اختبارك 🎯`,
+          body: `${quiz.title} — النتيجة: ${s}/${mcCount}`,
+          type: "quiz",
+          link: "/quizzes",
+          is_read: false,
+        });
+      } catch { /* الإشعار اختياري */ }
+    }
     if (mcCount > 0) {
       const ratio = s / mcCount;
       if (s === mcCount) {
