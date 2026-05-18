@@ -243,13 +243,14 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       });
     }
 
-    // ── مسابقات سريعة منتهية (خلال آخر يومين): الفائز بلقب "بطل السرعة ⚡" ──
+    // ── مسابقات سريعة منتهية (خلال آخر يوم فقط): الفائز بلقب "بطل السرعة ⚡" ──
     const twoDaysAgo = new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString();
+    const oneDayAgo  = new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString();
     const { data: endedComps } = await supabase
       .from("competitions")
       .select("id, title, ends_at")
       .lt("ends_at", now)
-      .gte("ends_at", twoDaysAgo)
+      .gte("ends_at", oneDayAgo)
       .order("ends_at", { ascending: false })
       .limit(5);
 
@@ -349,11 +350,13 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       });
     }
 
-    // ── معارض منتهية: الفائز بلقب "نجم المعرض 🌟" ──
+    // ── معارض منتهية (خلال آخر أسبوع): الفائز بلقب "نجم المعرض 🌟" ──
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
     const { data: endedGallery } = await supabase
       .from("gallery_contests")
       .select("id, title, ends_at")
       .lt("ends_at", now)
+      .gte("ends_at", oneWeekAgo)
       .order("ends_at", { ascending: false })
       .limit(5);
 
