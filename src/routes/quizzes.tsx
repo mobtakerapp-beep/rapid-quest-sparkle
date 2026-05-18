@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Target, Plus, X, Check, ShieldAlert, CheckSquare, Square, Trash2, Printer, Pencil } from "lucide-react";
+import { ArrowLeft, Target, Plus, X, Check, ShieldAlert, CheckSquare, Square, Trash2, Printer, Pencil, Paperclip } from "lucide-react";
 import { FullPageLoader } from "@/components/LoadingSpinner";
 import { toast } from "sonner";
 import { MathToolbar } from "@/components/MathToolbar";
@@ -713,6 +713,8 @@ function shuffleOnce(rawQs: Q[]): ShuffledQ[] {
 function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; isTeacher: boolean; onBack: () => void }) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [essays, setEssays] = useState<Record<number, string>>({});
+  const [essayFiles, setEssayFiles] = useState<Record<number, string>>({});
+  const [essayFileUploading, setEssayFileUploading] = useState<Record<number, boolean>>({});
   const [done, setDone] = useState(false);
   const [score, setScore] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -746,12 +748,29 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
     })();
   }, [quiz.id, uid, isTeacher]);
 
+  const uploadEssayFile = async (i: number, file: File) => {
+    if (file.size > 20 * 1024 * 1024) return toast.error("الملف كبير (الحد 20 ميجا)");
+    setEssayFileUploading((p) => ({ ...p, [i]: true }));
+    try {
+      const ext = file.name.split(".").pop() || "bin";
+      const path = `essay-files/${uid}/${Date.now()}-q${i}.${ext}`;
+      const { error } = await supabase.storage.from("assignment-files").upload(path, file);
+      if (error) { toast.error("فشل رفع الملف: " + error.message); return; }
+      const url = supabase.storage.from("assignment-files").getPublicUrl(path).data.publicUrl;
+      setEssayFiles((p) => ({ ...p, [i]: url }));
+      toast.success("تم رفع الملف ✅");
+    } finally { setEssayFileUploading((p) => ({ ...p, [i]: false })); }
+  };
+
   const submit = async () => {
     const ansMap: Record<string, number> = {};
     const essMap: Record<string, string> = {};
     qs.forEach((q: any, i: number) => {
-      if ((q.type || "mc") === "essay") essMap[String(i)] = essays[i] || "";
-      else if (typeof answers[i] === "number") {
+      if ((q.type || "mc") === "essay") {
+        const text = essays[i] || "";
+        const fileUrl = essayFiles[i];
+        essMap[String(i)] = fileUrl ? `${text}\n📎 ${fileUrl}` : text;
+      } else if (typeof answers[i] === "number") {
         ansMap[String(i)] = answers[i];
       }
     });
@@ -844,13 +863,30 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
             </div>
             {q.image_url && <img src={q.image_url} alt="" className="w-full max-h-72 object-contain rounded-xl mb-3 bg-secondary/30" />}
             {(q.type || "mc") === "essay" ? (
-              <textarea
-                value={essays[i] || ""}
-                onChange={(e) => setEssays({ ...essays, [i]: e.target.value })}
-                placeholder="اكتب إجابتك هنا..."
-                rows={4}
-                className="w-full px-3 py-2 rounded-xl border-2 border-border bg-background text-sm"
-              />
+              <div className="space-y-2">
+                <textarea
+                  value={essays[i] || ""}
+                  onChange={(e) => setEssays({ ...essays, [i]: e.target.value })}
+                  placeholder="اكتب إجابتك هنا..."
+                  rows={4}
+                  disabled={done}
+                  className="w-full px-3 py-2 rounded-xl border-2 border-border bg-background text-sm"
+                />
+                {!done && (
+                  <label className="flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border bg-background cursor-pointer hover:bg-secondary/50 transition text-sm">
+                    <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="flex-1 truncate text-muted-foreground">
+                      {essayFileUploading[i] ? "جاري الرفع..." : essayFiles[i] ? "✅ تم رفع الملف" : "إرفاق صورة أو PDF (اختياري)"}
+                    </span>
+                    <input type="file" className="hidden" accept="image/*,application/pdf,.doc,.docx"
+                      disabled={essayFileUploading[i]}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadEssayFile(i, f); e.target.value = ""; }} />
+                  </label>
+                )}
+                {essayFiles[i] && !done && (
+                  <button onClick={() => setEssayFiles((p) => { const n = { ...p }; delete n[i]; return n; })} className="text-xs text-destructive">إزالة الملف</button>
+                )}
+              </div>
             ) : (
             <div className="grid gap-2">
               {q.options.map((o, oi) => {

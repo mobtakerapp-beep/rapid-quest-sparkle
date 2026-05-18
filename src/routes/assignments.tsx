@@ -11,7 +11,7 @@ import { toAr } from "@/lib/utils";
 
 export const Route = createFileRoute("/assignments")({ component: AssignmentsPage });
 
-type A = { id: string; teacher_id: string; title: string; description: string | null; subject: string; due_at: string | null; created_at: string; teacher_name?: string };
+type A = { id: string; teacher_id: string; title: string; description: string | null; subject: string; due_at: string | null; created_at: string; teacher_name?: string; file_url?: string | null };
 
 function printAssignment(a: A) {
   const school = a.subject || "";
@@ -242,6 +242,8 @@ function AssignmentsPage() {
   const [active, setActive] = useState<A | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState(""); const [desc, setDesc] = useState(""); const [due, setDue] = useState(""); const [subject, setSubject] = useState(SCHOOLS[0]);
+  const [attachFile, setAttachFile] = useState<File | null>(null);
+  const [creating, setCreating] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -365,14 +367,26 @@ function AssignmentsPage() {
 
   const create = async () => {
     if (!uid || !title.trim()) return toast.error("أدخل العنوان");
-    const { error } = await supabase.from("assignments").insert({
-      teacher_id: uid, title: title.trim(), description: desc.trim() || null, subject,
-      due_at: due ? new Date(due).toISOString() : null,
-    });
-    if (error) return toast.error(error.message);
-    toast.success("تم إنشاء الواجب 📝");
-    setTitle(""); setDesc(""); setDue(""); setShowForm(false);
-    load();
+    setCreating(true);
+    let file_url: string | null = null;
+    try {
+      if (attachFile) {
+        if (attachFile.size > 20 * 1024 * 1024) { setCreating(false); return toast.error("الملف كبير (الحد 20 ميجا)"); }
+        const ext = attachFile.name.split(".").pop() || "bin";
+        const path = `assignments/${uid}/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("assignment-files").upload(path, attachFile);
+        if (upErr) { setCreating(false); return toast.error("فشل رفع الملف: " + upErr.message); }
+        file_url = supabase.storage.from("assignment-files").getPublicUrl(path).data.publicUrl;
+      }
+      const { error } = await (supabase.from("assignments") as any).insert({
+        teacher_id: uid, title: title.trim(), description: desc.trim() || null, subject,
+        due_at: due ? new Date(due).toISOString() : null, file_url,
+      });
+      if (error) return toast.error(error.message);
+      toast.success("تم إنشاء الواجب 📝");
+      setTitle(""); setDesc(""); setDue(""); setAttachFile(null); setShowForm(false);
+      load();
+    } finally { setCreating(false); }
   };
 
   if (active && uid) return <AssignmentView a={active} uid={uid} isTeacher={isTeacher} onBack={() => setActive(null)} />;
@@ -430,7 +444,15 @@ function AssignmentsPage() {
                 <MathToolbar targetRef={descRef} onChange={setDesc} />
                 <label className="text-xs text-muted-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> موعد التسليم (التاريخ والوقت)</label>
                 <DateTimePicker value={due} onChange={setDue} placeholder="موعد التسليم" />
-                <button onClick={create} className="w-full px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">إنشاء</button>
+                <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-border bg-background cursor-pointer hover:bg-secondary/50 transition">
+                  <Paperclip className="h-4 w-4 shrink-0" />
+                  <span className="text-sm flex-1 truncate">{attachFile ? attachFile.name : "إرفاق صورة أو ملف (PDF, Word) — اختياري"}</span>
+                  <input type="file" className="hidden" accept="image/*,application/pdf,.doc,.docx,.txt" onChange={(e) => setAttachFile(e.target.files?.[0] || null)} />
+                </label>
+                {attachFile && <button onClick={() => setAttachFile(null)} className="text-xs text-destructive">إزالة الملف</button>}
+                <button onClick={create} disabled={creating} className="w-full px-5 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold disabled:opacity-50">
+                  {creating ? "جاري الإنشاء..." : "إنشاء"}
+                </button>
               </div>
             )}
           </div>
@@ -652,6 +674,12 @@ function AssignmentView({ a, uid, isTeacher, onBack }: { a: A; uid: string; isTe
           <h2 className="text-2xl font-black mb-2">{a.title}</h2>
           {a.description && <div className="text-muted-foreground mb-3"><MathText text={a.description} /></div>}
           {a.due_at && <div className="text-xs text-amber-600">📅 تسليم: {new Date(a.due_at).toLocaleString("ar-EG")}</div>}
+          {(a as any).file_url && (
+            <a href={(a as any).file_url} target="_blank" rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--brand)]/40 bg-[var(--brand)]/5 text-[var(--brand)] text-sm font-bold hover:bg-[var(--brand)]/10 transition">
+              <Paperclip className="h-4 w-4" /> مرفق الواجب — اضغط للعرض
+            </a>
+          )}
         </div>
 
         {showAnswerBox && (

@@ -536,7 +536,22 @@ function EssayGradingPanel({ teacherId }: { teacherId: string }) {
                   {(a.details as any[]).filter((d: any) => d?.type === "essay").map((d: any) => (
                     <div key={d.i} className="bg-secondary/30 rounded-xl p-3">
                       <div className="text-sm font-bold mb-1">{toAr(d.i + 1)}. {d.question}</div>
-                      <div className="text-sm bg-background p-2 rounded mb-2 whitespace-pre-wrap">{d.essay || <span className="text-muted-foreground">لا توجد إجابة</span>}</div>
+                      <div className="text-sm bg-background p-2 rounded mb-2 whitespace-pre-wrap">
+                        {d.essay ? (() => {
+                          const parts = (d.essay as string).split(/\n📎 /);
+                          const text = parts[0];
+                          const fileUrl = parts[1]?.trim();
+                          return (<>
+                            {text && <span>{text}</span>}
+                            {fileUrl && (
+                              <a href={fileUrl} target="_blank" rel="noreferrer"
+                                className="mt-1 flex items-center gap-1.5 text-[var(--brand)] font-bold hover:underline text-xs">
+                                📎 مرفق الطالب — اضغط للعرض
+                              </a>
+                            )}
+                          </>);
+                        })() : <span className="text-muted-foreground">لا توجد إجابة</span>}
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">الدرجة (0 أو 1):</span>
                         <input type="number" min={0} max={1} step={1}
