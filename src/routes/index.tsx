@@ -366,17 +366,18 @@ function Index() {
       <hr className="section-divider" />
       <LiveStats />
 
-      {/* بطل اليوم */}
+      {/* لوحة الشرف */}
       <hr className="section-divider" />
+      <div className="container mx-auto px-6 pt-2 pb-1 text-center" dir="rtl">
+        <h2 className="text-lg md:text-xl font-black inline-flex items-center gap-2">
+          <span className="text-amber-500">👑</span> لوحة الشرف
+        </h2>
+      </div>
       <HeroOfDay />
 
       {/* فكرة اليوم */}
       <hr className="section-divider" />
       <DailyQuote />
-
-      {/* Honor Board */}
-      <hr className="section-divider" />
-      <HonorBoard />
 
       {/* Features with badges */}
       <hr className="section-divider" />
