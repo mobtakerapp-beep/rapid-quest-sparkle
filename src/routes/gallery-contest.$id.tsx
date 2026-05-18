@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toAr } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Trophy, Heart, Upload, Trash2, MessageCircle, Send, Crown, Type } from "lucide-react";
+import { ArrowLeft, Trophy, Heart, Upload, Trash2, MessageCircle, Send, Crown, Type, Pencil, Check, X as XIcon } from "lucide-react";
 import { ImageTextEditor } from "@/components/ImageTextEditor";
 import { toast } from "sonner";
 
@@ -302,9 +302,10 @@ function EntryComments({ entryId, uid }: { entryId: string; uid: string }) {
   const [list, setList] = useState<{ id: string; user_id: string; content: string; created_at: string; name?: string }[]>([]);
   const [text, setText] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
 
   const load = async () => {
-    // reuse gallery_comments table by storing item_id = entry_id
     const { data } = await supabase.from("gallery_comments").select("*").eq("item_id", entryId).order("created_at");
     const ids = Array.from(new Set((data || []).map((c: any) => c.user_id)));
     const { data: profs } = ids.length ? await supabase.from("profiles").select("id, display_name").in("id", ids) : { data: [] };
@@ -322,13 +323,44 @@ function EntryComments({ entryId, uid }: { entryId: string; uid: string }) {
     setText(""); load();
   };
 
+  const delComment = async (id: string) => {
+    const { error } = await supabase.from("gallery_comments").delete().eq("id", id);
+    if (error) return toast.error("فشل الحذف");
+    setList((p) => p.filter((c) => c.id !== id));
+  };
+
+  const saveEdit = async (id: string) => {
+    const content = editText.trim();
+    if (!content) return;
+    const { error } = await supabase.from("gallery_comments").update({ content }).eq("id", id);
+    if (error) return toast.error("فشل التعديل");
+    setList((p) => p.map((c) => c.id === id ? { ...c, content } : c));
+    setEditingId(null);
+    toast.success("تم تعديل التعليق ✅");
+  };
+
   return (
     <div className="mt-2 border-t border-border pt-2 space-y-2">
       <div className="space-y-1 max-h-40 overflow-y-auto">
         {list.map((c) => (
           <div key={c.id} className="text-xs bg-secondary/50 rounded-lg p-2">
-            <span className="font-bold">{c.name}: </span>
-            <span>{c.content}</span>
+            {editingId === c.id ? (
+              <div className="flex gap-1">
+                <input value={editText} onChange={(e) => setEditText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveEdit(c.id)} autoFocus className="flex-1 px-2 py-1 rounded-lg border border-amber-400 bg-background text-xs" />
+                <button onClick={() => saveEdit(c.id)} className="p-1 rounded-lg bg-emerald-500 text-white"><Check className="h-3 w-3" /></button>
+                <button onClick={() => setEditingId(null)} className="p-1 rounded-lg bg-secondary"><XIcon className="h-3 w-3" /></button>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-1">
+                <div><span className="font-bold">{c.name}: </span><span>{c.content}</span></div>
+                {c.user_id === uid && (
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => { setEditingId(c.id); setEditText(c.content); }} className="text-amber-500 hover:opacity-70"><Pencil className="h-3 w-3" /></button>
+                    <button onClick={() => delComment(c.id)} className="text-destructive hover:opacity-70"><Trash2 className="h-3 w-3" /></button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
         {list.length === 0 && <div className="text-[11px] text-muted-foreground text-center">لا تعليقات بعد</div>}

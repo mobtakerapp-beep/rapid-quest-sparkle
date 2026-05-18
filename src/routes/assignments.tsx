@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, ClipboardList, Plus, X, Clock, Paperclip, FileText, MessageSquare, Check, ShieldAlert, CheckSquare, Square, Trash2, Printer } from "lucide-react";
+import { ArrowLeft, ClipboardList, Plus, X, Clock, Paperclip, FileText, MessageSquare, Check, ShieldAlert, CheckSquare, Square, Trash2, Printer, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
@@ -268,6 +268,11 @@ function AssignmentsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [mySubIds, setMySubIds] = useState<Set<string>>(new Set());
+  const [editingAssignment, setEditingAssignment] = useState<A | null>(null);
+  const [editATitle, setEditATitle] = useState("");
+  const [editADesc, setEditADesc] = useState("");
+  const [editASubject, setEditASubject] = useState(SCHOOLS[0]);
+  const [editADue, setEditADue] = useState("");
 
   const load = async (userId?: string) => {
     const id = userId ?? uid;
@@ -298,6 +303,28 @@ function AssignmentsPage() {
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+
+  const openEditAssignment = (a: A) => {
+    setEditingAssignment(a);
+    setEditATitle(a.title);
+    setEditADesc(a.description || "");
+    setEditASubject(a.subject || SCHOOLS[0]);
+    setEditADue(a.due_at || "");
+  };
+
+  const saveAssignmentEdit = async () => {
+    if (!editingAssignment || !editATitle.trim()) return toast.error("العنوان مطلوب");
+    const { error } = await supabase.from("assignments").update({
+      title: editATitle.trim(),
+      description: editADesc.trim() || null,
+      subject: editASubject,
+      due_at: editADue || null,
+    }).eq("id", editingAssignment.id);
+    if (error) return toast.error("فشل التعديل");
+    setList((p) => p.map((x) => x.id === editingAssignment.id ? { ...x, title: editATitle.trim(), description: editADesc.trim() || null, subject: editASubject, due_at: editADue || null } : x));
+    setEditingAssignment(null);
+    toast.success("تم تعديل الواجب ✅");
   };
   const selectAll = () => setSelected(new Set(list.map((i) => i.id)));
   const clearSelect = () => { setSelected(new Set()); setSelectMode(false); };
@@ -412,6 +439,7 @@ function AssignmentsPage() {
           {list.length === 0 ? <div className="text-center text-muted-foreground py-16 text-sm">لا توجد واجبات</div>
             : list.map((a) => {
               const canDelete = isTeacher;
+              const canEdit = isTeacher && a.teacher_id === uid;
               const isSelected = selected.has(a.id);
               const onDelete = async (e: React.MouseEvent) => {
                 e.stopPropagation();
@@ -421,6 +449,10 @@ function AssignmentsPage() {
                 if (error) return toast.error("لا تملك صلاحية الحذف");
                 toast.success("تم الحذف");
                 setList((p) => p.filter((x) => x.id !== a.id));
+              };
+              const onEdit = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                openEditAssignment(a);
               };
               return (
               <div key={a.id} className={`flex items-stretch gap-2 ${isSelected && selectMode ? "ring-2 ring-rose-400 rounded-2xl" : ""}`}>
@@ -451,6 +483,11 @@ function AssignmentsPage() {
                     <button onClick={(e) => { e.stopPropagation(); printAssignment(a); }} className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80" title="طباعة">
                       <Printer className="h-3.5 w-3.5" />
                     </button>
+                    {canEdit && (
+                      <button onClick={onEdit} className="p-1.5 rounded-lg bg-amber-100 text-amber-600 hover:bg-amber-200" title="تعديل">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     {canDelete && (
                       <button onClick={onDelete} className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20" title="حذف">
                         <X className="h-3.5 w-3.5" />
@@ -463,6 +500,29 @@ function AssignmentsPage() {
             })}
         </div>
       </main>
+
+      {/* ── نموذج تعديل الواجب ── */}
+      {editingAssignment && (
+        <>
+          <div className="fixed inset-0 z-[200] bg-black/50" onClick={() => setEditingAssignment(null)} />
+          <div dir="rtl" className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[210] bg-card border border-border rounded-3xl shadow-2xl p-5 max-w-md mx-auto space-y-3">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-bold flex items-center gap-2"><Pencil className="h-4 w-4 text-amber-500" /> تعديل الواجب</h3>
+              <button onClick={() => setEditingAssignment(null)} className="p-1 rounded-lg hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <input value={editATitle} onChange={(e) => setEditATitle(e.target.value)} placeholder="عنوان الواجب" className="w-full px-4 py-2.5 rounded-xl border border-border bg-background" />
+            <select value={editASubject} onChange={(e) => setEditASubject(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background">
+              {SCHOOLS.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <textarea value={editADesc} onChange={(e) => setEditADesc(e.target.value)} placeholder="الوصف والتعليمات" rows={3} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background resize-none" />
+            <DateTimePicker value={editADue} onChange={setEditADue} placeholder="موعد التسليم" />
+            <div className="flex gap-2 pt-1">
+              <button onClick={saveAssignmentEdit} className="flex-1 py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold">حفظ التعديل ✓</button>
+              <button onClick={() => setEditingAssignment(null)} className="px-4 py-2.5 rounded-xl bg-secondary">إلغاء</button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

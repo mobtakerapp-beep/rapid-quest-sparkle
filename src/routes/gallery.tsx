@@ -3,7 +3,7 @@ import { toAr } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Image as ImageIcon, Upload, Trash2, Sparkles, Video, Send, Smile, X, Type, CheckSquare, Square, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, Upload, Trash2, Sparkles, Video, Send, Smile, X, Type, CheckSquare, Square, ShieldAlert, Pencil, Check } from "lucide-react";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { ReportButton } from "@/components/ReportButton";
 import { Reactions } from "@/components/Reactions";
@@ -390,6 +390,8 @@ function ItemModal({ item, uid, isAdmin, authorName, onClose }: { item: Item; ui
   const [text, setText] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
   const [sending, setSending] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const vid = item.image_url ? isVideo(item.image_url) : false;
 
   const loadComments = async () => {
@@ -443,6 +445,16 @@ function ItemModal({ item, uid, isAdmin, authorName, onClose }: { item: Item; ui
     setComments((p) => p.filter((c) => c.id !== id));
   };
 
+  const saveEdit = async (id: string) => {
+    const content = editText.trim();
+    if (!content) return;
+    const { error } = await supabase.from("gallery_comments").update({ content }).eq("id", id);
+    if (error) return toast.error("فشل التعديل");
+    setComments((p) => p.map((c) => c.id === id ? { ...c, content } : c));
+    setEditingId(null);
+    toast.success("تم تعديل التعليق ✅");
+  };
+
   return (
     <div dir="rtl" className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-card rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row" onClick={(e) => e.stopPropagation()}>
@@ -469,6 +481,8 @@ function ItemModal({ item, uid, isAdmin, authorName, onClose }: { item: Item; ui
             {comments.map((c) => {
               const name = profiles[c.user_id]?.display_name || "مستخدم";
               const canDel = c.user_id === uid || isAdmin;
+              const canEdit = c.user_id === uid;
+              const isEditingThis = editingId === c.id;
               return (
                 <div key={c.id} className="group flex gap-2">
                   <div className="h-8 w-8 rounded-full bg-[image:var(--gradient-warm)] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -476,16 +490,31 @@ function ItemModal({ item, uid, isAdmin, authorName, onClose }: { item: Item; ui
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-bold mb-0.5">{name}</div>
-                    <div className="bg-secondary rounded-2xl px-3 py-2 text-sm break-words">{c.content}</div>
-                  </div>
-                  <div className="flex flex-col gap-1 items-end">
-                    <ReportButton targetKind="gallery_comment" targetId={c.id} content={c.content} label="" />
-                    {canDel && (
-                      <button onClick={() => delComment(c.id)} className="text-destructive p-1">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                    {isEditingThis ? (
+                      <div className="flex gap-1">
+                        <input value={editText} onChange={(e) => setEditText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveEdit(c.id)} autoFocus className="flex-1 px-3 py-1.5 rounded-xl border border-amber-400 bg-background text-sm" />
+                        <button onClick={() => saveEdit(c.id)} className="p-1.5 rounded-xl bg-emerald-500 text-white"><Check className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => setEditingId(null)} className="p-1.5 rounded-xl bg-secondary"><X className="h-3.5 w-3.5" /></button>
+                      </div>
+                    ) : (
+                      <div className="bg-secondary rounded-2xl px-3 py-2 text-sm break-words">{c.content}</div>
                     )}
                   </div>
+                  {!isEditingThis && (
+                    <div className="flex flex-col gap-1 items-end">
+                      <ReportButton targetKind="gallery_comment" targetId={c.id} content={c.content} label="" />
+                      {canEdit && (
+                        <button onClick={() => { setEditingId(c.id); setEditText(c.content); }} className="text-amber-500 p-1">
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      )}
+                      {canDel && (
+                        <button onClick={() => delComment(c.id)} className="text-destructive p-1">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

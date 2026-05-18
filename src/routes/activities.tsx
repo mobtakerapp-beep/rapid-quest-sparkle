@@ -3,7 +3,7 @@ import { toAr } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, BookOpen, Upload, FileText, Download, Trash2, Video, Image as ImageIcon, File as FileIcon, Plus, X, CheckCircle2, Clock, MessageCircle, Send, ShieldAlert, CheckSquare, Square, GraduationCap } from "lucide-react";
+import { ArrowLeft, BookOpen, Upload, FileText, Download, Trash2, Video, Image as ImageIcon, File as FileIcon, Plus, X, CheckCircle2, Clock, MessageCircle, Send, ShieldAlert, CheckSquare, Square, GraduationCap, Pencil, Check } from "lucide-react";
 import { Reactions } from "@/components/Reactions";
 import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
@@ -368,7 +368,7 @@ function ActivitiesPage() {
                   )}
                   <div onClick={() => selectMode && isAdmin && toggleSelect(it.id)}
                     className={selectMode && isAdmin ? "cursor-pointer" : ""}>
-                    <ActivityCard it={it} Icon={Icon} isImg={isImg} isVid={isVid} canDelete={!selectMode && canDelete} isAdmin={isAdmin} uid={uid} onApprove={approve} onDelete={del} isStudentTab={activeTab === "students"} />
+                    <ActivityCard it={it} Icon={Icon} isImg={isImg} isVid={isVid} canDelete={!selectMode && canDelete} isAdmin={isAdmin} uid={uid} onApprove={approve} onDelete={del} isStudentTab={activeTab === "students"} onEdit={(updated: any) => setList((p) => p.map((x) => x.id === updated.id ? { ...x, ...updated } : x))} />
                   </div>
                 </div>
               );
@@ -387,7 +387,7 @@ function parseCommentContent(content: string): { text: string; imageUrl: string 
   return { text: content.slice(0, idx), imageUrl: content.slice(idx + marker.length) };
 }
 
-function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onApprove, onDelete, isStudentTab }: any) {
+function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onApprove, onDelete, onEdit, isStudentTab }: any) {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [text, setText] = useState("");
@@ -395,6 +395,13 @@ function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onAppro
   const [commentImgPreview, setCommentImgPreview] = useState<string | null>(null);
   const [sendingComment, setSendingComment] = useState(false);
   const commentImgRef = useRef<HTMLInputElement>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState("");
+  const [editingActivity, setEditingActivity] = useState(false);
+  const [editTitle, setEditTitle] = useState(it.title || "");
+  const [editDesc, setEditDesc] = useState(it.description || "");
+  const [editSubject, setEditSubject] = useState(it.subject || "");
+  const canEdit = it.user_id === uid;
 
   const loadComments = async () => {
     const { data } = await supabase.from("activity_comments").select("*").eq("activity_id", it.id).order("created_at", { ascending: true });
@@ -452,6 +459,36 @@ function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onAppro
     setComments((p) => p.filter((c) => c.id !== id));
   };
 
+  const startEditComment = (c: any) => {
+    const { text: ct } = parseCommentContent(c.content || "");
+    setEditingCommentId(c.id);
+    setEditingCommentText(ct);
+  };
+
+  const saveEditComment = async (c: any) => {
+    const newText = editingCommentText.trim();
+    if (!newText) return;
+    const { text: _oldText, imageUrl } = parseCommentContent(c.content || "");
+    const newContent = imageUrl ? `${newText}\n__img__:${imageUrl}` : newText;
+    const { error } = await supabase.from("activity_comments").update({ content: newContent }).eq("id", c.id);
+    if (error) return toast.error("فشل التعديل");
+    setComments((p) => p.map((x) => x.id === c.id ? { ...x, content: newContent } : x));
+    setEditingCommentId(null);
+    toast.success("تم تعديل التعليق ✅");
+  };
+
+  const saveActivityEdit = async () => {
+    if (!editTitle.trim()) return toast.error("العنوان مطلوب");
+    const { error } = await supabase.from("activities").update({ title: editTitle.trim(), description: editDesc.trim() || null, subject: editSubject }).eq("id", it.id);
+    if (error) return toast.error("فشل التعديل");
+    it.title = editTitle.trim();
+    it.description = editDesc.trim() || null;
+    it.subject = editSubject;
+    if (onEdit) onEdit({ ...it, title: editTitle.trim(), description: editDesc.trim() || null, subject: editSubject });
+    setEditingActivity(false);
+    toast.success("تم تعديل النشاط ✨");
+  };
+
   return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-[var(--shadow-card)] flex flex-col">
       {it.file_url ? (
@@ -470,15 +507,31 @@ function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onAppro
         </div>
       )}
       <div className="p-4 flex-1 flex flex-col">
-        <div className="text-xs text-[var(--brand)] font-semibold mb-1 flex items-center gap-1.5">
-          🏫 {it.subject || "—"}{it.teacher_name ? <span className="text-muted-foreground font-normal">• {it.teacher_name}</span> : null}
-        </div>
-        <h3 className="font-bold mb-1 line-clamp-2">{it.title}</h3>
-        {it.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-3"><MathText text={it.description} /></p>}
-        {it.status !== "approved" && (
-          <div className="mb-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 w-fit">
-            <Clock className="h-3 w-3" /> قيد المراجعة
+        {editingActivity ? (
+          <div className="space-y-2 mb-3">
+            <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="العنوان" className="w-full px-3 py-1.5 rounded-xl border border-border bg-background text-sm font-bold" />
+            <select value={editSubject} onChange={(e) => setEditSubject(e.target.value)} className="w-full px-3 py-1.5 rounded-xl border border-border bg-background text-sm">
+              {["عام","رياضيات","علوم","لغة عربية","إنجليزي","تربية إسلامية","اجتماعيات","تربية فنية"].map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="الوصف" rows={2} className="w-full px-3 py-1.5 rounded-xl border border-border bg-background text-sm resize-none" />
+            <div className="flex gap-2">
+              <button onClick={saveActivityEdit} className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-xl bg-emerald-500 text-white text-xs font-bold"><Check className="h-3.5 w-3.5" /> حفظ</button>
+              <button onClick={() => setEditingActivity(false)} className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-xl bg-secondary text-xs"><X className="h-3.5 w-3.5" /> إلغاء</button>
+            </div>
           </div>
+        ) : (
+          <>
+            <div className="text-xs text-[var(--brand)] font-semibold mb-1 flex items-center gap-1.5">
+              🏫 {it.subject || "—"}{it.teacher_name ? <span className="text-muted-foreground font-normal">• {it.teacher_name}</span> : null}
+            </div>
+            <h3 className="font-bold mb-1 line-clamp-2">{it.title}</h3>
+            {it.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-3"><MathText text={it.description} /></p>}
+            {it.status !== "approved" && (
+              <div className="mb-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 w-fit">
+                <Clock className="h-3 w-3" /> قيد المراجعة
+              </div>
+            )}
+          </>
         )}
         <div className="mt-auto flex items-center gap-2">
           {it.file_url && (
@@ -490,6 +543,11 @@ function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onAppro
           <button onClick={toggleComments} className="p-2 rounded-xl bg-secondary hover:bg-secondary/80" title="التعليقات">
             <MessageCircle className="h-4 w-4" />
           </button>
+          {canEdit && !editingActivity && (
+            <button onClick={() => setEditingActivity(true)} className="p-2 rounded-xl bg-amber-100 text-amber-600 hover:bg-amber-200" title="تعديل النشاط">
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
           {isAdmin && it.status !== "approved" && (
             <button onClick={() => onApprove(it.id)} className="p-2 rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200" title="اعتماد">
               <CheckCircle2 className="h-4 w-4" />
@@ -509,19 +567,38 @@ function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onAppro
                 <div className="text-xs text-muted-foreground text-center py-2">لا توجد تعليقات</div>
               ) : comments.map((c) => {
                 const { text: cText, imageUrl: cImg } = parseCommentContent(c.content || "");
+                const canEditComment = c.user_id === uid;
+                const canDelComment = c.user_id === uid || isAdmin;
+                const isEditingThis = editingCommentId === c.id;
                 return (
                   <div key={c.id} className="text-xs bg-secondary/50 rounded-lg p-2">
                     <div className="flex justify-between gap-2 mb-1">
                       <b>{c.name}: </b>
-                      {(c.user_id === uid || isAdmin) && (
-                        <button onClick={() => delComment(c.id)} className="text-destructive opacity-70 hover:opacity-100 shrink-0">×</button>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isEditingThis ? (
+                          <>
+                            <button onClick={() => saveEditComment(c)} className="text-emerald-600 hover:opacity-80" title="حفظ"><Check className="h-3 w-3" /></button>
+                            <button onClick={() => setEditingCommentId(null)} className="text-muted-foreground hover:opacity-80" title="إلغاء"><X className="h-3 w-3" /></button>
+                          </>
+                        ) : (
+                          <>
+                            {canEditComment && <button onClick={() => startEditComment(c)} className="text-amber-500 hover:opacity-80" title="تعديل"><Pencil className="h-3 w-3" /></button>}
+                            {canDelComment && <button onClick={() => delComment(c.id)} className="text-destructive opacity-70 hover:opacity-100" title="حذف">×</button>}
+                          </>
+                        )}
+                      </div>
                     </div>
-                    {cText && <div className="break-words">{cText}</div>}
-                    {cImg && (
-                      <a href={cImg} target="_blank" rel="noreferrer">
-                        <img src={cImg} alt="صورة" className="mt-1.5 max-h-40 rounded-lg object-cover border border-border cursor-pointer hover:opacity-90 transition" />
-                      </a>
+                    {isEditingThis ? (
+                      <input value={editingCommentText} onChange={(e) => setEditingCommentText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveEditComment(c)} autoFocus className="w-full px-2 py-1 rounded-lg border border-amber-400 bg-background text-xs" />
+                    ) : (
+                      <>
+                        {cText && <div className="break-words">{cText}</div>}
+                        {cImg && (
+                          <a href={cImg} target="_blank" rel="noreferrer">
+                            <img src={cImg} alt="صورة" className="mt-1.5 max-h-40 rounded-lg object-cover border border-border cursor-pointer hover:opacity-90 transition" />
+                          </a>
+                        )}
+                      </>
                     )}
                   </div>
                 );
