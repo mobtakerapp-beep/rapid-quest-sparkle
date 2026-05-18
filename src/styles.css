@@ -159,7 +159,8 @@
 }
 
 .app-content-with-nav header.sticky {
-  top: 5rem;
+  position: static !important;
+  top: auto !important;
 }
 
 .math-text {
