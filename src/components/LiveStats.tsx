@@ -24,6 +24,32 @@ function useCountUp(target: number | null, duration = 900): number | null {
   return display;
 }
 
+function RollingNumber({ value }: { value: number | null }) {
+  const prevRef = useRef<number | null>(null);
+  const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    if (value !== null && prevRef.current !== value) {
+      if (prevRef.current === null) setKey(k => k + 1);
+      prevRef.current = value;
+    }
+  }, [value]);
+
+  if (value === null) {
+    return <span className="inline-block h-6 w-8 rounded-md bg-secondary animate-pulse" />;
+  }
+
+  return (
+    <span
+      key={key}
+      className="inline-block tabular-nums"
+      style={{ animation: key > 0 ? "num-roll-up 0.55s cubic-bezier(0.22,1,0.36,1)" : "none" }}
+    >
+      {value.toLocaleString("ar-EG")}
+    </span>
+  );
+}
+
 export function LiveStats() {
   const [stats, setStats] = useState<Stats | null>(null);
   const students    = useCountUp(stats?.students    ?? null);
@@ -74,26 +100,21 @@ export function LiveStats() {
 
   return (
     <section className="container mx-auto px-6 pb-10" dir="rtl">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-2 sm:gap-3">
         {items.map((item, idx) => (
           <div
             key={item.label}
-            className="relative bg-card rounded-2xl border border-border shadow-sm p-5 flex flex-col items-center gap-2 overflow-hidden group hover:-translate-y-1 hover:shadow-lg transition-all duration-300"
+            className="relative bg-card rounded-xl border border-border shadow-sm p-2.5 sm:p-3 flex flex-col items-center gap-1.5 overflow-hidden group hover:-translate-y-1 hover:shadow-md transition-all duration-300"
             style={{ animationDelay: `${idx * 80}ms` }}
           >
-            <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-md ${item.glow} group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
-              <item.icon className="h-5 w-5 text-white" />
+            <div className={`h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center shadow-sm ${item.glow} group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+              <item.icon className="h-4 w-4 text-white" />
             </div>
-            <div className="text-2xl font-black text-foreground tabular-nums">
-              {item.value === null ? (
-                <span className="inline-block h-7 w-10 rounded-lg bg-secondary animate-pulse" />
-              ) : (
-                item.value.toLocaleString("ar-EG")
-              )}
+            <div className="text-base sm:text-lg font-black text-foreground leading-none">
+              <RollingNumber value={item.value} />
             </div>
-            <div className="text-xs text-muted-foreground font-medium text-center leading-tight">{item.label}</div>
-            <div className={`absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r ${item.color}`} />
-            <div className={`absolute inset-0 bg-gradient-to-br ${item.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300 pointer-events-none`} />
+            <div className="text-[10px] sm:text-xs text-muted-foreground font-medium text-center leading-tight">{item.label}</div>
+            <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${item.color}`} />
           </div>
         ))}
       </div>

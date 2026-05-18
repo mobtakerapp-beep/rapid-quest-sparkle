@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { toAr } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { Crown, Star } from "lucide-react";
+import { Crown, Star, GraduationCap, BookOpen } from "lucide-react";
 
-type Top = { id: string; display_name: string | null; points: number; avatar_url: string | null; school: string | null; gender: string | null };
+type Top = { id: string; display_name: string | null; points: number; school: string | null; gender: string | null };
 
 export function HonorBoard() {
   const [topStudent, setTopStudent] = useState<Top | null>(null);
@@ -11,10 +11,10 @@ export function HonorBoard() {
 
   const load = async () => {
     const [{ data: students }, { data: teachers }] = await Promise.all([
-      supabase.from("profiles").select("id, display_name, points, avatar_url, school, gender, role_type")
+      supabase.from("profiles").select("id, display_name, points, school, gender, role_type")
         .or("role_type.is.null,role_type.eq.student")
         .order("points", { ascending: false }).limit(1),
-      supabase.from("profiles").select("id, display_name, points, avatar_url, school, gender, role_type")
+      supabase.from("profiles").select("id, display_name, points, school, gender, role_type")
         .in("role_type", ["teacher", "supervisor", "admin"])
         .order("points", { ascending: false }).limit(1),
     ]);
@@ -33,33 +33,44 @@ export function HonorBoard() {
   if (!topStudent && !topTeacher) return null;
 
   const Card = ({ p, kind }: { p: Top; kind: "student" | "teacher" }) => {
-    const title = kind === "teacher"
-      ? (p.gender === "female" ? "المعلمة المتميزة" : "المعلم المتميز")
-      : (p.gender === "female" ? "الطالبة المتميزة" : "الطالب المتميز");
-    const grad = kind === "teacher" ? "from-violet-500 to-fuchsia-500" : "from-amber-400 to-orange-500";
+    const isTeacher = kind === "teacher";
+    const isFemale = p.gender === "female";
+    const title = isTeacher
+      ? (isFemale ? "المعلمة المتميزة الأكثر نشاطاً" : "المعلم المتميز الأكثر نشاط")
+      : (isFemale ? "الطالبة المتميزة الأكثر نشاطاً" : "الطالب المتميز الأكثر نشاطاً");
+
+    const borderColor = isTeacher ? "border-violet-300" : "border-amber-300";
+    const bgGrad = isTeacher
+      ? "from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/10"
+      : "from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/10";
+    const iconGrad = isTeacher ? "from-violet-500 to-fuchsia-500" : "from-amber-400 to-orange-500";
+    const tagColor = isTeacher ? "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+    const titleColor = isTeacher ? "text-violet-700 dark:text-violet-300" : "text-amber-700 dark:text-amber-400";
+    const Icon = isTeacher ? GraduationCap : BookOpen;
+
     return (
-      <div className="relative bg-card rounded-2xl border-2 border-amber-300 px-3 py-3 flex items-center gap-3 overflow-hidden shadow-sm">
-        <div className={`relative h-12 w-12 rounded-full bg-gradient-to-br ${grad} flex items-center justify-center text-white text-lg font-black ring-2 ring-amber-200 shrink-0`}>
-          {p.avatar_url ? <img src={p.avatar_url} alt="" className="h-full w-full object-cover rounded-full" /> : (p.display_name || "؟").charAt(0)}
+      <div className={`relative bg-gradient-to-br ${bgGrad} rounded-2xl border-2 ${borderColor} px-4 py-3 flex items-center gap-3 overflow-hidden shadow-sm`}>
+        <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${iconGrad} flex items-center justify-center text-white shadow-md shrink-0`}>
+          <Icon className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0 text-right">
-          <div className="text-[10px] font-bold text-amber-700 inline-flex items-center gap-1">
+          <div className={`text-[10px] font-bold inline-flex items-center gap-1 mb-0.5 ${titleColor}`}>
             <Crown className="h-3 w-3" /> {title}
           </div>
-          <div className="font-black text-sm truncate flex items-center gap-2 flex-wrap">
-            <span className="truncate">{p.display_name || "—"}</span>
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold">
-              <Star className="h-3 w-3" /> {toAr(p.points)}
+          <div className="font-black text-sm truncate">{p.display_name || "—"}</div>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold ${tagColor}`}>
+              <Star className="h-3 w-3" /> {toAr(p.points)} نقطة
             </span>
+            {p.school && <span className="text-[10px] text-muted-foreground truncate">{p.school}</span>}
           </div>
-          {p.school && <div className="text-[10px] text-muted-foreground truncate">{p.school}</div>}
         </div>
       </div>
     );
   };
 
   return (
-    <section className="container mx-auto px-6 pb-8">
+    <section className="container mx-auto px-6 pb-8" dir="rtl">
       <div className="text-center mb-3">
         <h2 className="text-lg md:text-xl font-black inline-flex items-center gap-2">
           <Crown className="h-5 w-5 text-amber-500" /> لوحة الشرف

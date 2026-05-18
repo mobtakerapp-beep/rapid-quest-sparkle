@@ -105,7 +105,7 @@ const COUNTER_KEY = "dhikr_counter_v1";
 const ORDER_KEY = "dhikr_order_session_v1";
 const QUOTE_ORDER_KEY = "motivational_order_session_v1";
 const TARGET = 1000;
-const QUOTE_DELAY_MS = 40000;
+const QUOTE_DELAY_MS = 28000;
 const QUOTE_AUTO_HIDE_MS = 25000;
 
 function getShuffledQuoteOrder(): number[] {

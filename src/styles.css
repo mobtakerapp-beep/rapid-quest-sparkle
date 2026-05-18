@@ -488,3 +488,10 @@
 .feature-card-tilt:hover {
   box-shadow: 0 24px 60px -12px var(--card-glow, oklch(0.62 0.19 265 / 0.4));
 }
+
+/* ── Rolling number animation for LiveStats ────────────────────────────── */
+@keyframes num-roll-up {
+  0%   { transform: translateY(40%) scaleY(0.6); opacity: 0; filter: blur(4px); }
+  60%  { transform: translateY(-6%) scaleY(1.05); opacity: 1; filter: blur(0); }
+  100% { transform: translateY(0) scaleY(1); opacity: 1; filter: blur(0); }
+}
