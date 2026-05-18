@@ -242,11 +242,13 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       });
     }
 
-    // ── مسابقات سريعة منتهية: الفائز بلقب "بطل السرعة ⚡" ──
+    // ── مسابقات سريعة منتهية (خلال آخر يومين): الفائز بلقب "بطل السرعة ⚡" ──
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString();
     const { data: endedComps } = await supabase
       .from("competitions")
       .select("id, title, ends_at")
       .lt("ends_at", now)
+      .gte("ends_at", twoDaysAgo)
       .order("ends_at", { ascending: false })
       .limit(5);
 
@@ -380,6 +382,121 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
         text: `🌟 المتصدر في معرض "${gc.title}": ${leader.roleLabel} ${leader.name} — ${leader.votes} ❤ (المسابقة جارية!)`,
         type: "auto",
       });
+    }
+
+    // ── أنشطة جديدة من المعلمين (آخر يومين) ──
+    const { data: newActivities } = await supabase
+      .from("activities")
+      .select("id, title, user_id, subject, created_at")
+      .gte("created_at", twoDaysAgo)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(4);
+
+    for (const act of (newActivities || [])) {
+      const { data: poster } = await supabase.from("profiles").select("display_name, role_type").eq("id", act.user_id).maybeSingle();
+      const isNew = Date.now() - new Date(act.created_at).getTime() < 24 * 3600 * 1000;
+      const posterLabel = getRoleLabel((poster as any)?.role_type) || "المعلم";
+      const posterName  = (poster as any)?.display_name || "—";
+      items.push({
+        id: `activity-${act.id}`,
+        text: `📚 ${isNew ? "نشاط جديد" : "نشاط"} من ${posterLabel} ${posterName}: "${act.title}"${act.subject && act.subject !== "عام" ? ` — مادة: ${act.subject}` : ""} — تفضّل واطّلع عليه! 👈`,
+        type: "auto",
+      });
+    }
+
+    // ── واجبات جديدة (آخر يومين أو ما زال موعد تسليمها في المستقبل) ──
+    const { data: newAssignments } = await supabase
+      .from("assignments")
+      .select("id, title, subject, due_at, created_at, teacher_id")
+      .or(`created_at.gte.${twoDaysAgo},due_at.gt.${now}`)
+      .order("created_at", { ascending: false })
+      .limit(4);
+
+    for (const asgn of (newAssignments || [])) {
+      const { data: teacher } = await supabase.from("profiles").select("display_name, role_type").eq("id", asgn.teacher_id).maybeSingle();
+      const teacherLabel = getRoleLabel((teacher as any)?.role_type) || "المعلم";
+      const teacherName  = (teacher as any)?.display_name || "—";
+      const isNew = Date.now() - new Date(asgn.created_at).getTime() < 24 * 3600 * 1000;
+      let dueStr = "";
+      if (asgn.due_at) {
+        const dueDate = new Date(asgn.due_at);
+        const diffMs = dueDate.getTime() - Date.now();
+        const diffHours = Math.floor(diffMs / (1000 * 3600));
+        if (diffMs < 0) {
+          dueStr = " — انتهى موعد التسليم";
+        } else if (diffHours < 24) {
+          dueStr = ` — موعد التسليم اليوم الساعة ${dueDate.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })} ⏰`;
+        } else if (diffHours < 48) {
+          dueStr = ` — موعد التسليم غداً ⏰`;
+        } else {
+          dueStr = ` — موعد التسليم: ${dueDate.toLocaleDateString("ar-EG", { weekday: "short", month: "short", day: "numeric" })} 📅`;
+        }
+      }
+      items.push({
+        id: `assignment-${asgn.id}`,
+        text: `📋 ${isNew ? "واجب جديد" : "واجب"} من ${teacherLabel} ${teacherName}: "${asgn.title}"${dueStr} — سلّمه في وقته! 💪`,
+        type: "auto",
+      });
+    }
+
+    // ── اختبارات جديدة (آخر يومين) ──
+    const { data: newQuizzes } = await supabase
+      .from("quizzes")
+      .select("id, title, created_by, created_at")
+      .gte("created_at", twoDaysAgo)
+      .order("created_at", { ascending: false })
+      .limit(4);
+
+    for (const quiz of (newQuizzes || [])) {
+      const { data: creator } = await supabase.from("profiles").select("display_name, role_type").eq("id", quiz.created_by).maybeSingle();
+      const creatorLabel = getRoleLabel((creator as any)?.role_type) || "المعلم";
+      const creatorName  = (creator as any)?.display_name || "—";
+      const isNew = Date.now() - new Date(quiz.created_at).getTime() < 24 * 3600 * 1000;
+      items.push({
+        id: `quiz-${quiz.id}`,
+        text: `🎯 ${isNew ? "اختبار جديد" : "اختبار"} من ${creatorLabel} ${creatorName}: "${quiz.title}" — شارك الآن واكسب نقاطاً! ⭐`,
+        type: "auto",
+      });
+    }
+
+    // ── فائزو الاختبارات (خلال آخر يومين) ──
+    const { data: recentAttempts } = await supabase
+      .from("quiz_attempts")
+      .select("quiz_id, user_id, score, max_score, created_at")
+      .gte("created_at", twoDaysAgo)
+      .order("score", { ascending: false })
+      .limit(50);
+
+    if (recentAttempts?.length) {
+      const quizIds = [...new Set((recentAttempts || []).map((a: any) => a.quiz_id))];
+      const { data: quizDetails } = await supabase.from("quizzes").select("id, title").in("id", quizIds);
+      const quizMap: Record<string, string> = {};
+      (quizDetails || []).forEach((q: any) => { quizMap[q.id] = q.title; });
+
+      // Group by quiz and pick top scorer per quiz
+      const topPerQuiz: Record<string, any> = {};
+      for (const attempt of (recentAttempts || [])) {
+        const prev = topPerQuiz[attempt.quiz_id];
+        const prevScore = prev ? (prev.score / (prev.max_score || 1)) : -1;
+        const curScore  = (attempt as any).score / ((attempt as any).max_score || 1);
+        if (!prev || curScore > prevScore) topPerQuiz[attempt.quiz_id] = attempt;
+      }
+
+      for (const [quizId, top] of Object.entries(topPerQuiz)) {
+        const quizTitle = quizMap[quizId];
+        if (!quizTitle) continue;
+        const { data: winner } = await supabase.from("profiles").select("display_name, role_type").eq("id", (top as any).user_id).maybeSingle();
+        if (!(winner as any)?.display_name) continue;
+        const winnerLabel = getRoleLabel((winner as any)?.role_type) || "الطالب";
+        const winnerName  = (winner as any)?.display_name;
+        const scoreStr = (top as any).max_score ? `${toAr((top as any).score)}/${toAr((top as any).max_score)}` : `${toAr((top as any).score)}`;
+        items.push({
+          id: `quiz-winner-${quizId}`,
+          text: `🏆 صاحب أعلى نتيجة في اختبار "${quizTitle}": ${winnerLabel} ${winnerName} — النتيجة: ${scoreStr} نقطة 🌟`,
+          type: "auto",
+        });
+      }
     }
 
     // ── أكثر طالب ومعلم نشاطاً اليوم ──
@@ -629,14 +746,23 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       })
       .subscribe();
 
-    // Auto-refresh ticker when new submissions, votes, or events land
-    // Listen for badges, stickers, and certificates → auto-announce until end of day
+    // Auto-refresh ticker when new content lands
+    // Listen for badges, stickers, certificates, activities, assignments, quizzes → auto-announce
     const subsCh = supabase
       .channel("ticker-subs-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "competition_submissions" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "gallery_contest_votes" }, () => refresh())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "events" }, () => refresh())
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "events" }, () => refresh())
+      // New activity/assignment/quiz → refresh immediately
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activities" }, () => refresh())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "assignments" }, () => refresh())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "quizzes" }, () => refresh())
+      // Quiz completed → refresh to update winners
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "quiz_attempts" }, () => refresh())
+      // Competitions/gallery created or updated
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "competitions" }, () => refresh())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "gallery_contests" }, () => refresh())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "user_badges" }, (p: any) => {
         broadcastBadgeAward(p.new);
       })
