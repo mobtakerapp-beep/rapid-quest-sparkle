@@ -449,6 +449,19 @@ function ActivityCard({ it, Icon, isImg, isVid, canDelete, isAdmin, uid, onAppro
       if (!content.trim()) { setSendingComment(false); return; }
       const { error } = await supabase.from("activity_comments").insert({ activity_id: it.id, user_id: uid, content });
       if (error) { toast.error(`فشل الإرسال: ${error.message}`); setSendingComment(false); return; }
+      // إشعار لصاحب النشاط عند تعليق شخص آخر
+      if (it.user_id && uid !== it.user_id) {
+        try {
+          await supabase.from("notifications").insert({
+            user_id: it.user_id,
+            title: `تعليق جديد على نشاطك 💬`,
+            body: text.trim().slice(0, 80),
+            type: "activity",
+            link: "/activities",
+            is_read: false,
+          });
+        } catch { /* الإشعار اختياري */ }
+      }
       setText(""); removeCommentImg();
       loadComments();
     } finally { setSendingComment(false); }

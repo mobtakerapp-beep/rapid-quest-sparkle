@@ -569,6 +569,19 @@ function AssignmentView({ a, uid, isTeacher, onBack }: { a: A; uid: string; isTe
       });
       if (error) { setUploading(false); return toast.error(error.message); }
       toast.success("تم تسليم الواجب ✅"); setContent(""); setFile(null); load();
+      // إشعار للمعلم صاحب الواجب فقط
+      if (a.teacher_id) {
+        try {
+          await supabase.from("notifications").insert({
+            user_id: a.teacher_id,
+            title: `تسليم جديد للواجب 📋`,
+            body: a.title,
+            type: "assignment",
+            link: "/assignments",
+            is_read: false,
+          });
+        } catch { /* الإشعار اختياري */ }
+      }
     } finally { setUploading(false); }
   };
 
@@ -581,6 +594,20 @@ function AssignmentView({ a, uid, isTeacher, onBack }: { a: A; uid: string; isTe
     toast.success(`تم التصحيح${fb ? " مع التعليق" : ""} ✅`);
     setGradingItem(null);
     setFeedbackInput("");
+    // إشعار للطالب بنتيجة التصحيح
+    const sub = subs.find((s) => s.id === sid);
+    if (sub?.student_id) {
+      try {
+        await supabase.from("notifications").insert({
+          user_id: sub.student_id,
+          title: `تم تصحيح واجبك ✅`,
+          body: `${a.title} — ${fb ? fb.slice(0, 60) : (score >= 10 ? "إجابة صحيحة" : score >= 5 ? `${score}/10` : "إجابة غير صحيحة")}`,
+          type: "assignment",
+          link: "/assignments",
+          is_read: false,
+        });
+      } catch { /* الإشعار اختياري */ }
+    }
     load();
   };
 
@@ -592,13 +619,28 @@ function AssignmentView({ a, uid, isTeacher, onBack }: { a: A; uid: string; isTe
     if (error) return toast.error(error.message);
     toast.success("تم إضافة التعليق 💬");
     setCommentingId(null);
+    // إشعار للطالب بالتعليق
+    const sub = subs.find((s) => s.id === sid);
+    if (sub?.student_id) {
+      try {
+        await supabase.from("notifications").insert({
+          user_id: sub.student_id,
+          title: `تعليق جديد على واجبك 💬`,
+          body: `${a.title} — ${commentText.trim().slice(0, 60)}`,
+          type: "assignment",
+          link: "/assignments",
+          is_read: false,
+        });
+      } catch { /* الإشعار اختياري */ }
+    }
     setCommentText("");
     load();
   };
 
   const isOwner = uid === a.teacher_id;
   const showAnswerBox = !isTeacher && !mySub;
-  const showSubmissionsList = isTeacher || isOwner;
+  // فقط المعلم صاحب الواجب يرى التسليمات ويصحح — ليس أي معلم آخر
+  const showSubmissionsList = isOwner;
 
   return (
     <div dir="rtl" className="min-h-screen bg-background">
