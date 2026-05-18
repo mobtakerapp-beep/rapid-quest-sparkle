@@ -153,16 +153,16 @@ function RootComponent() {
       <DhikrReminder />
       <PageProgressBar />
       <GlobalSearch />
-      {/* Fixed top bar: news ticker only — clock moved into GlobalNav */}
-      <div className="fixed top-0 left-0 right-0 z-[155]">
+      {/* Fixed top bars: ticker + nav together in one fixed container */}
+      <div className="fixed top-0 left-0 right-0 z-[190]">
         <TickerWithRole />
+        <GlobalNav />
       </div>
       <div className="app-content-with-nav">
         <div key={pathname} className="page-transition-enter">
           <Outlet />
         </div>
       </div>
-      <GlobalNav />
       <ScrollToTop />
       <Toaster position="top-center" richColors dir="rtl" />
     </LanguageProvider>

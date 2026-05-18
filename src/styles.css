@@ -158,7 +158,7 @@
   padding-top: 5rem;
 }
 
-.app-content-with-nav [dir="rtl"] > header.sticky.top-0 {
+.app-content-with-nav header.sticky {
   top: 5rem;
 }
 
