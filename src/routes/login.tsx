@@ -137,11 +137,9 @@ function LoginPage() {
 
   return (
     <div dir="rtl" className="min-h-screen flex items-center justify-center p-4 bg-background relative overflow-hidden">
-      {/* شريط الوقت — تحت شريط الأخبار مباشرة */}
-      <div className="absolute top-[32px] inset-x-0 flex items-center justify-center py-2 z-10">
-        <div className="bg-card/90 border border-border rounded-2xl px-5 py-1.5 shadow-sm backdrop-blur-sm">
-          <LiveClock />
-        </div>
+      {/* شريط الوقت — ثابت تحت شريط الأخبار */}
+      <div className="fixed top-[32px] inset-x-0 z-[150] bg-card/95 backdrop-blur-sm border-b border-border flex items-center justify-center gap-3 px-4 py-1.5">
+        <LiveClock />
       </div>
       <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[var(--brand)] opacity-20 blur-3xl" />
       <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[var(--brand-2)] opacity-20 blur-3xl" />
