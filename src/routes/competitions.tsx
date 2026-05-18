@@ -1403,8 +1403,8 @@ function SubmissionsList({ comp, uid, isTeacher }: { comp: Comp; uid: string; is
                 )}
               </div>
               {s.image_url && <img src={s.image_url} alt="" className="w-full max-h-56 object-contain rounded-xl bg-background" />}
-              {/* إظهار الإجابة للجميع في المسابقات */}
-              {!isMulti && s.answer && s.answer !== "—" && (
+              {/* إجابة النص للمعلم فقط */}
+              {isTeacher && !isMulti && s.answer && s.answer !== "—" && (
                 <div className="text-sm bg-background rounded-xl p-2"><b>الإجابة:</b> {s.answer}</div>
               )}
               {s.link_url && (

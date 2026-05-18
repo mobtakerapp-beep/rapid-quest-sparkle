@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { toAr } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search, Palette, Type as TypeIcon, Sticker, Send, Trash2, Image as ImageIcon, X, QrCode } from "lucide-react";
+import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search, Palette, Type as TypeIcon, Sticker, Send, Trash2, Image as ImageIcon, X, QrCode, BookOpen, ClipboardList, TrendingUp, CheckCircle2, Clock } from "lucide-react";
 import { copyToClipboard } from "@/lib/utils";
 import { CERT_THEMES, CERT_FONTS, type CertTheme, type CertFont } from "@/lib/certThemes";
 import { FullPageLoader } from "@/components/LoadingSpinner";
@@ -293,6 +293,7 @@ function TeacherDashboard() {
           ))}
         </div>
 
+        {teacherId && <TrackingPanel teacherId={teacherId} />}
         {teacherId && <EssayGradingPanel teacherId={teacherId} />}
         {teacherId && <CertificatePanel teacherId={teacherId} />}
         {teacherId && <BadgeSection teacherId={teacherId} />}
@@ -322,6 +323,141 @@ function BadgeSection({ teacherId }: { teacherId: string }) {
       )}
       <BadgeGrantPanel teacherId={teacherId} reloadKey={refresh} />
     </>
+  );
+}
+
+// ─────────────────────────────────────────────
+// لوحة متابعة إنجاز الطلاب (واجبات + اختبارات)
+// ─────────────────────────────────────────────
+function TrackingPanel({ teacherId }: { teacherId: string }) {
+  const [tab, setTab] = useState<"assignments" | "quizzes">("assignments");
+  const [loading, setLoading] = useState(true);
+  const [studentCount, setStudentCount] = useState(0);
+  const [assignments, setAssignments] = useState<{ id: string; title: string; submitted: number; total: number }[]>([]);
+  const [quizzes, setQuizzes] = useState<{ id: string; title: string; completed: number; total: number }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+
+      // 1. طلاب المعلم
+      const { data: students } = await supabase
+        .from("profiles").select("id").eq("teacher_id", teacherId);
+      const studentIds = (students || []).map((s: any) => s.id);
+      setStudentCount(studentIds.length);
+
+      if (studentIds.length === 0) { setLoading(false); return; }
+
+      // 2. واجبات المعلم مع عدد تسليمات طلابه
+      const { data: asgns } = await supabase
+        .from("assignments").select("id, title").eq("teacher_id", teacherId);
+      if (asgns && asgns.length > 0) {
+        const aIds = asgns.map((a: any) => a.id);
+        const { data: subs } = await supabase
+          .from("assignment_submissions")
+          .select("assignment_id, student_id")
+          .in("assignment_id", aIds)
+          .in("student_id", studentIds);
+        const countMap: Record<string, Set<string>> = {};
+        (subs || []).forEach((s: any) => {
+          if (!countMap[s.assignment_id]) countMap[s.assignment_id] = new Set();
+          countMap[s.assignment_id].add(s.student_id);
+        });
+        setAssignments(asgns.map((a: any) => ({
+          id: a.id, title: a.title,
+          submitted: countMap[a.id]?.size || 0,
+          total: studentIds.length,
+        })));
+      }
+
+      // 3. اختبارات المعلم مع عدد محاولات طلابه
+      const { data: qzs } = await supabase
+        .from("quizzes").select("id, title").eq("created_by", teacherId);
+      if (qzs && qzs.length > 0) {
+        const qIds = qzs.map((q: any) => q.id);
+        const { data: attempts } = await supabase
+          .from("quiz_attempts")
+          .select("quiz_id, user_id")
+          .in("quiz_id", qIds)
+          .in("user_id", studentIds);
+        const qCountMap: Record<string, Set<string>> = {};
+        (attempts || []).forEach((a: any) => {
+          if (!qCountMap[a.quiz_id]) qCountMap[a.quiz_id] = new Set();
+          qCountMap[a.quiz_id].add(a.user_id);
+        });
+        setQuizzes(qzs.map((q: any) => ({
+          id: q.id, title: q.title,
+          completed: qCountMap[q.id]?.size || 0,
+          total: studentIds.length,
+        })));
+      }
+
+      setLoading(false);
+    })();
+  }, [teacherId]);
+
+  const items = tab === "assignments" ? assignments : quizzes;
+
+  return (
+    <div className="bg-card rounded-3xl border border-border p-5 mt-6">
+      <div className="font-bold mb-4 flex items-center gap-2">
+        <TrendingUp className="h-5 w-5 text-emerald-600" />
+        متابعة إنجاز الطلاب
+        <span className="text-xs font-normal text-muted-foreground mr-auto">{toAr(studentCount)} طالب مرتبط</span>
+      </div>
+
+      {/* تبويبات */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setTab("assignments")}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition ${tab === "assignments" ? "bg-[image:var(--gradient-hero)] text-white" : "bg-secondary hover:bg-secondary/80"}`}
+        >
+          <ClipboardList className="h-4 w-4" /> الواجبات
+        </button>
+        <button
+          onClick={() => setTab("quizzes")}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition ${tab === "quizzes" ? "bg-[image:var(--gradient-hero)] text-white" : "bg-secondary hover:bg-secondary/80"}`}
+        >
+          <BookOpen className="h-4 w-4" /> الاختبارات
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-sm text-muted-foreground py-4 text-center">جاري التحميل...</div>
+      ) : studentCount === 0 ? (
+        <div className="text-sm text-muted-foreground py-4 text-center">لا يوجد طلاب مرتبطون بك بعد</div>
+      ) : items.length === 0 ? (
+        <div className="text-sm text-muted-foreground py-4 text-center">
+          {tab === "assignments" ? "لم تنشئ واجبات بعد" : "لم تنشئ اختبارات بعد"}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {items.map((item) => {
+            const pct = item.total > 0 ? Math.round((item.completed ?? item.submitted ?? 0) / item.total * 100) : 0;
+            const done = item.completed ?? item.submitted ?? 0;
+            const full = pct === 100;
+            return (
+              <div key={item.id} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold truncate flex-1">{item.title}</span>
+                  <span className={`text-xs font-black shrink-0 flex items-center gap-1 ${full ? "text-emerald-600" : "text-amber-600"}`}>
+                    {full ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                    {toAr(done)}/{toAr(item.total)}
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${full ? "bg-emerald-500" : "bg-amber-400"}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <div className="text-[10px] text-muted-foreground text-left">{toAr(pct)}٪ من الطلاب {tab === "assignments" ? "سلّموا" : "أكملوا"}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -373,6 +509,13 @@ function EssayGradingPanel({ teacherId }: { teacherId: string }) {
       .eq("id", a.id);
     if (error) { toast.error("تعذّر حفظ الدرجة"); return; }
     toast.success(`تم الحفظ — الدرجة الجديدة ${Math.round(newScore)}/${newTotal}`);
+    // إشعار الطالب بتصحيح إجاباته المقالية
+    await supabase.from("notifications").insert({
+      user_id: a.user_id,
+      title: "تم تصحيح اختبارك 📝",
+      body: `تم تصحيح إجاباتك المقالية في اختبار "${a.quizTitle}" — درجتك: ${Math.round(newScore)}/${newTotal}`,
+      type: "quiz",
+    });
     await load();
   };
 
