@@ -368,10 +368,11 @@ function Index() {
 
       {/* لوحة الشرف */}
       <hr className="section-divider" />
-      <div className="container mx-auto px-6 pt-2 pb-1 text-center" dir="rtl">
-        <h2 className="text-lg md:text-xl font-black inline-flex items-center gap-2">
-          <span className="text-amber-500">👑</span> لوحة الشرف
-        </h2>
+      <div className="container mx-auto px-6 pt-4 pb-1 text-center" dir="rtl">
+        <div className="section-badge" style={{ background: "oklch(0.75 0.18 60 / 0.12)", color: "oklch(0.65 0.18 55)", borderColor: "oklch(0.75 0.18 60 / 0.25)" }}>
+          <span>👑</span> أبطال اليوم
+        </div>
+        <h2 className="text-xl md:text-2xl font-black heading-decorated" style={{ color: "oklch(0.65 0.18 55)" }}>لوحة الشرف</h2>
       </div>
       <HeroOfDay />
 
@@ -382,20 +383,22 @@ function Index() {
       {/* Features with badges */}
       <hr className="section-divider" />
       <section className="container mx-auto px-6 pb-20">
-        <div className="reveal text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-black mb-3">{isAr ? "ماذا نقدم لك؟" : "What We Offer"}</h2>
-          <p className="text-muted-foreground">{isAr ? "كل ما تحتاجه لرحلة تعليمية ممتعة في مكان واحد" : "Everything you need for an enjoyable learning journey in one place"}</p>
+        <div className="reveal text-center mb-14">
+          <div className="section-badge"><Sparkles className="h-3.5 w-3.5" /> {isAr ? "كل ما تحتاجه في مكان واحد" : "Everything in one place"}</div>
+          <h2 className="text-3xl md:text-4xl font-black mb-3 heading-decorated animate-gradient-text">{isAr ? "ماذا نقدم لك؟" : "What We Offer"}</h2>
+          <p className="text-muted-foreground mt-4">{isAr ? "كل ما تحتاجه لرحلة تعليمية ممتعة في مكان واحد" : "Everything you need for an enjoyable learning journey in one place"}</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {features.map((f, i) => {
             const badgeCount = f.badgeKey ? (badges[f.badgeKey] || 0) : 0;
             const cardGlow = `color-mix(in oklch, ${f.color.includes("violet") ? "oklch(0.6 0.22 290)" : f.color.includes("emerald") ? "oklch(0.55 0.18 150)" : f.color.includes("rose") ? "oklch(0.65 0.2 10)" : f.color.includes("amber") ? "oklch(0.75 0.18 60)" : f.color.includes("cyan") ? "oklch(0.65 0.18 200)" : "oklch(0.62 0.19 265)"} 40%, transparent)`;
+            const staggerClass = ["stagger-1","stagger-2","stagger-3","stagger-4","stagger-5","stagger-6","stagger-7","stagger-8","stagger-9","stagger-10"][i % 10];
             return (
               <TiltCard
                 key={f.title}
-                className="animate-fade-in-up feature-card-tilt"
-                style={{ animationDelay: `${0.05 * i}s`, "--card-glow": cardGlow } as React.CSSProperties}
+                className={`reveal ${staggerClass} feature-card-tilt`}
+                style={{ "--card-glow": cardGlow } as React.CSSProperties}
               >
                 <Link to={f.to}
                   onClick={() => {
@@ -427,10 +430,16 @@ function Index() {
       <section className="container mx-auto px-6 pb-16">
         <div className="relative overflow-hidden rounded-[2rem] bg-[image:var(--gradient-hero)] p-10 md:p-16 text-center text-white shadow-[var(--shadow-soft)]">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.3),transparent_50%)]" />
+          {/* Twinkle stars decoration */}
+          <Star className="absolute top-5 right-8 h-5 w-5 text-white/40 twinkle-1 pointer-events-none" />
+          <Star className="absolute bottom-6 left-10 h-4 w-4 text-white/30 twinkle-2 pointer-events-none" />
+          <Sparkles className="absolute top-10 left-[22%] h-4 w-4 text-white/35 twinkle-3 pointer-events-none" />
+          <Star className="absolute bottom-8 right-[28%] h-3 w-3 text-white/25 twinkle-4 pointer-events-none" />
+          <Sparkles className="absolute top-6 left-[55%] h-3 w-3 text-white/20 twinkle-2 pointer-events-none" />
           <div className="relative">
             <h3 className="text-3xl md:text-4xl font-black mb-4">{isAr ? "جاهز لبدء رحلتك التعليمية؟" : "Ready to Start Your Learning Journey?"}</h3>
             <p className="text-white/90 mb-8 max-w-xl mx-auto">{isAr ? "انضم لمئات الطلاب الذين يتعلمون ويبدعون يومياً معنا" : "Join hundreds of students who learn and create with us daily"}</p>
-            <Link to="/login" className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-[var(--brand)] font-bold hover:scale-105 transition-transform">
+            <Link to="/login" className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-[var(--brand)] font-bold hover:scale-105 transition-transform shadow-lg">
               <MessageCircle className="h-5 w-5" />
               {isAr ? "ابدأ الآن مجاناً" : "Start for Free"}
             </Link>

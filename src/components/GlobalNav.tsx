@@ -164,7 +164,7 @@ export function GlobalNav() {
 
   return (
     <div
-      className="fixed top-[32px] left-0 right-0 z-[190] bg-card/97 backdrop-blur border-b border-border shadow-sm"
+      className="fixed top-[32px] left-0 right-0 z-[190] bg-card/97 backdrop-blur border-b border-border shadow-sm nav-gradient-border"
       dir="rtl"
     >
       <div className="flex items-center px-2 py-1 gap-1">

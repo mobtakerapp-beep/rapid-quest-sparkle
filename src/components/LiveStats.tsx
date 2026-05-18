@@ -104,7 +104,7 @@ export function LiveStats() {
         {items.map((item, idx) => (
           <div
             key={item.label}
-            className="relative bg-card rounded-xl border border-border shadow-sm p-2.5 sm:p-3 flex flex-col items-center gap-1.5 overflow-hidden group hover:-translate-y-1 hover:shadow-md transition-all duration-300"
+            className="card-shine relative bg-card rounded-xl border border-border shadow-sm p-2.5 sm:p-3 flex flex-col items-center gap-1.5 overflow-hidden group hover:-translate-y-1 hover:shadow-lg transition-all duration-300"
             style={{ animationDelay: `${idx * 80}ms` }}
           >
             <div className={`h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center shadow-sm ${item.glow} group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
