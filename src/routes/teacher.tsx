@@ -2,14 +2,65 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { toAr } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search, Palette, Type as TypeIcon, Sticker, Send, Trash2, Image as ImageIcon, X } from "lucide-react";
+import { ArrowLeft, GraduationCap, Users, FileText, MessageSquare, Copy, UserPlus, Award, Search, Palette, Type as TypeIcon, Sticker, Send, Trash2, Image as ImageIcon, X, QrCode } from "lucide-react";
 import { copyToClipboard } from "@/lib/utils";
 import { CERT_THEMES, CERT_FONTS, type CertTheme, type CertFont } from "@/lib/certThemes";
 import { FullPageLoader } from "@/components/LoadingSpinner";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import { toast } from "sonner";
+import { QRCodeSVG } from "qrcode.react";
 
 export const Route = createFileRoute("/teacher")({ component: TeacherDashboard });
+
+function QRModal({ code }: { code: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="p-2 rounded-lg hover:bg-secondary transition"
+        title="عرض QR Code"
+      >
+        <QrCode className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" dir="rtl">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <div className="relative bg-card rounded-3xl border border-border shadow-2xl p-8 flex flex-col items-center gap-5 max-w-xs w-full">
+            <button onClick={() => setOpen(false)} className="absolute top-3 left-3 p-1.5 rounded-lg hover:bg-secondary">
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white">
+              <QrCode className="h-5 w-5" />
+            </div>
+            <div className="text-center">
+              <p className="font-black text-lg">QR كود الفصل</p>
+              <p className="text-xs text-muted-foreground mt-1">يمسح الطالب الكود للانضمام لفصلك مباشرة</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white shadow-inner">
+              <QRCodeSVG
+                value={`${window.location.origin}/profile?join=${code}`}
+                size={200}
+                level="H"
+                includeMargin={false}
+              />
+            </div>
+            <div className="text-center">
+              <code className="px-4 py-2 rounded-xl bg-secondary font-black text-2xl tracking-widest">{code}</code>
+              <p className="text-[11px] text-muted-foreground mt-2">أو شارك الكود مباشرة</p>
+            </div>
+            <button
+              onClick={async () => { const ok = await copyToClipboard(`${window.location.origin}/profile?join=${code}`); toast[ok ? "success" : "error"](ok ? "تم نسخ الرابط ✅" : "فشل النسخ"); }}
+              className="w-full py-2.5 rounded-xl bg-[image:var(--gradient-hero)] text-white font-bold flex items-center justify-center gap-2"
+            >
+              <Copy className="h-4 w-4" /> نسخ رابط الانضمام
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 type Stat = { id: string; display_name: string | null; grade: string | null; points: number; activities: number; comments: number };
 
@@ -132,8 +183,11 @@ function TeacherDashboard() {
             <div className="flex items-center gap-2">
               <code className="px-4 py-2 rounded-xl bg-secondary font-black text-2xl tracking-widest">{classCode || "—"}</code>
               {classCode && (
-                <button onClick={async () => { const ok = await copyToClipboard(classCode); toast[ok ? "success" : "error"](ok ? "تم النسخ ✅" : "فشل النسخ، انسخ الكود يدوياً"); }}
-                  className="p-2 rounded-lg hover:bg-secondary"><Copy className="h-4 w-4" /></button>
+                <>
+                  <button onClick={async () => { const ok = await copyToClipboard(classCode); toast[ok ? "success" : "error"](ok ? "تم النسخ ✅" : "فشل النسخ، انسخ الكود يدوياً"); }}
+                    className="p-2 rounded-lg hover:bg-secondary" title="نسخ الكود"><Copy className="h-4 w-4" /></button>
+                  <QRModal code={classCode} />
+                </>
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-2">الطالب يدخل هذا الكود في صفحة ملفه ليلتحق بفصلك</p>

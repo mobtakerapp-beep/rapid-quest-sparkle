@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { User as UserIcon, Moon, Sun, MessageSquare, Home, LogOut, BadgeCheck, Clock } from "lucide-react";
+import { User as UserIcon, Moon, Sun, MessageSquare, Home, LogOut, BadgeCheck, Clock, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "./NotificationBell";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
@@ -276,6 +276,14 @@ export function GlobalNav() {
             {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
 
+          <button
+            onClick={() => window.dispatchEvent(new Event("open-global-search"))}
+            className="p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition"
+            aria-label="بحث سريع"
+            title="بحث سريع (Ctrl+K)"
+          >
+            <Search className="h-4 w-4" />
+          </button>
           {uid && <NotificationBell userId={uid} />}
 
           {uid && (

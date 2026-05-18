@@ -13,6 +13,7 @@ import { Route as TeacherRouteImport } from './routes/teacher'
 import { Route as SupervisorsRouteImport } from './routes/supervisors'
 import { Route as SupervisorRouteImport } from './routes/supervisor'
 import { Route as QuizzesRouteImport } from './routes/quizzes'
+import { Route as ProgressRouteImport } from './routes/progress'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as MathBoardRouteImport } from './routes/math-board'
@@ -49,6 +50,11 @@ const SupervisorRoute = SupervisorRouteImport.update({
 const QuizzesRoute = QuizzesRouteImport.update({
   id: '/quizzes',
   path: '/quizzes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProgressRoute = ProgressRouteImport.update({
+  id: '/progress',
+  path: '/progress',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/math-board': typeof MathBoardRoute
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
+  '/progress': typeof ProgressRoute
   '/quizzes': typeof QuizzesRoute
   '/supervisor': typeof SupervisorRoute
   '/supervisors': typeof SupervisorsRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/math-board': typeof MathBoardRoute
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
+  '/progress': typeof ProgressRoute
   '/quizzes': typeof QuizzesRoute
   '/supervisor': typeof SupervisorRoute
   '/supervisors': typeof SupervisorsRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/math-board': typeof MathBoardRoute
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
+  '/progress': typeof ProgressRoute
   '/quizzes': typeof QuizzesRoute
   '/supervisor': typeof SupervisorRoute
   '/supervisors': typeof SupervisorsRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/math-board'
     | '/messages'
     | '/profile'
+    | '/progress'
     | '/quizzes'
     | '/supervisor'
     | '/supervisors'
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/math-board'
     | '/messages'
     | '/profile'
+    | '/progress'
     | '/quizzes'
     | '/supervisor'
     | '/supervisors'
@@ -272,6 +283,7 @@ export interface FileRouteTypes {
     | '/math-board'
     | '/messages'
     | '/profile'
+    | '/progress'
     | '/quizzes'
     | '/supervisor'
     | '/supervisors'
@@ -296,6 +308,7 @@ export interface RootRouteChildren {
   MathBoardRoute: typeof MathBoardRoute
   MessagesRoute: typeof MessagesRoute
   ProfileRoute: typeof ProfileRoute
+  ProgressRoute: typeof ProgressRoute
   QuizzesRoute: typeof QuizzesRoute
   SupervisorRoute: typeof SupervisorRoute
   SupervisorsRoute: typeof SupervisorsRoute
@@ -331,6 +344,13 @@ declare module '@tanstack/react-router' {
       path: '/quizzes'
       fullPath: '/quizzes'
       preLoaderRoute: typeof QuizzesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/progress': {
+      id: '/progress'
+      path: '/progress'
+      fullPath: '/progress'
+      preLoaderRoute: typeof ProgressRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -472,6 +492,7 @@ const rootRouteChildren: RootRouteChildren = {
   MathBoardRoute: MathBoardRoute,
   MessagesRoute: MessagesRoute,
   ProfileRoute: ProfileRoute,
+  ProgressRoute: ProgressRoute,
   QuizzesRoute: QuizzesRoute,
   SupervisorRoute: SupervisorRoute,
   SupervisorsRoute: SupervisorsRoute,
