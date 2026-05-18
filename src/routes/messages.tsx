@@ -103,11 +103,28 @@ function MessagesPage() {
     setMenuOpen(false);
   };
 
+  const dmImagePath = (url: string | null): string | null => {
+    if (!url) return null;
+    const marker = "/storage/v1/object/sign/dm-images/";
+    const idx = url.indexOf(marker);
+    if (idx !== -1) return decodeURIComponent(url.slice(idx + marker.length).split("?")[0]);
+    const pubMarker = "/storage/v1/object/public/dm-images/";
+    const idx2 = url.indexOf(pubMarker);
+    if (idx2 !== -1) return decodeURIComponent(url.slice(idx2 + pubMarker.length).split("?")[0]);
+    return null;
+  };
+
   const deleteConversation = async () => {
     if (!uid || !active) return;
     if (!confirm("حذف كل الرسائل في هذه المحادثة؟ لا يمكن التراجع.")) return;
+    const imagePaths = msgs
+      .map((m) => dmImagePath(m.image_url))
+      .filter(Boolean) as string[];
     const { error } = await supabase.rpc("delete_conversation_with" as any, { _other: active.id });
     if (error) return toast.error("فشل حذف المحادثة");
+    if (imagePaths.length) {
+      await supabase.storage.from("dm-images").remove(imagePaths);
+    }
     setMsgs([]);
     toast.success("تم حذف المحادثة");
     setMenuOpen(false);
@@ -115,8 +132,13 @@ function MessagesPage() {
 
   const deleteMessage = async (id: string) => {
     if (!confirm("حذف هذه الرسالة؟")) return;
+    const msg = msgs.find((m) => m.id === id);
     const { error } = await supabase.from("direct_messages").delete().eq("id", id);
     if (error) return toast.error("فشل الحذف");
+    if (msg?.image_url) {
+      const path = dmImagePath(msg.image_url);
+      if (path) await supabase.storage.from("dm-images").remove([path]);
+    }
     setMsgs((p) => p.filter((m) => m.id !== id));
   };
 

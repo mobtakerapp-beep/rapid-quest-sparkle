@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
 } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { useEffect } from "react";
@@ -142,6 +143,8 @@ function RootComponent() {
     return () => document.removeEventListener("input", handler, true);
   }, []);
 
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
   return (
     <LanguageProvider>
       <ThemeProvider />
@@ -155,7 +158,9 @@ function RootComponent() {
         <TickerWithRole />
       </div>
       <div className="app-content-with-nav">
-        <Outlet />
+        <div key={pathname} className="page-transition-enter">
+          <Outlet />
+        </div>
       </div>
       <GlobalNav />
       <ScrollToTop />

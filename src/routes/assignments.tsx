@@ -302,11 +302,32 @@ function AssignmentsPage() {
   const selectAll = () => setSelected(new Set(list.map((i) => i.id)));
   const clearSelect = () => { setSelected(new Set()); setSelectMode(false); };
 
+  const deleteSubmissionFiles = async (assignmentIds: string[]) => {
+    const { data: subs } = await supabase
+      .from("assignment_submissions")
+      .select("file_url")
+      .in("assignment_id", assignmentIds);
+    if (!subs) return;
+    const paths = subs
+      .map((s: any) => {
+        const url = s.file_url as string | null;
+        if (!url) return null;
+        const marker = "/storage/v1/object/public/assignment-files/";
+        const idx = url.indexOf(marker);
+        return idx !== -1 ? decodeURIComponent(url.slice(idx + marker.length)) : null;
+      })
+      .filter(Boolean) as string[];
+    if (paths.length) {
+      await supabase.storage.from("assignment-files").remove(paths);
+    }
+  };
+
   const bulkDelete = async () => {
     if (selected.size === 0) return;
     if (!confirm(`حذف ${toAr(selected.size)} واجب نهائياً؟`)) return;
     setBulkDeleting(true);
     const ids = Array.from(selected);
+    await deleteSubmissionFiles(ids);
     const { error } = await supabase.from("assignments").delete().in("id", ids);
     setBulkDeleting(false);
     if (error) return toast.error("فشل الحذف: " + error.message);
@@ -395,6 +416,7 @@ function AssignmentsPage() {
               const onDelete = async (e: React.MouseEvent) => {
                 e.stopPropagation();
                 if (!confirm("حذف الواجب نهائياً؟")) return;
+                await deleteSubmissionFiles([a.id]);
                 const { error } = await supabase.from("assignments").delete().eq("id", a.id);
                 if (error) return toast.error("لا تملك صلاحية الحذف");
                 toast.success("تم الحذف");
