@@ -8,6 +8,7 @@ import { MathToolbar } from "@/components/MathToolbar";
 import { useRef } from "react";
 import { MathText } from "@/components/MathText";
 import { playCorrect, playWrong, fireworks, burstStars, playFanfare } from "@/lib/quizFx";
+import { showAchievement } from "@/lib/achievement-toast";
 import { toAr } from "@/lib/utils";
 import { SCHOOLS } from "@/lib/schools";
 
@@ -712,6 +713,11 @@ function QuizPlay({ quiz, uid, isTeacher, onBack }: { quiz: Quiz; uid: string; i
     toast.success(`نتيجتك: ${toAr(s)}/${toAr(mcCount)} 🎉`);
     if (mcCount > 0) {
       const ratio = s / mcCount;
+      if (s === mcCount) {
+        showAchievement("درجة كاملة! 🌟", `أجبت على جميع الأسئلة بشكل صحيح`, "🎯");
+      } else if (ratio >= 0.8) {
+        showAchievement("أداء ممتاز! 💫", `أصبت ${toAr(s)} من ${toAr(mcCount)} — استمر هكذا!`, "⭐");
+      }
       if (ratio >= 0.5) { playFanfare(); fireworks(Math.max(0.4, ratio)); }
       else if (s > 0) { burstStars(); }
     }

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { TiltCard } from "@/components/TiltCard";
 import { Image, BookOpen, Trophy, Users, MessageCircle, Sparkles, Zap, GraduationCap, Bot, Calendar as CalIcon, ClipboardList, Award, Target, Shield, Info, X, MapPin, Heart, Star, ArrowUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
@@ -388,27 +389,34 @@ function Index() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {features.map((f, i) => {
             const badgeCount = f.badgeKey ? (badges[f.badgeKey] || 0) : 0;
+            const cardGlow = `color-mix(in oklch, ${f.color.includes("violet") ? "oklch(0.6 0.22 290)" : f.color.includes("emerald") ? "oklch(0.55 0.18 150)" : f.color.includes("rose") ? "oklch(0.65 0.2 10)" : f.color.includes("amber") ? "oklch(0.75 0.18 60)" : f.color.includes("cyan") ? "oklch(0.65 0.18 200)" : "oklch(0.62 0.19 265)"} 40%, transparent)`;
             return (
-              <Link key={f.title} to={f.to}
-                onClick={() => {
-                  if (f.badgeKey) {
-                    localStorage.setItem(`last_seen_${f.badgeKey}`, new Date().toISOString());
-                    setBadges((b) => { const c = { ...b }; delete c[f.badgeKey!]; return c; });
-                  }
-                }}
-                className="feature-card card-shine animate-fade-in-up group relative bg-card rounded-3xl p-7 border border-border shadow-[var(--shadow-card)] text-right"
-                style={{ animationDelay: `${0.05 * i}s`, "--card-glow": `color-mix(in oklch, ${f.color.includes("violet") ? "oklch(0.6 0.22 290)" : f.color.includes("emerald") ? "oklch(0.55 0.18 150)" : f.color.includes("rose") ? "oklch(0.65 0.2 10)" : f.color.includes("amber") ? "oklch(0.75 0.18 60)" : f.color.includes("cyan") ? "oklch(0.65 0.18 200)" : "oklch(0.62 0.19 265)"} 40%, transparent)` } as React.CSSProperties}>
-                {badgeCount > 0 && (
-                  <span className="absolute top-3 left-3 min-w-[22px] h-[22px] rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center px-1 shadow-lg animate-pulse">
-                    {badgeCount > 99 ? "99+" : badgeCount}
-                  </span>
-                )}
-                <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
-                  <f.icon className="h-7 w-7 text-white" />
-                </div>
-                <h3 className="font-bold text-xl mb-2">{f.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
-              </Link>
+              <TiltCard
+                key={f.title}
+                className="animate-fade-in-up feature-card-tilt"
+                style={{ animationDelay: `${0.05 * i}s`, "--card-glow": cardGlow } as React.CSSProperties}
+              >
+                <Link to={f.to}
+                  onClick={() => {
+                    if (f.badgeKey) {
+                      localStorage.setItem(`last_seen_${f.badgeKey}`, new Date().toISOString());
+                      setBadges((b) => { const c = { ...b }; delete c[f.badgeKey!]; return c; });
+                    }
+                  }}
+                  className="card-shine group relative bg-card rounded-3xl p-7 border border-border shadow-[var(--shadow-card)] text-right block h-full"
+                >
+                  {badgeCount > 0 && (
+                    <span className="absolute top-3 left-3 min-w-[22px] h-[22px] rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center px-1 shadow-lg animate-pulse">
+                      {badgeCount > 99 ? "99+" : badgeCount}
+                    </span>
+                  )}
+                  <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+                    <f.icon className="h-7 w-7 text-white" />
+                  </div>
+                  <h3 className="font-bold text-xl mb-2">{f.title}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+                </Link>
+              </TiltCard>
             );
           })}
         </div>

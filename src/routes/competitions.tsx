@@ -8,7 +8,9 @@ import { MathToolbar } from "@/components/MathToolbar";
 import { MathText } from "@/components/MathText";
 import { ReportButton } from "@/components/ReportButton";
 import { playTick, playCorrect, playFanfare, fireworks, burstStars } from "@/lib/quizFx";
+import { showAchievement } from "@/lib/achievement-toast";
 import { toAr } from "@/lib/utils";
+import { EmptyState } from "@/components/EmptyState";
 
 export const Route = createFileRoute("/competitions")({ component: CompetitionsPage });
 
@@ -653,7 +655,9 @@ function CompetitionsPage() {
         ) : (
           <div className="grid sm:grid-cols-2 gap-3">
             {comps.length === 0 ? (
-              <div className="text-center text-muted-foreground py-16 text-sm col-span-full">لا توجد مسابقات بعد</div>
+              <div className="col-span-full">
+                <EmptyState emoji="🏆" title="لا توجد مسابقات بعد" desc="سيضيف معلمك مسابقات قريباً — ترقّب!" />
+              </div>
             ) : comps.map((c) => {
               const timePassed = c.ends_at ? new Date(c.ends_at) < new Date() : false;
               const userDone = userSubmittedIds.has(c.id);
@@ -898,6 +902,11 @@ function MultiQuestionView({ comp, uid, onBack }: { comp: Comp; uid: string; onB
     toast.success(`انتهت المسابقة! أصبت ${toAr(correct)} من ${toAr(total)} 🎉`);
     if (total > 0) {
       const ratio = correct / total;
+      if (correct === total) {
+        showAchievement("مسابقة مثالية! 🏆", "أجبت على جميع الأسئلة بشكل صحيح", "🥇");
+      } else if (ratio >= 0.8) {
+        showAchievement("أداء رائع! 🌟", `أصبت ${toAr(correct)} من ${toAr(total)} — عمل ممتاز!`, "⭐");
+      }
       if (ratio >= 0.5) { playFanfare(); fireworks(Math.max(0.4, ratio)); }
       else if (correct > 0) { burstStars(); }
     }

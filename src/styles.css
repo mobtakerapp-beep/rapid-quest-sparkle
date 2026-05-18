@@ -438,3 +438,53 @@
 .page-transition-enter {
   animation: page-enter 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* ── Skeleton shimmer loading ──────────────────────────────────────────── */
+@keyframes skeleton-wave {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    oklch(from var(--muted) l c h / 0.9) 25%,
+    oklch(from var(--muted) calc(l + 0.08) c h / 0.9) 50%,
+    oklch(from var(--muted) l c h / 0.9) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-wave 1.6s ease-in-out infinite;
+  border-radius: 0.75rem;
+}
+
+/* ── Achievement toast entrance ────────────────────────────────────────── */
+@keyframes achievement-pop {
+  0%   { opacity: 0; transform: translateY(-16px) scale(0.92); }
+  60%  { transform: translateY(2px) scale(1.03); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.achievement-toast-enter {
+  animation: achievement-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Gradient text animation ───────────────────────────────────────────── */
+@keyframes gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.animate-gradient-text {
+  background: linear-gradient(270deg, var(--brand), var(--brand-2), var(--brand-3), var(--brand));
+  background-size: 400% 400%;
+  animation: gradient-shift 5s ease infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Feature card: keep box-shadow on hover, tilt via JS ───────────────── */
+.feature-card-tilt {
+  transition: box-shadow 0.3s cubic-bezier(0.22,1,0.36,1);
+}
+.feature-card-tilt:hover {
+  box-shadow: 0 24px 60px -12px var(--card-glow, oklch(0.62 0.19 265 / 0.4));
+}

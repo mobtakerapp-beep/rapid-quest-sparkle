@@ -8,6 +8,7 @@ import EmojiPicker, { Theme } from "emoji-picker-react";
 import { ReportButton } from "@/components/ReportButton";
 import { Reactions } from "@/components/Reactions";
 import { ImageTextEditor } from "@/components/ImageTextEditor";
+import { EmptyState } from "@/components/EmptyState";
 
 export const Route = createFileRoute("/gallery")({ component: GalleryPage });
 
@@ -269,7 +270,11 @@ function GalleryPage() {
         </div>
 
         {items.length === 0 ? (
-          <div className="text-center text-muted-foreground py-20 text-sm">لا توجد إبداعات بعد. كن أول من يشارك! 🎨</div>
+          <EmptyState
+            emoji="🎨"
+            title="لا توجد إبداعات بعد"
+            desc="كن أول من يشارك صورته أو فيديوه المبدع!"
+          />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {items.map((it) => {
