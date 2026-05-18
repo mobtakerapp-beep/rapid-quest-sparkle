@@ -80,8 +80,25 @@ function ContestsPage() {
     setWinners(out);
   };
 
+  const deleteContestEntryFiles = async (contestIds: string[]) => {
+    const { data: entries } = await supabase.from("gallery_contest_entries").select("media_url").in("contest_id", contestIds);
+    const imgPaths: string[] = [];
+    const vidPaths: string[] = [];
+    const imgMarker = "/storage/v1/object/public/chat-images/";
+    const vidMarker = "/storage/v1/object/public/gallery-media/";
+    (entries || []).forEach((e: any) => {
+      if (!e.media_url) return;
+      const isVid = /\.(mp4|webm|mov|avi)(\?|$)/i.test(e.media_url);
+      if (isVid) { const p = e.media_url.split(vidMarker)[1]; if (p) vidPaths.push(p); }
+      else { const p = e.media_url.split(imgMarker)[1]; if (p) imgPaths.push(p); }
+    });
+    if (imgPaths.length > 0) await supabase.storage.from("chat-images").remove(imgPaths);
+    if (vidPaths.length > 0) await supabase.storage.from("gallery-media").remove(vidPaths);
+  };
+
   const delContest = async (id: string) => {
     if (!confirm("حذف هذه المسابقة؟")) return;
+    await deleteContestEntryFiles([id]);
     const { error } = await supabase.from("gallery_contests").delete().eq("id", id);
     if (error) return toast.error("تعذر الحذف");
     setContests(p => p.filter(c => c.id !== id));
@@ -96,6 +113,7 @@ function ContestsPage() {
     if (!confirm(`حذف ${selected.size} مسابقة معرض نهائياً؟`)) return;
     setBulkDeleting(true);
     const ids = Array.from(selected);
+    await deleteContestEntryFiles(ids);
     const { error } = await supabase.from("gallery_contests").delete().in("id", ids);
     setBulkDeleting(false);
     if (error) return toast.error("فشل الحذف: " + error.message);

@@ -114,7 +114,7 @@ function ActivitiesPage() {
 
   const upload = async () => {
     if (!uid || !title.trim()) { toast.error("أكمل البيانات"); return; }
-    if (file && file.type.startsWith("video/") && file.size > 20 * 1024 * 1024) { toast.error("حجم الفيديو كبير — الحد الأقصى 20 ميجا (مقاطع قصيرة فقط) 🎬"); return; }
+    if (file && file.type.startsWith("video/") && file.size > 10 * 1024 * 1024) { toast.error("حجم الفيديو كبير — الحد الأقصى 10 ميجا (مقطع قصير) 🎬"); return; }
     if (file && !file.type.startsWith("video/") && file.size > 50 * 1024 * 1024) { toast.error("الملف كبير (الحد 50 ميجا)"); return; }
     setUploading(true);
     try {

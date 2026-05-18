@@ -480,11 +480,24 @@ function QuizzesPage() {
   const selectAll = () => setSelected(new Set(list.map((q) => q.id)));
   const clearSelect = () => { setSelected(new Set()); setSelectMode(false); };
 
+  const deleteQuizImages = async (ids: string[]) => {
+    const { data: rows } = await supabase.from("quizzes").select("questions").in("id", ids);
+    const paths: string[] = [];
+    const marker = "/storage/v1/object/public/quiz-images/";
+    (rows || []).forEach((r: any) => {
+      (Array.isArray(r.questions) ? r.questions : []).forEach((q: any) => {
+        if (q?.image_url) { const p = q.image_url.split(marker)[1]; if (p) paths.push(p); }
+      });
+    });
+    if (paths.length > 0) await supabase.storage.from("quiz-images").remove(paths);
+  };
+
   const bulkDelete = async () => {
     if (selected.size === 0) return;
     if (!confirm(`حذف ${selected.size} اختبار نهائياً؟`)) return;
     setBulkDeleting(true);
     const ids = Array.from(selected);
+    await deleteQuizImages(ids);
     const { error } = await supabase.from("quizzes").delete().in("id", ids);
     setBulkDeleting(false);
     if (error) return toast.error("فشل الحذف: " + error.message);
@@ -573,6 +586,7 @@ function QuizzesPage() {
               const onDelete = async (e: React.MouseEvent) => {
                 e.stopPropagation();
                 if (!confirm("حذف الاختبار نهائياً؟")) return;
+                await deleteQuizImages([q.id]);
                 const { error } = await supabase.from("quizzes").delete().eq("id", q.id);
                 if (error) return toast.error("لا تملك صلاحية الحذف");
                 toast.success("تم الحذف");

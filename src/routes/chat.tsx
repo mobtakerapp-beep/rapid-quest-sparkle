@@ -206,10 +206,19 @@ function ChatPage() {
     } finally { setSending(false); }
   };
 
+  const deleteChatImage = (url: string | null) => {
+    if (!url) return;
+    const marker = "/storage/v1/object/public/chat-images/";
+    const path = url.split(marker)[1];
+    if (path) supabase.storage.from("chat-images").remove([path]);
+  };
+
   const deleteMessage = async (id: string) => {
+    const msg = messages.find((m) => m.id === id);
     const { error } = await supabase.from("messages").delete().eq("id", id);
-    if (error) toast.error("لا يمكن الحذف");
-    else toast.success("تم الحذف");
+    if (error) { toast.error("لا يمكن الحذف"); return; }
+    deleteChatImage(msg?.image_url ?? null);
+    toast.success("تم الحذف");
   };
 
   const deleteSelected = async () => {
@@ -218,8 +227,10 @@ function ChatPage() {
     setDeleting(true);
     try {
       const ids = Array.from(selected);
+      const toRemove = messages.filter((m) => selected.has(m.id));
       const { error } = await supabase.from("messages").delete().in("id", ids);
       if (error) throw error;
+      toRemove.forEach((m) => deleteChatImage(m.image_url ?? null));
       setMessages((prev) => prev.filter((m) => !selected.has(m.id)));
       setSelected(new Set());
       setSelectMode(false);

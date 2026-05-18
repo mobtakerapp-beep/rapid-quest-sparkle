@@ -105,8 +105,8 @@ function GalleryPage() {
     const isImg = f.type.startsWith("image/");
     const isVid = f.type.startsWith("video/");
     if (!isImg && !isVid) return toast.error("فقط صور أو فيديوهات");
-    const limit = isVid ? 20 : 10;
-    if (f.size > limit * 1024 * 1024) return toast.error(`الملف كبير — الحد الأقصى ${limit} ميجا${isVid ? " (مقاطع قصيرة فقط) 🎬" : ""}`);
+    const limit = isVid ? 10 : 10;
+    if (f.size > limit * 1024 * 1024) return toast.error(`الملف كبير — الحد الأقصى ${limit} ميجا${isVid ? " (مقطع قصير) 🎬" : ""}`);
     setFile(f);
     setPreview(URL.createObjectURL(f));
   };

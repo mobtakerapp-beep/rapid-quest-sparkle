@@ -497,7 +497,7 @@ function AssignmentView({ a, uid, isTeacher, onBack }: { a: A; uid: string; isTe
     let file_url: string | null = null;
     try {
       if (file) {
-        if (file.size > 20 * 1024 * 1024) { setUploading(false); return toast.error("الملف كبير (الحد 20 ميجا)"); }
+        if (file.size > 10 * 1024 * 1024) { setUploading(false); return toast.error("الملف كبير (الحد 10 ميجا)"); }
         const ext = file.name.split(".").pop();
         const path = `${uid}/${a.id}-${Date.now()}.${ext}`;
         const { error: upErr } = await supabase.storage.from("assignment-files").upload(path, file);

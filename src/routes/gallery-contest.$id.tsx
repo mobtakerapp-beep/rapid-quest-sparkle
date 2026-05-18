@@ -76,7 +76,7 @@ function ContestPage() {
   const submit = async () => {
     if (!uid) return;
     if (!file && !caption.trim()) return toast.error("أضف نصاً أو ملف صورة/فيديو");
-    if (file && file.type.startsWith("video/") && file.size > 20 * 1024 * 1024) return toast.error("حجم الفيديو كبير — الحد الأقصى 20 ميجا (مقاطع قصيرة فقط) 🎬");
+    if (file && file.type.startsWith("video/") && file.size > 10 * 1024 * 1024) return toast.error("حجم الفيديو كبير — الحد الأقصى 10 ميجا (مقطع قصير) 🎬");
     if (file && !file.type.startsWith("video/") && file.size > 10 * 1024 * 1024) return toast.error("الصورة كبيرة — الحد الأقصى 10 ميجا");
     setBusy(true);
     try {
@@ -121,9 +121,20 @@ function ContestPage() {
     }
   };
 
+  const delEntryStorage = (url: string | null) => {
+    if (!url) return;
+    const isVid = url.match(/\.(mp4|webm|mov|avi)(\?|$)/i);
+    const bucket = isVid ? "gallery-media" : "chat-images";
+    const marker = `/storage/v1/object/public/${bucket}/`;
+    const path = url.split(marker)[1];
+    if (path) supabase.storage.from(bucket).remove([path]);
+  };
+
   const delEntry = async (eid: string) => {
     if (!confirm("حذف مشاركتك؟")) return;
+    const entry = entries.find((e) => e.id === eid);
     await supabase.from("gallery_contest_entries").delete().eq("id", eid);
+    delEntryStorage(entry?.media_url ?? null);
     if (uid) load(uid);
   };
 
