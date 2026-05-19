@@ -779,14 +779,26 @@ function TeacherStickersSection({ uid }: { uid: string }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
+  const STICKER_MARKER = "__STICKER__|";
+
+  const parseStickerDM = (d: any) => {
+    try {
+      const parts = (d.image_url || "").slice(STICKER_MARKER.length).split("|__DATA__|");
+      const actualImageUrl = parts[0] || "";
+      const json = parts[1] ? JSON.parse(parts[1]) : {};
+      return { id: d.id, image_url: actualImageUrl, title: json.title || "", message: json.message || "", created_at: d.created_at };
+    } catch { return null; }
+  };
+
   const load = async () => {
     setLoading(true);
-    const { data } = await (supabase as any)
-      .from("teacher_stickers")
-      .select("id, teacher_id, image_url, title, message, created_at")
-      .eq("student_id", uid)
-      .order("created_at", { ascending: false });
-    setStickers(data || []);
+    const { data } = await supabase
+      .from("direct_messages")
+      .select("id, image_url, created_at")
+      .eq("receiver_id", uid)
+      .like("image_url", `${STICKER_MARKER}%`)
+      .order("created_at", { ascending: false }) as any;
+    setStickers((data || []).map(parseStickerDM).filter(Boolean));
     setLoading(false);
   };
 
@@ -794,15 +806,18 @@ function TeacherStickersSection({ uid }: { uid: string }) {
 
   // ريل تايم — يظهر الملصق فور إرساله
   useEffect(() => {
-    const ch = (supabase as any)
+    const ch = supabase
       .channel(`stickers-rt-${uid}`)
       .on("postgres_changes", {
         event: "INSERT",
         schema: "public",
-        table: "teacher_stickers",
-        filter: `student_id=eq.${uid}`,
+        table: "direct_messages",
+        filter: `receiver_id=eq.${uid}`,
       }, (payload: any) => {
-        setStickers((prev) => [payload.new, ...prev]);
+        const m = payload.new;
+        if (!m.image_url?.startsWith(STICKER_MARKER)) return;
+        const parsed = parseStickerDM(m);
+        if (parsed) setStickers((prev) => [parsed, ...prev]);
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };

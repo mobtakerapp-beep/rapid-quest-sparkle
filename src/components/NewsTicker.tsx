@@ -539,7 +539,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       supabase.from("competition_submissions").select("user_id").gte("created_at", todayActivityISO),
       supabase.from("quiz_attempts").select("user_id").gte("created_at", todayActivityISO),
       supabase.from("messages").select("user_id").gte("created_at", todayActivityISO),
-      (supabase as any).from("teacher_stickers").select("teacher_id").gte("created_at", todayActivityISO),
+      supabase.from("direct_messages").select("sender_id").like("image_url", "__STICKER__|%").gte("created_at", todayActivityISO),
       supabase.from("activity_comments").select("user_id").gte("created_at", todayActivityISO),
     ]);
 
@@ -548,7 +548,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
     (subsToday     || []).forEach((s: any) => { activityScore[s.user_id]    = (activityScore[s.user_id]    || 0) + 2; });
     (attemptsToday || []).forEach((a: any) => { activityScore[a.user_id]    = (activityScore[a.user_id]    || 0) + 1; });
     (msgsToday     || []).forEach((m: any) => { activityScore[m.user_id]    = (activityScore[m.user_id]    || 0) + 1; });
-    (stickersToday || []).forEach((s: any) => { activityScore[s.teacher_id] = (activityScore[s.teacher_id] || 0) + 3; });
+    (stickersToday || []).forEach((s: any) => { activityScore[s.sender_id] = (activityScore[s.sender_id] || 0) + 3; });
     (commentsToday || []).forEach((c: any) => { activityScore[c.user_id]    = (activityScore[c.user_id]    || 0) + 1; });
 
     const activeUserIds = Object.keys(activityScore);
@@ -708,8 +708,8 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
   const broadcastStickerSend = async (stickerRecord: any) => {
     try {
       const [{ data: teacher }, { data: recipient }] = await Promise.all([
-        supabase.from("profiles").select("display_name, role_type").eq("id", stickerRecord.teacher_id).maybeSingle(),
-        supabase.from("profiles").select("display_name, role_type").eq("id", stickerRecord.student_id).maybeSingle(),
+        supabase.from("profiles").select("display_name, role_type").eq("id", stickerRecord.sender_id).maybeSingle(),
+        supabase.from("profiles").select("display_name, role_type").eq("id", stickerRecord.receiver_id).maybeSingle(),
       ]);
       const teacherLabel   = getRoleLabel((teacher as any)?.role_type);
       const teacherName    = (teacher as any)?.display_name || "معلم";
@@ -796,8 +796,8 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "user_badges" }, (p: any) => {
         broadcastBadgeAward(p.new);
       })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "teacher_stickers" }, (p: any) => {
-        broadcastStickerSend(p.new);
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages" }, (p: any) => {
+        if (p.new?.image_url?.startsWith("__STICKER__|")) broadcastStickerSend(p.new);
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "certificates" }, (p: any) => {
         broadcastCertificateIssue(p.new);
