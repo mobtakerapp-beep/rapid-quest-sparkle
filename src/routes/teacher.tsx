@@ -1006,14 +1006,19 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
     if (!title.trim()) { toast.error("اكتبي عنوان الملصق"); return; }
     if (!file) { toast.error("اختاري صورة الملصق"); return; }
     setSending(true);
+    // استخدام UID الجلسة الحالية مباشرة لضمان مطابقة سياسة RLS
+    const { data: sessData } = await supabase.auth.getSession();
+    const currentUid = sessData.session?.user.id;
+    if (!currentUid) { toast.error("يرجى تسجيل الدخول أولاً"); setSending(false); return; }
     const ext = file.name.split(".").pop() || "png";
-    const path = `stickers/${teacherId}/${Date.now()}.${ext}`;
+    // المسار: uid/stickers/... حتى يطابق سياسة storage (foldername[1] = uid)
+    const path = `${currentUid}/stickers/${Date.now()}.${ext}`;
     const { error: upErr } = await supabase.storage.from("activity-files").upload(path, file, { upsert: true });
     if (upErr) { toast.error("تعذّر رفع الصورة: " + upErr.message); setSending(false); return; }
     const { data: urlData } = supabase.storage.from("activity-files").getPublicUrl(path);
     const image_url = urlData?.publicUrl || "";
     const { error: insErr } = await (supabase as any).from("teacher_stickers").insert({
-      teacher_id: teacherId,
+      teacher_id: currentUid,
       student_id: selectedRecipient,
       image_url,
       title: title.trim(),
