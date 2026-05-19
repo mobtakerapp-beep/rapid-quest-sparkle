@@ -241,7 +241,7 @@ function AssignmentsPage() {
   const [list, setList] = useState<A[]>([]);
   const [active, setActive] = useState<A | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState(""); const [desc, setDesc] = useState(""); const [due, setDue] = useState(""); const [subject, setSubject] = useState(SCHOOLS[0]);
+  const [title, setTitle] = useState(""); const [desc, setDesc] = useState(""); const [due, setDue] = useState(""); const [subject, setSubject] = useState<string>(SCHOOLS[0]);
   const [attachFile, setAttachFile] = useState<File | null>(null);
   const [creating, setCreating] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
@@ -273,7 +273,7 @@ function AssignmentsPage() {
   const [editingAssignment, setEditingAssignment] = useState<A | null>(null);
   const [editATitle, setEditATitle] = useState("");
   const [editADesc, setEditADesc] = useState("");
-  const [editASubject, setEditASubject] = useState(SCHOOLS[0]);
+  const [editASubject, setEditASubject] = useState<string>(SCHOOLS[0]);
   const [editADue, setEditADue] = useState("");
 
   const load = async (userId?: string) => {

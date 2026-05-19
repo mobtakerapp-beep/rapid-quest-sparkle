@@ -433,8 +433,9 @@ function TrackingPanel({ teacherId }: { teacherId: string }) {
       ) : (
         <div className="space-y-3">
           {items.map((item) => {
-            const pct = item.total > 0 ? Math.round((item.completed ?? item.submitted ?? 0) / item.total * 100) : 0;
-            const done = item.completed ?? item.submitted ?? 0;
+            const anyItem = item as any;
+            const pct = item.total > 0 ? Math.round((anyItem.completed ?? anyItem.submitted ?? 0) / item.total * 100) : 0;
+            const done = anyItem.completed ?? anyItem.submitted ?? 0;
             const full = pct === 100;
             return (
               <div key={item.id} className="space-y-1.5">

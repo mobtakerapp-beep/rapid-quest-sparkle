@@ -189,7 +189,7 @@ function Index() {
         <div className="blob-2 absolute top-1/2 left-1/2 h-64 w-64 rounded-full bg-[var(--brand)] opacity-10 blur-3xl" style={{ animationDelay: "5s" }} />
         {particles.map((p, i) => (
           <span key={i} className="particle absolute rounded-full opacity-50"
-            style={{ top: p.top, ...(p.right ? { right: p.right } : { left: p.left }), width: p.size, height: p.size, background: p.color, "--dur": p.dur, "--delay": p.delay, filter: "blur(1px)" } as React.CSSProperties} />
+            style={{ top: p.top, ...(p.right ? { right: p.right } : { left: p.left }), width: p.size, height: p.size, background: p.color, "--dur": p.dur, "--delay": p.delay, filter: "blur(1px)" } as any} />
         ))}
         {[
           { sym: "π",  top: "10%", left: "3%",   dur: "9s",  delay: "0s",   size: "1.5rem", opacity: 0.15 },
@@ -202,7 +202,7 @@ function Index() {
           { sym: "%",  top: "32%", right: "18%", dur: "9.5s",delay: "2.8s", size: "1.2rem", opacity: 0.09 },
         ].map((m, i) => (
           <span key={`math-${i}`} className="math-sym absolute pointer-events-none select-none font-black"
-            style={{ top: m.top, ...(m.right ? { right: m.right } : { left: m.left }), fontSize: m.size, color: "var(--brand)", opacity: m.opacity, "--dur": m.dur, "--delay": m.delay, fontFamily: "'Tajawal', monospace" } as React.CSSProperties}>
+            style={{ top: m.top, ...(m.right ? { right: m.right } : { left: m.left }), fontSize: m.size, color: "var(--brand)", opacity: m.opacity, "--dur": m.dur, "--delay": m.delay, fontFamily: "'Tajawal', monospace" } as any}>
             {m.sym}
           </span>
         ))}

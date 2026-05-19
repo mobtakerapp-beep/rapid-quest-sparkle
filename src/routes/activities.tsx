@@ -46,7 +46,7 @@ function ActivitiesPage() {
   const [activeSubject, setActiveSubject] = useState<string>("الكل");
   const [activeTab, setActiveTab] = useState<"teachers" | "students">("teachers");
   const [showForm, setShowForm] = useState(false);
-  const [subject, setSubject] = useState(SCHOOLS[0]);
+  const [subject, setSubject] = useState<string>(SCHOOLS[0]);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -368,7 +368,7 @@ function ActivitiesPage() {
                   )}
                   <div onClick={() => selectMode && isAdmin && toggleSelect(it.id)}
                     className={selectMode && isAdmin ? "cursor-pointer" : ""}>
-                    <ActivityCard it={it} Icon={Icon} isImg={isImg} isVid={isVid} canDelete={!selectMode && canDelete} isAdmin={isAdmin} uid={uid} onApprove={approve} onDelete={del} isStudentTab={activeTab === "students"} onEdit={(updated: any) => setList((p) => p.map((x) => x.id === updated.id ? { ...x, ...updated } : x))} />
+                    <ActivityCard it={it} Icon={Icon} isImg={isImg} isVid={isVid} canDelete={!selectMode && canDelete} isAdmin={isAdmin} uid={uid} onApprove={approve} onDelete={del} isStudentTab={activeTab === "students"} onEdit={(updated: any) => setItems((p) => p.map((x) => x.id === updated.id ? { ...x, ...updated } : x))} />
                   </div>
                 </div>
               );

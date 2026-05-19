@@ -378,7 +378,7 @@ function QuizzesPage() {
   const [active, setActive] = useState<Quiz | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
-  const [subject, setSubject] = useState(SCHOOLS[0]);
+  const [subject, setSubject] = useState<string>(SCHOOLS[0]);
   const [filter, setFilter] = useState("الكل");
   const [questions, setQuestions] = useState<Q[]>([{ question: "", options: ["", "", "", ""], correct: 0, type: "mc" }]);
   const [attemptedIds, setAttemptedIds] = useState<Set<string>>(new Set());
@@ -388,7 +388,7 @@ function QuizzesPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
   const [editQTitle, setEditQTitle] = useState("");
-  const [editQSubject, setEditQSubject] = useState(SCHOOLS[0]);
+  const [editQSubject, setEditQSubject] = useState<string>(SCHOOLS[0]);
 
   const subjects = ["الكل", ...SCHOOLS];
 
@@ -434,7 +434,7 @@ function QuizzesPage() {
       questions: new Array(r.question_count || 0).fill(null),
     }));
     // Fetch teacher names
-    const creatorIds = [...new Set(mapped.map((q: any) => q.created_by).filter(Boolean))];
+    const creatorIds = [...new Set(mapped.map((q: any) => q.created_by).filter(Boolean))] as string[];
     const { data: profs } = creatorIds.length
       ? await supabase.from("profiles").select("id, display_name").in("id", creatorIds)
       : { data: [] };

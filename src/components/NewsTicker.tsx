@@ -345,7 +345,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       .limit(3);
 
     for (const gc of (endingSoonGallery || [])) {
-      const endsDate = new Date(gc.ends_at);
+      const endsDate = new Date(gc.ends_at ?? Date.now());
       const diffMs = endsDate.getTime() - Date.now();
       const diffHours = Math.floor(diffMs / (1000 * 3600));
       const diffMins = Math.floor((diffMs % (1000 * 3600)) / 60000);
@@ -487,24 +487,25 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
 
     // ── فائزو الاختبارات (خلال آخر يومين) ──
     const { data: recentAttempts } = await supabase
-      .from("quiz_attempts")
+      .from("quiz_attempts" as any)
       .select("quiz_id, user_id, score, max_score, created_at")
       .gte("created_at", twoDaysAgo)
       .order("score", { ascending: false })
       .limit(50);
 
     if (recentAttempts?.length) {
-      const quizIds = [...new Set((recentAttempts || []).map((a: any) => a.quiz_id))];
+      const attempts = (recentAttempts || []) as any[];
+      const quizIds = [...new Set(attempts.map((a) => a.quiz_id))];
       const { data: quizDetails } = await supabase.from("quizzes").select("id, title").in("id", quizIds);
       const quizMap: Record<string, string> = {};
       (quizDetails || []).forEach((q: any) => { quizMap[q.id] = q.title; });
 
       // Group by quiz and pick top scorer per quiz
       const topPerQuiz: Record<string, any> = {};
-      for (const attempt of (recentAttempts || [])) {
+      for (const attempt of attempts) {
         const prev = topPerQuiz[attempt.quiz_id];
         const prevScore = prev ? (prev.score / (prev.max_score || 1)) : -1;
-        const curScore  = (attempt as any).score / ((attempt as any).max_score || 1);
+        const curScore  = attempt.score / (attempt.max_score || 1);
         if (!prev || curScore > prevScore) topPerQuiz[attempt.quiz_id] = attempt;
       }
 
@@ -571,8 +572,8 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
       if (topStudent && topTeacher) {
         const sScore = activityScore[topStudent.id] || 0;
         const tScore = activityScore[topTeacher.id] || 0;
-        const studentLabel = getRoleLabel(topStudent.role_type, topStudent.gender);
-        const teacherLabel = getRoleLabel(topTeacher.role_type, topTeacher.gender);
+        const studentLabel = getRoleLabel(topStudent.role_type ?? undefined, topStudent.gender ?? undefined);
+        const teacherLabel = getRoleLabel(topTeacher.role_type ?? undefined, topTeacher.gender ?? undefined);
         items.push({
           id: `active-top-today`,
           text: `⚡ أكثر نشاطاً اليوم — ${studentLabel} ${topStudent.display_name} (${sScore} نشاط) | ${teacherLabel} ${topTeacher.display_name} (${tScore} نشاط)`,
@@ -580,7 +581,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
         });
       } else if (topStudent) {
         const score = activityScore[topStudent.id] || 0;
-        const studentLabel = getRoleLabel(topStudent.role_type, topStudent.gender);
+        const studentLabel = getRoleLabel(topStudent.role_type ?? undefined, topStudent.gender ?? undefined);
         items.push({
           id: `active-student-today`,
           text: `⚡ أكثر ${studentLabel} نشاطاً اليوم: ${studentLabel} ${topStudent.display_name} — ${score} نشاط`,
@@ -588,7 +589,7 @@ async function fetchAutoItems(): Promise<TickerItem[]> {
         });
       } else if (topTeacher) {
         const score = activityScore[topTeacher.id] || 0;
-        const roleLabel = getRoleLabel(topTeacher.role_type, topTeacher.gender);
+        const roleLabel = getRoleLabel(topTeacher.role_type ?? undefined, topTeacher.gender ?? undefined);
         items.push({
           id: `active-teacher-today`,
           text: `⚡ أكثر ${roleLabel} نشاطاً اليوم: ${roleLabel} ${topTeacher.display_name} — ${score} نشاط`,
@@ -660,9 +661,9 @@ export function NewsTicker({ userId, canManage }: { userId: string | null; canMa
   const broadcastBadgeAward = async (badgeRecord: any) => {
     try {
       const queries: Promise<any>[] = [
-        supabase.from("profiles").select("display_name, role_type, gender").eq("id", badgeRecord.user_id).maybeSingle(),
-        supabase.from("badges").select("name").eq("id", badgeRecord.badge_id).maybeSingle(),
-        supabase.from("user_badges").select("id", { count: "exact", head: true }).eq("user_id", badgeRecord.user_id),
+        supabase.from("profiles").select("display_name, role_type, gender").eq("id", badgeRecord.user_id).maybeSingle() as unknown as Promise<any>,
+        supabase.from("badges").select("name").eq("id", badgeRecord.badge_id).maybeSingle() as unknown as Promise<any>,
+        supabase.from("user_badges").select("id", { count: "exact", head: true }).eq("user_id", badgeRecord.user_id) as unknown as Promise<any>,
       ];
       if (badgeRecord.awarded_by) {
         queries.push(supabase.from("profiles").select("display_name, role_type").eq("id", badgeRecord.awarded_by).maybeSingle() as any);
