@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { User as UserIcon, Moon, Sun, MessageSquare, Home, LogOut, BadgeCheck, Clock, Search } from "lucide-react";
+import { User as UserIcon, Moon, Sun, MessageSquare, Home, LogOut, BadgeCheck, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "./NotificationBell";
 import { roleLabelFor, adminBadgeFor } from "@/lib/greeting";
@@ -14,15 +14,11 @@ function InlineClock() {
   }, []);
 
   const timeStr = time.toLocaleTimeString("ar-OM", { hour: "2-digit", minute: "2-digit", hour12: true });
-
   const gregorian = time.toLocaleDateString("ar-OM", { day: "numeric", month: "short", year: "numeric" });
-
   let hijri = "";
   try {
     hijri = time.toLocaleDateString("ar-OM-u-ca-islamic-umalqura", { day: "numeric", month: "short", year: "numeric" });
-  } catch {
-    hijri = "";
-  }
+  } catch { hijri = ""; }
 
   return (
     <div className="flex flex-col items-center leading-none select-none gap-px" dir="rtl">
@@ -54,7 +50,6 @@ export function GlobalNav() {
   }, []);
 
   useEffect(() => {
-    // Try cache first for instant display
     try {
       const cached = localStorage.getItem("home-greeting-v2");
       if (cached) {
@@ -118,25 +113,19 @@ export function GlobalNav() {
     return () => { sub.subscription.unsubscribe(); };
   }, []);
 
-  // Subscribe to new direct messages for badge count
   useEffect(() => {
     if (!uid) return;
     const ch = supabase
       .channel("globalnav-dm-rt")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages" }, (payload: any) => {
-        if ((payload.new as any)?.to_user_id === uid) {
-          setUnreadMsgs((n) => n + 1);
-        }
+        if ((payload.new as any)?.to_user_id === uid) setUnreadMsgs((n) => n + 1);
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [uid]);
 
-  // Clear messages badge when on /messages page
   useEffect(() => {
-    if (pathname === "/messages" && unreadMsgs > 0) {
-      setUnreadMsgs(0);
-    }
+    if (pathname === "/messages" && unreadMsgs > 0) setUnreadMsgs(0);
   }, [pathname]);
 
   const toggleDark = () => {
@@ -163,42 +152,47 @@ export function GlobalNav() {
   const nameColor = roleColor[roleType || ""] || "text-foreground";
 
   return (
-    <div
-      className="bg-card/97 backdrop-blur border-b border-border shadow-sm nav-gradient-border"
-      dir="rtl"
-    >
+    <div className="bg-card/97 backdrop-blur border-b border-border shadow-sm nav-gradient-border" dir="rtl">
       <div className="flex items-center px-2 py-1 gap-1">
 
-        {/* يمين: صورة + مرحبا بك + اللقب + الاسم */}
-        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+        {/* ══════════ يمين: معلومات المستخدم ══════════ */}
+        <div className="flex items-center gap-1 flex-1 min-w-0">
           {uid ? (
             <Link to="/profile" className="flex items-center gap-1.5 group min-w-0">
-              {/* الصورة أو الأيقونة */}
+              {/* الصورة الشخصية */}
               {avatar ? (
-                <img
-                  src={avatar}
-                  alt=""
-                  className="h-7 w-7 rounded-lg object-cover ring-2 ring-[var(--brand)]/30 group-hover:ring-[var(--brand)] transition shrink-0"
-                />
+                <img src={avatar} alt="" className="h-7 w-7 rounded-lg object-cover ring-2 ring-[var(--brand)]/30 group-hover:ring-[var(--brand)] transition shrink-0" />
               ) : (
                 <div className="h-7 w-7 rounded-lg bg-[image:var(--gradient-hero)] flex items-center justify-center text-white shrink-0">
                   <UserIcon className="h-3.5 w-3.5" />
                 </div>
               )}
-              {/* النص: مرحبا بك + اللقب + الاسم */}
-              <div className="flex flex-col min-w-0 leading-none gap-0.5">
+
+              {/* على المحمول: اسم مضغوط فقط */}
+              <div className="flex sm:hidden flex-col min-w-0 leading-none">
+                {name && (
+                  <span className={`text-[10px] font-black truncate max-w-[70px] ${nameColor}`}
+                    style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}>
+                    {name}
+                  </span>
+                )}
+                {roleLabel && (
+                  <span className={`text-[8px] font-bold truncate ${nameColor} opacity-80`}>
+                    {roleLabel}
+                  </span>
+                )}
+              </div>
+
+              {/* على الشاشات الكبيرة: التخطيط الكامل */}
+              <div className="hidden sm:flex flex-col min-w-0 leading-none gap-0.5">
                 <span className="text-[9px] text-muted-foreground">مرحباً بك 👋</span>
                 <div className="flex items-center gap-1 min-w-0">
                   {roleLabel && (
-                    <span className={`text-[10px] font-bold truncate shrink-0 ${nameColor}`}>
-                      {roleLabel}
-                    </span>
+                    <span className={`text-[10px] font-bold truncate shrink-0 ${nameColor}`}>{roleLabel}</span>
                   )}
                   {name && (
-                    <span
-                      className={`text-[10px] font-black truncate ${nameColor}`}
-                      style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}
-                    >
+                    <span className={`text-[10px] font-black truncate ${nameColor}`}
+                      style={{ fontFamily: "'Tajawal', 'Cairo', sans-serif" }}>
                       {name}
                     </span>
                   )}
@@ -220,106 +214,74 @@ export function GlobalNav() {
               <div className="h-7 w-7 rounded-lg bg-secondary flex items-center justify-center shrink-0">
                 <UserIcon className="h-3.5 w-3.5" />
               </div>
-              <span>تسجيل الدخول</span>
+              <span className="hidden sm:inline">تسجيل الدخول</span>
             </Link>
           )}
         </div>
 
-        {/* وسط: شعار السلطنة + الأسطر الثلاثة */}
-        <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-1 sm:px-2 shrink-0 min-w-0">
+        {/* ══════════ وسط: شعار السلطنة + النصوص ══════════ */}
+        <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-1 sm:px-2 shrink-0">
           <img src={omanEmblem} alt="شعار عمان" className="h-5 w-5 sm:h-8 sm:w-8 object-contain shrink-0 drop-shadow-sm" />
 
-          {/* على المحمول: صف واحد مضغوط */}
-          <div className="flex sm:hidden flex-col items-center leading-none select-none min-w-0">
-            <span
-              className="text-[9px] font-black tracking-wide text-foreground whitespace-nowrap"
-              style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}
-            >
+          {/* المحمول: سطران مضغوطان */}
+          <div className="flex sm:hidden flex-col items-center leading-none select-none">
+            <span className="text-[9px] font-black tracking-wide text-foreground whitespace-nowrap"
+              style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}>
               سلطنة عُمان
             </span>
             <div className="flex items-center gap-0.5">
-              <span
-                className="text-[8px] font-bold text-muted-foreground whitespace-nowrap"
-                style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}
-              >
+              <span className="text-[7.5px] font-bold text-muted-foreground whitespace-nowrap"
+                style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}>
                 وزارة التعليم
               </span>
-              <span className="text-[7px] text-muted-foreground/40">·</span>
-              <span
-                className="text-[8px] font-bold whitespace-nowrap"
-                style={{ fontFamily: "'Tajawal','Cairo',sans-serif", color: "var(--brand)" }}
-              >
+              <span className="text-[7px] text-muted-foreground/40 mx-px">·</span>
+              <span className="text-[7.5px] font-bold whitespace-nowrap"
+                style={{ fontFamily: "'Tajawal','Cairo',sans-serif", color: "var(--brand)" }}>
                 محافظة الوسطى
               </span>
             </div>
           </div>
 
-          {/* على الشاشات الكبيرة: ثلاثة أسطر مرتبة */}
+          {/* شاشات كبيرة: ثلاثة أسطر */}
           <div className="hidden sm:flex flex-col items-center leading-none gap-px select-none">
-            <span
-              className="text-[10px] font-black tracking-wide text-foreground whitespace-nowrap"
-              style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}
-            >
+            <span className="text-[10px] font-black tracking-wide text-foreground whitespace-nowrap"
+              style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}>
               سلطنة عُمان
             </span>
-            <span
-              className="text-[9px] font-bold text-muted-foreground whitespace-nowrap"
-              style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}
-            >
+            <span className="text-[9px] font-bold text-muted-foreground whitespace-nowrap"
+              style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}>
               وزارة التعليم
             </span>
-            <span
-              className="text-[9px] font-bold whitespace-nowrap"
-              style={{ fontFamily: "'Tajawal','Cairo',sans-serif", color: "var(--brand)" }}
-            >
+            <span className="text-[9px] font-bold whitespace-nowrap"
+              style={{ fontFamily: "'Tajawal','Cairo',sans-serif", color: "var(--brand)" }}>
               محافظة الوسطى
             </span>
           </div>
         </div>
 
-        {/* يسار: الساعة + الأيقونات */}
-        <div className="flex items-center gap-0 shrink-0">
-          <div className="px-1.5 border-l border-border">
+        {/* ══════════ يسار: الأيقونات ══════════ */}
+        <div className="flex items-center shrink-0">
+
+          {/* الساعة: تظهر فقط على الشاشات الكبيرة */}
+          <div className="hidden sm:block px-1.5 border-l border-border">
             <InlineClock />
           </div>
-          {/* ايقونة الرئيسية تختفي لما تكون في الرئيسية */}
-          {!isHome && (
-            <Link
-              to="/"
-              className="p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition"
-              aria-label="الرئيسية"
-              title="الرئيسية"
-            >
-              <Home className="h-4 w-4" />
-            </Link>
-          )}
 
-          <button
-            onClick={toggleDark}
+          {/* بحث */}
+          <button onClick={() => window.dispatchEvent(new Event("open-global-search"))}
             className="p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition"
-            aria-label="الوضع الليلي"
-            title="الوضع الليلي"
-          >
-            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-
-          <button
-            onClick={() => window.dispatchEvent(new Event("open-global-search"))}
-            className="p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition"
-            aria-label="بحث سريع"
-            title="بحث سريع (Ctrl+K)"
-          >
+            aria-label="بحث سريع" title="بحث سريع (Ctrl+K)">
             <Search className="h-4 w-4" />
           </button>
+
+          {/* جرس الإشعارات */}
           {uid && <NotificationBell userId={uid} />}
 
+          {/* الرسائل */}
           {uid && (
-            <Link
-              to={"/messages" as any}
+            <Link to={"/messages" as any}
               className="relative p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition"
-              aria-label="الرسائل"
-              title="الرسائل الخاصة"
-            >
+              aria-label="الرسائل" title="الرسائل الخاصة">
               <MessageSquare className="h-4 w-4" />
               {unreadMsgs > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5 rounded-full bg-rose-500 text-white text-[9px] flex items-center justify-center font-bold">
@@ -329,17 +291,32 @@ export function GlobalNav() {
             </Link>
           )}
 
+          {/* الوضع الليلي — مخفي على المحمول */}
+          <button onClick={toggleDark}
+            className="hidden sm:flex p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition"
+            aria-label="الوضع الليلي" title="الوضع الليلي">
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+
+          {/* الرئيسية — مخفي على المحمول */}
+          {!isHome && (
+            <Link to="/"
+              className="hidden sm:flex p-1.5 rounded-xl hover:bg-secondary text-muted-foreground transition"
+              aria-label="الرئيسية" title="الرئيسية">
+              <Home className="h-4 w-4" />
+            </Link>
+          )}
+
+          {/* تسجيل الخروج — مخفي على المحمول */}
           {uid && (
-            <button
-              onClick={handleSignOut}
-              className="p-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 hover:text-rose-600 transition"
-              aria-label="تسجيل خروج"
-              title="تسجيل خروج"
-            >
+            <button onClick={handleSignOut}
+              className="hidden sm:flex p-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 hover:text-rose-600 transition"
+              aria-label="تسجيل خروج" title="تسجيل خروج">
               <LogOut className="h-4 w-4" />
             </button>
           )}
         </div>
+
       </div>
     </div>
   );
