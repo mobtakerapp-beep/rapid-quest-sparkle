@@ -155,7 +155,15 @@
 }
 
 .app-content-with-nav {
+  /* شاشة كبيرة: ticker + صف واحد في النافبار */
   padding-top: 5rem;
+}
+
+/* موبايل: ticker + صفّان في النافبار */
+@media (max-width: 639px) {
+  .app-content-with-nav {
+    padding-top: 7rem;
+  }
 }
 
 .app-content-with-nav header.sticky {
