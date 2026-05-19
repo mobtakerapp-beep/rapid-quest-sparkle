@@ -157,16 +157,18 @@ export function GlobalNav() {
                 </div>
               )}
               <div className="flex flex-col min-w-0 leading-none gap-0.5">
-                <span className="text-[9px] text-muted-foreground hidden sm:block">مرحباً بك 👋</span>
+                {/* مرحباً + اللقب في سطر واحد على الشاشة الكبيرة، اللقب وحده على الموبايل */}
                 <div className="flex items-center gap-1 min-w-0">
+                  <span className="text-[9px] text-muted-foreground hidden sm:inline">مرحباً بك 👋</span>
                   {roleLabel && <span className={`text-[9px] font-bold shrink-0 ${nameColor}`}>{roleLabel}</span>}
-                  {name && (
-                    <span className={`text-[10px] font-black truncate max-w-[80px] sm:max-w-none ${nameColor}`}
-                      style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}>
-                      {name}
-                    </span>
-                  )}
                 </div>
+                {/* الاسم في سطر منفصل دائماً */}
+                {name && (
+                  <span className={`text-[10px] font-black truncate max-w-[90px] sm:max-w-none ${nameColor}`}
+                    style={{ fontFamily: "'Tajawal','Cairo',sans-serif" }}>
+                    {name}
+                  </span>
+                )}
                 {isAdmin && (
                   <span className="text-[8px] px-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-black w-fit hidden sm:block">
                     {adminBadgeFor(gender)}

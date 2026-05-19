@@ -978,15 +978,27 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
     return r?.type === "teacher" ? "معلم" : "طالب";
   };
 
+  const STICKER_PFX = "__STICKER__";
+
   const loadSent = async () => {
     setLoadingSent(true);
-    const { data } = await (supabase as any)
-      .from("teacher_stickers")
-      .select("id, student_id, image_url, title, message, created_at")
-      .eq("teacher_id", teacherId)
+    const { data: sessData } = await supabase.auth.getSession();
+    const currentUid = sessData.session?.user.id;
+    if (!currentUid) { setLoadingSent(false); return; }
+    const { data } = await supabase
+      .from("direct_messages")
+      .select("id, receiver_id, content, created_at")
+      .eq("sender_id", currentUid)
+      .like("content", `${STICKER_PFX}%`)
       .order("created_at", { ascending: false })
-      .limit(30);
-    setSent(data || []);
+      .limit(30) as any;
+    const parsed = (data || []).map((d: any) => {
+      try {
+        const json = JSON.parse(d.content.slice(STICKER_PFX.length));
+        return { id: d.id, student_id: d.receiver_id, created_at: d.created_at, ...json };
+      } catch { return null; }
+    }).filter(Boolean);
+    setSent(parsed);
     setLoadingSent(false);
   };
 
@@ -1018,13 +1030,12 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
     if (upErr) { toast.error("تعذّر رفع الصورة: " + upErr.message); setSending(false); return; }
     const { data: urlData } = supabase.storage.from("activity-files").getPublicUrl(path);
     const image_url = urlData?.publicUrl || "";
-    const { error: insErr } = await (supabase as any).from("teacher_stickers").insert({
-      teacher_id: currentUid,
-      student_id: selectedRecipient,
-      image_url,
-      title: title.trim(),
-      message: message.trim(),
-    });
+    const stickerJson = JSON.stringify({ image_url, title: title.trim(), message: message.trim() });
+    const { error: insErr } = await supabase.from("direct_messages").insert({
+      sender_id: currentUid,
+      receiver_id: selectedRecipient,
+      content: `${STICKER_PFX}${stickerJson}`,
+    } as any);
     if (insErr) { toast.error("تعذّر إرسال الملصق: " + insErr.message); setSending(false); return; }
     const rType = recipientTypeLabel(selectedRecipient);
     toast.success(`✨ تم إرسال الملصق لل${rType}!`);
@@ -1034,7 +1045,7 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
   };
 
   const deleteSticker = async (id: string) => {
-    await (supabase as any).from("teacher_stickers").delete().eq("id", id);
+    await supabase.from("direct_messages").delete().eq("id", id);
     setSent((prev) => prev.filter((s: any) => s.id !== id));
     toast.success("تم حذف الملصق");
   };

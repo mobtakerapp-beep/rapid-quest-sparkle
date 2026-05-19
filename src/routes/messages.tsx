@@ -36,7 +36,7 @@ function MessagesPage() {
 
   const loadUnread = async (myId: string) => {
     const { data } = await supabase.from("direct_messages").select("sender_id")
-      .eq("receiver_id", myId).is("read_at", null);
+      .eq("receiver_id", myId).is("read_at", null).not("content", "like", "__STICKER__%");
     const counts: Record<string, number> = {};
     (data || []).forEach((m: any) => { counts[m.sender_id] = (counts[m.sender_id] || 0) + 1; });
     setUnreadCounts(counts);
@@ -176,6 +176,7 @@ function MessagesPage() {
     const load = async () => {
       const { data } = await supabase.from("direct_messages").select("*")
         .or(`and(sender_id.eq.${uid},receiver_id.eq.${active.id}),and(sender_id.eq.${active.id},receiver_id.eq.${uid})`)
+        .not("content", "like", "__STICKER__%")
         .order("created_at", { ascending: true }).limit(200);
       const list = (data || []) as DM[];
       setMsgs(list);
@@ -186,6 +187,7 @@ function MessagesPage() {
     const ch = supabase.channel(`dm-${uid}-${active.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages" }, (p) => {
         const m = p.new as DM;
+        if (m.content?.startsWith("__STICKER__")) return;
         if ((m.sender_id === uid && m.receiver_id === active.id) || (m.sender_id === active.id && m.receiver_id === uid)) {
           setMsgs((prev) => {
             if (prev.some((x) => x.id === m.id)) return prev;
