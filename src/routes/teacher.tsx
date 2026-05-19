@@ -978,7 +978,8 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
     return r?.type === "teacher" ? "معلم" : "طالب";
   };
 
-  const STICKER_PFX = "__STICKER__";
+  // نضع علامة الملصق في image_url حتى يكون content نصاً عربياً جميلاً للإشعار
+  const STICKER_MARKER = "__STICKER__|";
 
   const loadSent = async () => {
     setLoadingSent(true);
@@ -987,15 +988,18 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
     if (!currentUid) { setLoadingSent(false); return; }
     const { data } = await supabase
       .from("direct_messages")
-      .select("id, receiver_id, content, created_at")
+      .select("id, receiver_id, image_url, content, created_at")
       .eq("sender_id", currentUid)
-      .like("content", `${STICKER_PFX}%`)
+      .like("image_url", `${STICKER_MARKER}%`)
       .order("created_at", { ascending: false })
       .limit(30) as any;
     const parsed = (data || []).map((d: any) => {
       try {
-        const json = JSON.parse(d.content.slice(STICKER_PFX.length));
-        return { id: d.id, student_id: d.receiver_id, created_at: d.created_at, ...json };
+        // image_url = "__STICKER__|<actualImageUrl>|<jsonData>"
+        const parts = d.image_url.slice(STICKER_MARKER.length).split("|__DATA__|");
+        const actualImageUrl = parts[0] || "";
+        const json = parts[1] ? JSON.parse(parts[1]) : {};
+        return { id: d.id, student_id: d.receiver_id, created_at: d.created_at, image_url: actualImageUrl, title: json.title || d.content, message: json.message || "" };
       } catch { return null; }
     }).filter(Boolean);
     setSent(parsed);
@@ -1030,11 +1034,14 @@ function StickerPanel({ teacherId, students }: { teacherId: string; students: St
     if (upErr) { toast.error("تعذّر رفع الصورة: " + upErr.message); setSending(false); return; }
     const { data: urlData } = supabase.storage.from("activity-files").getPublicUrl(path);
     const image_url = urlData?.publicUrl || "";
-    const stickerJson = JSON.stringify({ image_url, title: title.trim(), message: message.trim() });
+    // content: نص عربي جميل يظهر في إشعار المستلم
+    // image_url: يحمل علامة الملصق + رابط الصورة + بيانات JSON
+    const stickerImageField = `${STICKER_MARKER}${image_url}|__DATA__|${JSON.stringify({ title: title.trim(), message: message.trim() })}`;
     const { error: insErr } = await supabase.from("direct_messages").insert({
       sender_id: currentUid,
       receiver_id: selectedRecipient,
-      content: `${STICKER_PFX}${stickerJson}`,
+      content: `🌟 ملصق تشجيعي: "${title.trim()}"`,
+      image_url: stickerImageField,
     } as any);
     if (insErr) { toast.error("تعذّر إرسال الملصق: " + insErr.message); setSending(false); return; }
     const rType = recipientTypeLabel(selectedRecipient);
